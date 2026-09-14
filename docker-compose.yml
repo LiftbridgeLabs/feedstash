@@ -1,0 +1,16 @@
+services:
+  reader:
+    build: .
+    image: claude-reader:latest
+    container_name: claude-reader
+    restart: unless-stopped
+    ports:
+      - "8651:8651"
+    env_file: .env
+    volumes:
+      - reader-data:/data
+
+volumes:
+  reader-data:
+    # Pinned to the existing volume so moving or renaming this folder never orphans your data.
+    name: claude_reader-data

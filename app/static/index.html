@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reader</title>
+  <link rel="icon" href="/static/icon.svg">
+  <link rel="stylesheet" href="/static/style.css">
+  <script type="module" src="/static/js/main.js"></script>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-head">
+        <a class="brand" href="#/all"><img src="/static/icon.svg" alt="" width="26" height="26"><span>Reader</span></a>
+        <button class="btn btn-primary btn-sm" id="add-feed-btn" title="Follow a new feed">+ Follow</button>
+      </div>
+      <nav class="nav" id="nav" aria-label="Feeds"></nav>
+      <div class="sidebar-foot">
+        <a class="nav-row" href="#/organize" data-route="organize">
+          <span class="nav-icon" data-icon="sliders"></span><span class="nav-label">Organize feeds</span>
+        </a>
+        <div class="user" id="user">
+          <img class="avatar" id="user-avatar" alt="" hidden>
+          <span class="user-name" id="user-name"></span>
+          <button class="icon-btn" id="logout-btn" title="Sign out" data-icon="logout"></button>
+        </div>
+      </div>
+    </aside>
+    <div class="scrim" id="scrim"></div>
+
+    <main class="main">
+      <header class="toolbar">
+        <button class="icon-btn menu-toggle" id="menu-toggle" title="Menu" data-icon="menu"></button>
+        <div class="title-block">
+          <h1 id="view-title">All</h1>
+          <span class="muted" id="view-count"></span>
+        </div>
+        <div class="actions" id="list-actions">
+          <button class="icon-btn" id="refresh-btn" title="Refresh (r)" data-icon="refresh"></button>
+          <div class="dropdown">
+            <button class="btn btn-sm" data-dropdown="mark-menu"><span data-icon="check"></span><span class="hide-sm">Mark as read</span><span data-icon="chevron-down"></span></button>
+            <div class="menu" id="mark-menu" hidden>
+              <button data-mark="all">Mark all as read</button>
+              <button data-mark="12">Older than 12 hours</button>
+              <button data-mark="24">Older than 1 day</button>
+              <button data-mark="168">Older than 1 week</button>
+            </div>
+          </div>
+          <div class="dropdown">
+            <button class="icon-btn" data-dropdown="view-menu" title="View options" data-icon="layout"></button>
+            <div class="menu" id="view-menu" hidden>
+              <div class="menu-label">Layout</div>
+              <button data-pref="layout" data-value="magazine">Magazine</button>
+              <button data-pref="layout" data-value="titles">Titles only</button>
+              <div class="menu-label">Sort</div>
+              <button data-pref="order" data-value="newest">Newest first</button>
+              <button data-pref="order" data-value="oldest">Oldest first</button>
+              <div class="menu-label">Show</div>
+              <button data-pref="unreadOnly" data-value="true">Unread only</button>
+              <button data-pref="unreadOnly" data-value="false">All articles</button>
+              <div class="menu-sep"></div>
+              <button data-pref="markOnScroll" data-toggle>Mark as read while scrolling</button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section class="content" id="content" tabindex="-1">
+        <div class="new-banner-wrap"><button class="new-banner" id="new-banner" type="button" hidden></button></div>
+        <div class="articles" id="articles"></div>
+        <div class="list-end" id="list-end"></div>
+        <div class="organize" id="organize" hidden></div>
+      </section>
+    </main>
+  </div>
+
+  <div class="menu context-menu" id="context-menu" hidden></div>
+  <div class="toast" id="toast" hidden></div>
+</body>
+</html>
