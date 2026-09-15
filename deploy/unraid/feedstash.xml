@@ -11,6 +11,7 @@
   <Overview>Self-hosted feed reader and read-it-later stash. Follow RSS and Atom feeds in folders, and save links, snippets and screenshots from the browser, email or your phone. Sign in with a password, Google, or any OpenID Connect provider.</Overview>
   <Category>Productivity: Tools:</Category>
   <WebUI>http://[IP]:[PORT:8672]/</WebUI>
+  <Icon>https://raw.githubusercontent.com/LiftbridgeLabs/feedstash/main/deploy/unraid/icon.png</Icon>
   <Config Name="Web UI port" Target="8672" Default="8672" Mode="tcp" Description="Port the web app is served on." Type="Port" Display="always" Required="true" Mask="false">8672</Config>
   <Config Name="Data" Target="/data" Default="/mnt/cache/appdata/feedstash" Mode="rw" Description="Database and uploaded images. Use a pool path like /mnt/cache/appdata/feedstash rather than /mnt/user/appdata: SQLite doesn't like the /mnt/user FUSE layer." Type="Path" Display="always" Required="true" Mask="false">/mnt/cache/appdata/feedstash</Config>
   <Config Name="BASE_URL" Target="BASE_URL" Default="" Description="The address you open FeedStash at, e.g. http://192.168.1.10:8672. Use both if you also reach it through a reverse proxy, comma separated, proxy first: https://feedstash.example.com,http://192.168.1.10:8672" Type="Variable" Display="always" Required="true" Mask="false"></Config>

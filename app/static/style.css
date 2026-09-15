@@ -177,6 +177,8 @@ svg.i { width: 18px; height: 18px; flex: none; display: block; }
 .item-main { flex: 1; min-width: 0; }
 .item-title { font-size: 17px; font-weight: 650; line-height: 1.35; margin: 0 0 4px; }
 .item.read .item-title { color: var(--text-read); font-weight: 500; }
+.item-title .item-link { color: inherit; text-decoration: none; }
+.item-title .item-link:hover { color: inherit; text-decoration: none; }
 .item-meta { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); min-width: 0; }
 .item-meta img { width: 14px; height: 14px; border-radius: 3px; }
 .item-meta .feed-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }

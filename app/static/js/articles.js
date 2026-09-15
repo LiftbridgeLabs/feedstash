@@ -103,7 +103,9 @@ function articleHTML(a) {
       <div class="item-row" data-action="open">
         ${a.image ? `<img class="thumb" src="${esc(a.image)}" alt="" loading="lazy">` : ''}
         <div class="item-main">
-          <h2 class="item-title">${esc(a.title)}</h2>
+          <h2 class="item-title">${a.url
+    ? `<a class="item-link" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">${esc(a.title)}</a>`
+    : esc(a.title)}</h2>
           <div class="item-meta">
             <img src="${esc(favicon(a))}" alt="" loading="lazy">
             <span class="feed-name">${esc(a.feed_title)}</span>${author}
@@ -321,6 +323,12 @@ export function wireList() {
     setActive(a.id);
     switch (action) {
       case 'open':
+        // The title is a real link, so Ctrl/Cmd/Shift-click and middle-click open it the way the browser does.
+        if (e.target.closest('.item-link') && (e.ctrlKey || e.metaKey || e.shiftKey)) {
+          setRead(a, true);
+          return;
+        }
+        e.preventDefault();
         if ((e.ctrlKey || e.metaKey) && a.url) {
           window.open(a.url, '_blank', 'noopener');
           setRead(a, true);
@@ -333,6 +341,14 @@ export function wireList() {
       case 'toggle-read': toggleRead(a); break;
       case 'stash': stashArticle(a); break;
     }
+  });
+
+  // Middle-click on a title: the browser opens it in a new tab; we only mark it read.
+  els.articles.addEventListener('auxclick', (e) => {
+    if (e.button !== 1 || !e.target.closest('.item-link')) return;
+    const item = e.target.closest('.item');
+    const a = item && state.list.byId.get(Number(item.dataset.id));
+    if (a) setRead(a, true);
   });
 
   els.listEnd.addEventListener('click', (e) => {
