@@ -160,8 +160,10 @@ async def login_with(provider: str, request: Request):
     if client is None:
         return RedirectResponse("/?error=not_configured", status_code=303)
     extra = {"prompt": "select_account"} if provider == "google" else {}
+    # Come back to the address the browser is using (LAN or reverse proxy), so the session cookie carries over.
+    redirect_uri = f"{settings.base_url_for(str(request.base_url))}/auth/{provider}/callback"
     try:
-        return await client.authorize_redirect(request, f"{settings.base_url}/auth/{provider}/callback", **extra)
+        return await client.authorize_redirect(request, redirect_uri, **extra)
     except PROVIDER_ERRORS as exc:
         log.warning("Couldn't start %s sign-in: %s", provider, exc)
         return RedirectResponse("/?error=oauth", status_code=303)

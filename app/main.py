@@ -24,6 +24,8 @@ from app.web.api import tree as tree_api
 from app.web.ratelimit import LoginLimiter
 
 log = logging.getLogger("feedstash")
+# Browsers share cookies across ports on one host, so this must differ from other apps on localhost.
+SESSION_COOKIE = "feedstash_session"
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -56,12 +58,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(
         SessionMiddleware,
         secret_key=resolve_secret_key(settings),
-        # Browsers share cookies across ports on one host, so this must differ from other apps on localhost.
-        session_cookie="feedstash_session",
+        session_cookie=SESSION_COOKIE,
         max_age=settings.session_days * 86400,
         same_site="lax",
-        https_only=settings.secure_cookies,
+        https_only=settings.secure_cookies is True,
     )
+    if settings.secure_cookies is None:  # both http and https addresses: Secure only on https responses
+        app.add_middleware(security.SecureCookieOverHttps, cookie_name=SESSION_COOKIE)
     for router in (
         pages.router, auth.router, tree_api.router, articles_api.router, folders_api.router, feeds_api.router,
         opml_api.router, stash_api.router, stash_api.uploads_router, tokens_api.router, accounts_api.router,

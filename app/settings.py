@@ -7,6 +7,7 @@ import logging
 import secrets
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -20,8 +21,9 @@ CommaSeparated = Annotated[list[str], NoDecode]
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(frozen=True, extra="ignore", env_ignore_empty=True)
 
-    # Public URL the app is served at. Redirect URIs are <base_url>/auth/google/callback and /auth/oidc/callback.
-    base_url: str = "http://localhost:8672"
+    # The addresses the app is reached at, comma separated, e.g. "https://feedstash.example.com,http://192.168.1.50:8672".
+    # Google/OIDC sign-in comes back to whichever one the browser used; the first is the main address.
+    base_urls: CommaSeparated = Field(default_factory=lambda: ["http://localhost:8672"], validation_alias="BASE_URL")
     database_path: Path = Path("data/feedstash.db")
     host: str = "127.0.0.1"
     port: int = Field(default=8672, ge=1, le=65535)
@@ -47,7 +49,7 @@ class Settings(BaseSettings):
 
     # Signs session cookies. When unset, a key is generated once and stored next to the database.
     secret_key: SecretStr | None = None
-    # Defaults to on when base_url is https.
+    # Forces session cookies to be Secure (or not). By default they are Secure when served over https.
     cookie_secure: bool | None = None
     session_days: int = Field(default=30, ge=1, le=400)
 
@@ -57,13 +59,22 @@ class Settings(BaseSettings):
     # Run the background refresher in this process. Keep it on in exactly one process.
     scheduler_enabled: bool = True
 
-    @field_validator("base_url")
+    @field_validator("base_urls", mode="before")
     @classmethod
-    def _check_base_url(cls, value: str) -> str:
-        value = value.strip().rstrip("/")
-        if not value.startswith(("http://", "https://")):
-            raise ValueError("must start with http:// or https://")
-        return value
+    def _split_base_urls(cls, value: object) -> list[str]:
+        items = value.split(",") if isinstance(value, str) else list(value or [])
+        urls: list[str] = []
+        for item in items:
+            url = str(item).strip().rstrip("/")
+            if not url:
+                continue
+            if not url.startswith(("http://", "https://")):
+                raise ValueError(f"{url!r} must start with http:// or https://")
+            if url not in urls:
+                urls.append(url)
+        if not urls:
+            raise ValueError("needs at least one address")
+        return urls
 
     @field_validator("oidc_issuer")
     @classmethod
@@ -94,13 +105,43 @@ class Settings(BaseSettings):
         return self.oidc_issuer if self.oidc_issuer.endswith(suffix) else self.oidc_issuer + suffix
 
     @property
-    def secure_cookies(self) -> bool:
-        return self.base_url.startswith("https://") if self.cookie_secure is None else self.cookie_secure
+    def base_url(self) -> str:
+        """The main address: the first one in BASE_URL."""
+        return self.base_urls[0]
+
+    def base_url_for(self, origin: str) -> str:
+        """The configured address a request came in on (compared as scheme://host:port), or the main address."""
+        wanted = _origin(origin)
+        return next((url for url in self.base_urls if _origin(url) == wanted), self.base_url)
+
+    @property
+    def secure_cookies(self) -> bool | None:
+        """Whether session cookies are Secure: as COOKIE_SECURE says, else True when every address is https and False
+        when every address is http. None when the addresses mix both: then each response decides by its scheme."""
+        if self.cookie_secure is not None:
+            return self.cookie_secure
+        schemes = {url.split("://", 1)[0] for url in self.base_urls}
+        return None if len(schemes) > 1 else schemes == {"https"}
 
     @property
     def uploads_dir(self) -> Path:
         """Uploaded images live next to the database, so backing up the data directory covers both."""
         return self.database_path.parent / "uploads"
+
+
+def _origin(url: str) -> str:
+    """scheme://host[:port] in lowercase and without a default port, so equivalent spellings compare equal."""
+    parts = urlsplit(url.strip())
+    scheme = parts.scheme.lower()
+    host = (parts.hostname or "").lower()
+    if ":" in host:  # IPv6
+        host = f"[{host}]"
+    try:
+        port = parts.port
+    except ValueError:
+        port = None
+    default_port = {"http": 80, "https": 443}.get(scheme)
+    return f"{scheme}://{host}" + (f":{port}" if port and port != default_port else "")
 
 
 def resolve_secret_key(settings: Settings) -> str:

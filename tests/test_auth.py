@@ -1,3 +1,5 @@
+from urllib.parse import parse_qs, urlsplit
+
 import httpx
 
 from conftest import CSRF_HEADERS
@@ -133,6 +135,28 @@ def test_sign_in_with_an_openid_connect_provider(start_server, oidc_provider):
         oidc_provider.claims = claims
         response = client_for(server, follow_redirects=True).get("/auth/login/oidc")
         assert response.url.params.get("error") == error, (claims, str(response.url))
+
+
+def test_sign_in_returns_to_whichever_address_the_browser_used(start_server, oidc_provider):
+    server = start_server(
+        BASE_URL="https://feedstash.example.com,{server}", DEV_LOGIN="false", PASSWORD_LOGIN="false",
+        ALLOWED_EMAILS="*", OIDC_ISSUER=oidc_provider.issuer, OIDC_CLIENT_ID=CLIENT_ID, OIDC_CLIENT_SECRET=CLIENT_SECRET,
+    )
+
+    def start_sign_in(headers: dict | None = None) -> tuple[str, bool]:
+        response = httpx.get(server.base_url + "/auth/login/oidc", headers=headers)
+        assert response.status_code in (302, 307), response.text
+        redirect_uri = parse_qs(urlsplit(response.headers["location"]).query)["redirect_uri"][0]
+        attributes = [part.strip().lower() for part in response.headers["set-cookie"].split(";")[1:]]
+        return redirect_uri, "secure" in attributes
+
+    # At home, straight to the server over http.
+    assert start_sign_in() == (f"{server.base_url}/auth/oidc/callback", False)
+    # Away, through an https reverse proxy.
+    through_proxy = {"host": "feedstash.example.com", "x-forwarded-proto": "https"}
+    assert start_sign_in(through_proxy) == ("https://feedstash.example.com/auth/oidc/callback", True)
+    # An address that isn't listed goes back to the main one.
+    assert start_sign_in({"host": "other.example.com"})[0] == "https://feedstash.example.com/auth/oidc/callback"
 
 
 def test_unconfigured_providers_and_turned_off_passwords(start_server):

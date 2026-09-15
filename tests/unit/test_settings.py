@@ -69,6 +69,19 @@ def test_values_are_parsed_from_the_environment(settings_from_env):
     assert not settings.scheduler_enabled
 
 
+def test_several_addresses_for_home_and_away(settings_from_env):
+    settings = settings_from_env(
+        BASE_URL="https://feedstash.example.com/, http://192.168.1.50:8672 ,https://feedstash.example.com"
+    )
+    assert settings.base_urls == ["https://feedstash.example.com", "http://192.168.1.50:8672"]
+    assert settings.base_url == "https://feedstash.example.com"
+    assert settings.secure_cookies is None  # decided per request
+    assert settings.base_url_for("http://192.168.1.50:8672/") == "http://192.168.1.50:8672"
+    assert settings.base_url_for("HTTPS://FeedStash.example.com:443/") == "https://feedstash.example.com"
+    assert settings.base_url_for("http://feedstash.example.com/") == "https://feedstash.example.com"  # not listed
+    assert settings_from_env(BASE_URL="https://a.example.com,https://b.example.com").secure_cookies is True
+
+
 def test_secure_cookies_can_be_turned_off_explicitly(settings_from_env):
     assert not settings_from_env(BASE_URL="https://reader.example.com", COOKIE_SECURE="false").secure_cookies
 
@@ -79,6 +92,8 @@ def test_secure_cookies_can_be_turned_off_explicitly(settings_from_env):
         ("REFRESH_INTERVAL_MINUTES", "2"),
         ("REFRESH_INTERVAL_MINUTES", "often"),
         ("BASE_URL", "reader.example.com"),
+        ("BASE_URL", "https://ok.example.com,reader.example.com"),
+        ("BASE_URL", " , "),
         ("DEV_LOGIN", "maybe"),
         ("RETENTION_DAYS", "0"),
         ("PORT", "70000"),

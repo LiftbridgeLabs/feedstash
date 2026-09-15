@@ -92,6 +92,8 @@ def start_server(tmp_path):
             "SECRET_KEY": "test-secret-key",
             **env,
         }
+        # A test can list extra addresses around the server's own, e.g. BASE_URL="https://x.example.com,{server}".
+        environment["BASE_URL"] = environment["BASE_URL"].replace("{server}", base_url)
         log_file = open(log_path, "wb")
         process = subprocess.Popen(
             [sys.executable, *APP_COMMAND, "--host", "127.0.0.1", "--port", str(port)],

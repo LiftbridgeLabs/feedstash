@@ -62,12 +62,12 @@ docker exec -it feedstash python -m app.cli set-password --email you@example.com
 ### Google
 
 1. In [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials), set up the OAuth consent screen (External; add yourself as a test user; "Testing" is fine for personal use).
-2. **Create credentials → OAuth client ID → Web application**, with the authorized redirect URI `<BASE_URL>/auth/google/callback`.
+2. **Create credentials → OAuth client ID → Web application**, with the authorized redirect URI `<BASE_URL>/auth/google/callback`. Google only accepts `https` addresses (and `localhost`), so use your https one; Google sign-in won't work on a plain `http://192.168.x.x` address.
 3. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `ALLOWED_EMAILS` (or `ALLOWED_DOMAINS` for a Workspace domain).
 
 ### Any OpenID Connect provider
 
-Create an OAuth2/OIDC client (confidential, authorization code flow) with the redirect URI `<BASE_URL>/auth/oidc/callback` and the scopes `openid email profile`, then set:
+Create an OAuth2/OIDC client (confidential, authorization code flow) with the redirect URI `<BASE_URL>/auth/oidc/callback` (add one for each address in `BASE_URL`) and the scopes `openid email profile`, then set:
 
 | Variable | Example |
 |---|---|
@@ -84,7 +84,7 @@ All settings are environment variables (see `.env.example`).
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `BASE_URL` | `http://localhost:8672` | The address you open FeedStash at. Redirect URIs and secure cookies depend on it; with `https://` the session cookie is marked `Secure`. |
+| `BASE_URL` | `http://localhost:8672` | The address you open FeedStash at, or several separated by commas (e.g. `https://feedstash.example.com,http://192.168.1.50:8672` for away and at home). Google/OIDC sign-in returns to whichever one you used; the first is the main address. Session cookies are `Secure` whenever you're on https. |
 | `PASSWORD_LOGIN` | `true` | Password accounts and first-run setup. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | | Google sign-in. |
 | `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | | OpenID Connect sign-in. |
@@ -136,6 +136,8 @@ feedstash.example.com {
 ```
 
 With Nginx Proxy Manager, add a proxy host for the container's IP and port 8672 and request a certificate; websockets aren't needed. If the container's port is published to the internet as well, bind it to localhost (`127.0.0.1:8672:8672`) or set `FORWARDED_ALLOW_IPS` to the proxy's address.
+
+To use FeedStash both through the proxy and directly at home, list both addresses, the proxy's first: `BASE_URL=https://feedstash.example.com,http://192.168.1.50:8672`. You stay signed in on each, and the cookie is `Secure` on the https one. (Pointing the domain at the proxy from inside your network too, with local DNS, gives you one https address everywhere, which Google sign-in needs.)
 
 ### Windows and macOS
 

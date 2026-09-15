@@ -12,6 +12,37 @@ CONTENT_SECURITY_POLICY = (
 )
 
 
+class SecureCookieOverHttps:
+    """Marks one cookie Secure on responses to https requests only. For servers reached over both http (at home)
+    and https (through a reverse proxy), where a cookie that is always Secure would break the http address."""
+
+    def __init__(self, app, cookie_name: str):
+        self.app = app
+        self.prefix = f"{cookie_name}=".encode()
+
+    def _secured(self, header: bytes) -> bytes:
+        if not header.startswith(self.prefix):
+            return header
+        attributes = [part.strip().lower() for part in header.split(b";")[1:]]
+        return header if b"secure" in attributes else header + b"; secure"
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope.get("scheme") != "https":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_with_secure_cookie(message):
+            if message["type"] == "http.response.start":
+                headers = [
+                    (name, self._secured(value) if name.lower() == b"set-cookie" else value)
+                    for name, value in message.get("headers", [])
+                ]
+                message = {**message, "headers": headers}
+            await send(message)
+
+        await self.app(scope, receive, send_with_secure_cookie)
+
+
 def _sends_bearer_token(request: Request) -> bool:
     return request.headers.get("authorization", "").lower().startswith("bearer ")
 
