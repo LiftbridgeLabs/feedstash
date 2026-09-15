@@ -138,6 +138,7 @@ svg.i { width: 18px; height: 18px; flex: none; display: block; }
   display: flex; align-items: center; justify-content: space-between;
   margin: 18px 8px 4px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted);
 }
+.nav-section:first-child { margin-top: 4px; }
 .nav-section .icon-btn { width: 24px; height: 24px; }
 .nav-empty { padding: 8px; font-size: 13px; color: var(--text-muted); }
 
@@ -227,6 +228,7 @@ svg.i { width: 18px; height: 18px; flex: none; display: block; }
 .list-end.done.empty { min-height: 0; }
 .list-end .big { font-size: 18px; color: var(--text); font-weight: 600; margin: 18px 0 4px; }
 .list-end .i { width: 42px; height: 42px; margin: 24px auto 0; color: var(--accent); }
+.list-end .btn .i { width: 16px; height: 16px; margin: 0; color: inherit; }
 
 /* ------------------------------------------------------------------ organize */
 .organize { max-width: 980px; margin: 0 auto; padding: 24px; }
@@ -256,6 +258,68 @@ svg.i { width: 18px; height: 18px; flex: none; display: block; }
 .reader-meta a:hover { text-decoration: underline; }
 .org-filter { width: 100%; max-width: 320px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); margin-bottom: 10px; }
 
+/* ------------------------------------------------------------------ stash */
+.stash-head { max-width: 860px; margin: 0 auto; padding: 16px 24px 4px; display: flex; flex-direction: column; gap: 10px; }
+.stash-search { width: 100%; max-width: 420px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); }
+.stash-search:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+.tag-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag-chips:empty { display: none; }
+.chip { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); background: var(--bg-elev); color: var(--text-muted); border-radius: 999px; padding: 3px 10px; font-size: 13px; cursor: pointer; }
+.chip .i { width: 13px; height: 13px; }
+.chip span { opacity: .7; font-variant-numeric: tabular-nums; }
+.chip:hover { background: var(--bg-hover); color: var(--text); }
+.chip.active { background: var(--bg-active); border-color: var(--accent); color: var(--text); font-weight: 600; }
+.type-badge { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+.type-badge .i { width: 13px; height: 13px; }
+.item-meta { flex-wrap: wrap; }
+.item-meta .tag { color: var(--accent); }
+.item-meta .source { white-space: nowrap; }
+.stash-text { white-space: pre-wrap; font-size: 16px; line-height: 1.6; }
+.stash-body img { max-height: 70vh; width: auto; }
+.stash-links { list-style: none; margin: 16px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 15px; }
+.stash-links li { overflow-wrap: anywhere; }
+.link-host { margin-left: 8px; font-size: 13px; color: var(--text-muted); }
+.link-count { white-space: nowrap; }
+.field-group { display: flex; flex-direction: column; gap: 6px; }
+.field-label { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.field-label small, .modal-body label small { font-weight: 400; }
+.link-rows { display: flex; flex-direction: column; gap: 6px; }
+.link-row { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) auto auto; gap: 6px; align-items: center; }
+.link-row .icon-btn { width: 30px; height: 30px; }
+.link-row:first-child [data-link=up] { visibility: hidden; }
+.link-add { align-self: flex-start; }
+@media (max-width: 520px) {
+  .link-row { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .link-row .link-url { grid-column: 1 / -1; }
+}
+.stash-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 20px; }
+.menu button span[data-icon] { display: inline-flex; }
+.menu .kbd { margin-left: auto; font-size: 11px; color: var(--text-muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; }
+
+/* capture dialog */
+dialog.modal { width: min(520px, calc(100vw - 32px)); }
+.type-switch { display: flex; gap: 6px; }
+.modal-body .type-option {
+  position: relative; flex: 1; flex-direction: row; align-items: center; justify-content: center; gap: 6px;
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px; cursor: pointer; color: var(--text); font-weight: 500;
+}
+.type-option input { position: absolute; opacity: 0; pointer-events: none; }
+.type-option .i { width: 16px; height: 16px; }
+.type-option:has(input:checked) { border-color: var(--accent); background: var(--bg-active); font-weight: 600; }
+.type-option:has(input:focus-visible) { outline: 2px solid var(--accent); }
+.modal-body textarea { padding: 9px 11px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; font-weight: 400; resize: vertical; }
+.modal-body textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+.capture-image { display: flex; flex-direction: column; gap: 6px; }
+.capture-preview { max-width: 100%; max-height: 200px; object-fit: contain; border-radius: 6px; border: 1px solid var(--border); align-self: flex-start; }
+
+/* settings */
+.setup { font-size: 14px; line-height: 1.6; }
+.setup code, .org-table code { background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; font-size: 13px; }
+.setup ul { padding-left: 20px; }
+.setup li { margin: 6px 0; }
+.token-app { display: inline-flex; align-items: center; gap: 6px; }
+.token-app .i { width: 14px; height: 14px; color: var(--text-muted); }
+
 /* ------------------------------------------------------------------ dialogs & toast */
 dialog.modal {
   border: 1px solid var(--border); border-radius: 12px; padding: 0; width: min(460px, calc(100vw - 32px));
@@ -267,7 +331,7 @@ dialog.modal h2 { margin: 0 0 16px; font-size: 19px; }
 .modal-body { display: flex; flex-direction: column; gap: 14px; }
 .modal-body label { display: flex; flex-direction: column; gap: 5px; font-size: 13px; font-weight: 600; color: var(--text-muted); }
 .modal-body label.check { flex-direction: row; align-items: center; gap: 8px; font-weight: 400; color: var(--text); font-size: 14px; }
-.modal-body input[type=text], .modal-body input[type=url], .modal-body select {
+.modal-body input[type=text], .modal-body input[type=url], .modal-body input[type=email], .modal-body input[type=password], .modal-body select {
   padding: 9px 11px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); font-weight: 400; font-size: 15px;
 }
 .modal-body input:focus, .modal-body select:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
@@ -290,6 +354,16 @@ dialog.modal h2 { margin: 0 0 16px; font-size: 19px; }
 .login-card h1 { margin: 14px 0 2px; }
 .login-card .muted { margin: 0 0 26px; }
 .login-error { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); padding: 10px; border-radius: 6px; font-size: 14px; }
+.login-form { display: flex; flex-direction: column; gap: 12px; text-align: left; }
+.login-form label { display: flex; flex-direction: column; gap: 5px; font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.login-form label small { font-weight: 400; }
+.login-form input { padding: 9px 11px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; font-size: 15px; font-weight: 400; }
+.login-form input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+.login-form .login-error { margin: 0; }
+.login-options { display: flex; flex-direction: column; gap: 10px; }
+.login-options:empty { display: none; }
+.login-or { display: flex; align-items: center; gap: 10px; margin: 18px 0; color: var(--text-muted); font-size: 13px; }
+.login-or::before, .login-or::after { content: ""; flex: 1; border-top: 1px solid var(--border); }
 
 /* ------------------------------------------------------------------ mobile */
 @media (max-width: 820px) {
@@ -315,4 +389,5 @@ dialog.modal h2 { margin: 0 0 16px; font-size: 19px; }
   .organize { padding: 16px; }
   .nav-row .more { display: inline-flex; }
   .nav-row:hover .nav-count { display: inline; }
+  .stash-head { padding: 12px 16px 4px; }
 }

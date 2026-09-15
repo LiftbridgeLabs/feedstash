@@ -70,7 +70,8 @@ class Page:
         self.send("Page.navigate", url=url)
 
     def press(self, key: str) -> None:
-        self.send("Input.dispatchKeyEvent", type="keyDown", key=key, text=key)
+        # Printable keys carry text; named keys like "Escape" must not.
+        self.send("Input.dispatchKeyEvent", type="keyDown", key=key, **({"text": key} if len(key) == 1 else {}))
         self.send("Input.dispatchKeyEvent", type="keyUp", key=key)
 
     def viewport(self, width: int, height: int, mobile: bool = False) -> None:

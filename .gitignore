@@ -3,3 +3,9 @@ data/
 __pycache__/
 .venv/
 .pytest_cache/
+.DS_Store
+*.log
+
+# Email worker
+clients/email-worker/node_modules/
+clients/email-worker/.wrangler/

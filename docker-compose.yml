@@ -1,16 +1,21 @@
+# FeedStash with Docker Compose. Copy .env.example to .env and fill it in, then either:
+#   docker compose pull && docker compose up -d     run the published image
+#   docker compose up -d --build                    build the image from this folder
 services:
-  reader:
+  feedstash:
+    image: liftbridgelabs/feedstash:latest
     build: .
-    image: claude-reader:latest
-    container_name: claude-reader
+    container_name: feedstash
     restart: unless-stopped
     ports:
-      - "8651:8651"
+      - "8672:8672"
     env_file: .env
     volumes:
-      - reader-data:/data
+      - feedstash-data:/data
+      # Or keep the data in a folder on the host, owned by PUID:PGID from .env:
+      # - ./data:/data
 
 volumes:
-  reader-data:
-    # Pinned to the existing volume so moving or renaming this folder never orphans your data.
-    name: claude_reader-data
+  feedstash-data:
+    # Pinned by name so moving or renaming this folder never orphans your data.
+    name: feedstash-data

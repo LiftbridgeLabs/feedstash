@@ -6,11 +6,18 @@ import { icon } from './icons.js';
 import { closeMenus, openContextMenu } from './menus.js';
 import { reorderFeeds, reorderFolders } from './ordering.js';
 import { navigate } from './router.js';
-import { els, feedById, feedIdsIn, scopeTitle, state, sumUnread, unreadFor } from './state.js';
+import { captureDialog } from './stash.js';
+import { els, feedById, feedIdsIn, scopeTitle, STASH_VIEWS, state, sumUnread, unreadFor } from './state.js';
 import { $, $$, esc, favicon, saveJSON } from './util.js';
 
+/** Loads everything the sidebar shows: feeds and folders, plus stash counts and tags. */
 export async function loadTree() {
-  state.tree = await api('GET', '/api/tree');
+  const [tree, summary, tags] = await Promise.all([
+    api('GET', '/api/tree'), api('GET', '/api/stash/summary'), api('GET', '/api/tags'),
+  ]);
+  state.tree = tree;
+  state.stash.summary = summary;
+  state.stash.tags = tags;
   renderNav();
   renderHeader();
 }
@@ -60,26 +67,43 @@ export function renderNav() {
   };
 
   let html = `
+    <div class="nav-section"><span>Feeds</span>
+      <button class="icon-btn" data-action="new-folder" title="New folder">${icon('plus')}</button>
+    </div>
     <div class="nav-row ${active('all')}" role="link" tabindex="0" data-href="#/all">
-      <span class="nav-icon">${icon('inbox')}</span><span class="nav-label">All</span>${count(sumUnread(feeds))}
+      <span class="nav-icon">${icon('rss')}</span><span class="nav-label">All articles</span>${count(sumUnread(feeds))}
     </div>
     <div class="nav-row ${active('starred')}" role="link" tabindex="0" data-href="#/starred">
       <span class="nav-icon">${icon('bookmark')}</span><span class="nav-label">Read later</span>${count(state.tree.starred_count)}
-    </div>
-    <div class="nav-section"><span>Feeds</span>
-      <button class="icon-btn" data-action="new-folder" title="New folder">${icon('plus')}</button>
     </div>`;
 
-  if (!feeds.length && !folders.length) {
-    html += `<div class="nav-empty">You're not following anything yet. Use <b>+ Follow</b>, or import an OPML
-      file from <a href="#/organize">Organize feeds</a>.</div>`;
-  }
   for (const folder of folders) html += folderBlock(folder, feeds.filter((f) => f.folder_id === folder.id));
   const uncategorized = feeds.filter((f) => f.folder_id == null);
   if (uncategorized.length) html += folderBlock(null, uncategorized);
+  if (!feeds.length && !folders.length) {
+    html += `<div class="nav-empty">You're not following anything yet. Use <b>+ Add → Follow a feed</b>, or import
+      an OPML file from <a href="#/organize">Organize feeds</a>.</div>`;
+  }
+
+  const stash = state.stash.summary;
+  // Type and tag views are filters inside the stash, so "Everything saved" stays highlighted for them.
+  const stashActive = (view) => (scope === 'stash'
+    && (id === view || (view === 'all' && id !== 'inbox' && id !== 'archived')) ? 'active' : '');
+  const stashRow = (view, iconName, n) => `
+    <div class="nav-row ${stashActive(view)} ${n ? '' : 'zero'}" role="link" tabindex="0" data-href="#/stash/${view}">
+      <span class="nav-icon">${icon(iconName)}</span><span class="nav-label">${esc(STASH_VIEWS[view])}</span>${count(n)}
+    </div>`;
+  html += `
+    <div class="nav-section"><span>Stash</span>
+      <button class="icon-btn" data-action="capture" title="Save something (c)">${icon('plus')}</button>
+    </div>
+    ${stashRow('inbox', 'inbox', stash.inbox)}
+    ${stashRow('all', 'layers', stash.total)}
+    ${stashRow('archived', 'archive', stash.archived)}`;
 
   els.nav.innerHTML = html;
   $('[data-route="organize"]').classList.toggle('active', scope === 'organize');
+  $('[data-route="settings"]').classList.toggle('active', scope === 'settings');
 }
 
 export function renderHeader() {
@@ -87,14 +111,21 @@ export function renderHeader() {
   const title = scopeTitle(scope, id);
   els.title.textContent = title;
   const total = sumUnread(state.tree.feeds);
-  document.title = `${total ? `(${total}) ` : ''}${title} · Reader`;
-  $('#list-actions').hidden = scope === 'organize';
-  if (scope === 'organize') {
-    els.count.textContent = '';
-  } else {
-    const n = unreadFor(scope, id);
-    els.count.textContent = scope === 'starred' ? `${n} saved` : `${n} unread`;
+  document.title = `${total ? `(${total}) ` : ''}${title} · FeedStash`;
+  els.count.textContent = headerCount(scope, id);
+}
+
+function headerCount(scope, id) {
+  if (scope === 'organize' || scope === 'settings') return '';
+  if (scope === 'stash') {
+    const { summary } = state.stash;
+    if (id === 'inbox') return `${summary.inbox} to review`;
+    if (id === 'archived') return `${summary.archived} archived`;
+    if (id === 'all') return `${summary.total} saved`;
+    return summary.by_type[id] != null ? `${summary.by_type[id]} saved` : '';
   }
+  const n = unreadFor(scope, id);
+  return scope === 'starred' ? `${n} saved` : `${n} unread`;
 }
 
 function toggleCollapse(key) {
@@ -111,6 +142,7 @@ export function wireNav() {
     const more = e.target.closest('[data-menu]');
     if (more) return openContextMenu(more.dataset.menu, Number(more.dataset.id), more);
     if (e.target.closest('[data-action="new-folder"]')) return newFolder();
+    if (e.target.closest('[data-action="capture"]')) return captureDialog();
     if (e.target.closest('a[href]')) return;
     const row = e.target.closest('[data-href]');
     if (row) navigate(row.dataset.href);

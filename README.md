@@ -1,83 +1,195 @@
-# Reader
+# FeedStash
 
-A small self-hosted RSS/Atom reader modeled on Feedly's layout. It runs as one Docker container, stores everything in SQLite, and uses Google sign-in.
+Everything you want to read, in one self-hosted app: the feeds you follow, and the links, snippets, screenshots and emails you save from anywhere. It runs as one Docker container and keeps everything in SQLite. Sign in with a password, Google, or any OpenID Connect provider. The browser extension and email worker live in `clients/`; the Android and iOS apps are a separate project.
 
 ## Features
 
-- **Google sign-in (OIDC).** Only the emails or domains you allow can sign in. Each user gets their own feeds and read state.
-- **Folders.** Create, rename and delete folders. Drag folders and feeds in the sidebar to reorder them, or drop a feed on a folder to move it. The `⋯` menus also have Move up/down and Sort A–Z, and the **Organize feeds** page has arrow buttons.
-- **Feeds.** Follow a site or feed URL; the reader finds the feed itself. Rename, move and unfollow feeds from the same places.
-- **Mark as read.** Mark everything as read, or only articles older than 12 hours, 1 day or 1 week. This works on All, a folder or a single feed, and there's an Undo.
-- **Mark as read while scrolling.** An article is marked read once it scrolls off the top of the list. You can turn this off in the View menu.
-- **Read later.** Star articles to keep them; starred articles are never deleted by cleanup.
-- **Views.** Magazine or titles-only layout, newest or oldest first, unread only or all articles. Articles open in place.
-- **OPML import and export**, so you can bring your Feedly subscriptions over.
-- **Keyboard shortcuts:** `j`/`k` open next/previous, `n`/`p` select without opening, `o` or Enter open/close, `v` open original, `m` toggle read, `s` read later, `r` refresh, `Shift+A` mark all read, `Esc` close.
-- **Auto-refresh.** The server fetches feeds in the background, using ETag and Last-Modified to skip unchanged feeds. The page checks for new articles every minute: if you're at the top of the list they appear on their own, otherwise a "↑ N new articles" button shows up.
+**Feeds**
+- **Folders and feeds.** Follow a site or feed URL (the feed is found automatically). Rename, move, reorder by drag and drop, unfollow.
+- **Mark as read.** Everything, or only articles older than 12 hours, 1 day or 1 week, with Undo. Articles are also marked read as they scroll off the top of the list (can be turned off).
+- **Auto-refresh.** Feeds are fetched in the background; new articles appear on their own, or behind a "↑ N new articles" button while you're reading.
+- **OPML import and export**, e.g. from Feedly.
 
-## 1. Create a Google OAuth client
+**Stash**
+- **Capture from anywhere.** The browser extension, forwarding an email, the share sheet on Android and iOS, or **+ Add → Save something** in the web app (you can paste an image straight into it). One note can hold several labeled links.
+- **Review.** New items land in the **Inbox**. Mark them reviewed, archive, edit, tag, search, or filter by type and tag.
+- **Save articles.** "Save to stash" on any feed article (or press `b`).
 
-1. Open [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials). Create a project if you don't have one.
-2. Set up the **OAuth consent screen**: choose External, fill in the app name and your email, and add yourself as a test user. You can leave the app in "Testing" for personal use.
-3. Click **Create credentials → OAuth client ID** and choose **Web application**.
-4. Under **Authorized redirect URIs**, add `<BASE_URL>/auth/callback`, for example:
-   - `http://localhost:8651/auth/callback` for local use
-   - `https://reader.example.com/auth/callback` behind your reverse proxy
-5. Copy the client ID and client secret.
+**Accounts.** Several people can share one server; each has their own feeds and stash. Admins add and remove accounts in **Settings → Accounts**.
 
-## 2. Configure
+**Keyboard:** `j`/`k` next/previous article, `o` open, `v` open original, `m` toggle read, `s` read later, `b` save to stash, `c` capture, `r` refresh, `Shift+A` mark all read, `Esc` close.
+
+## Quick start
 
 ```bash
-cp .env.example .env
+docker run -d --name feedstash --restart unless-stopped \
+  -p 8672:8672 \
+  -e BASE_URL=http://localhost:8672 \
+  -v feedstash-data:/data \
+  liftbridgelabs/feedstash:latest
 ```
 
-Edit `.env` and set these values:
+Open http://localhost:8672 and create the first account; it becomes the admin. Until the image is published on Docker Hub, build it first from this folder with `docker build -t liftbridgelabs/feedstash .`
 
-| Variable | Meaning |
-|---|---|
-| `BASE_URL` | The URL you open the reader at, with no trailing slash. It must match the redirect URI host. |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | From step 1. |
-| `ALLOWED_EMAILS` | Comma-separated Google accounts that may sign in. |
-| `ALLOWED_DOMAINS` | Optional: allow a whole Workspace domain, e.g. `example.com`. |
-| `SECRET_KEY` | Signs the session cookie. If empty, one is generated and stored in the data volume. |
-| `REFRESH_INTERVAL_MINUTES` | How often the server fetches each feed. Default 15, minimum 5. |
-| `RETENTION_DAYS` | Articles older than this are deleted (the newest 50 per feed and all starred articles are kept). Default 90. |
-
-## 3. Run
+With Docker Compose instead:
 
 ```bash
+cp .env.example .env        # set BASE_URL, and sign-in options if you want them
 docker compose up -d --build
 ```
 
-Open `BASE_URL` and sign in. Then go to **Organize feeds → Import OPML** and pick the file you exported from Feedly (in Feedly: **Organize → Export OPML**).
+Everything FeedStash stores lives in `/data`: the database (`feedstash.db`), uploaded images (`uploads/`) and the generated session key (`secret.key`).
 
-Data lives in the `reader-data` Docker volume, in `/data/reader.db`. To back it up:
+## Signing in
+
+Turn on any combination. The sign-in page shows whatever is configured.
+
+### Passwords (on by default)
+
+On a fresh install the first visit shows **Create the first account**. That account is an admin and can add more accounts, set their passwords, and make other admins under **Settings → Accounts**. Everyone can change their own password in Settings.
+
+- Create the first account right after starting a new server: until someone does, anyone who can open the page can.
+- If `ALLOWED_EMAILS` or `ALLOWED_DOMAINS` is set, the first account must use one of those addresses.
+- After 10 wrong passwords for one account (or 30 from one address) within 15 minutes, sign-in is paused for that account or address.
+- Set `PASSWORD_LOGIN=false` if you only want Google or OIDC.
+
+Locked out? Reset a password from the server:
 
 ```bash
-docker compose exec reader python -c "import sqlite3; sqlite3.connect('/data/reader.db').execute(\"VACUUM INTO '/data/backup.db'\")"
-docker compose cp reader:/data/backup.db ./backup.db
+docker exec -it feedstash python -m app.cli set-password --email you@example.com
 ```
 
-### Behind a reverse proxy (HTTPS)
+### Google
 
-Set `BASE_URL=https://your.domain` so the session cookie is marked `Secure`, and point the proxy at port 8651. To use a different host port, change the left side of `ports` in `docker-compose.yml`. Example Caddyfile:
+1. In [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials), set up the OAuth consent screen (External; add yourself as a test user; "Testing" is fine for personal use).
+2. **Create credentials → OAuth client ID → Web application**, with the authorized redirect URI `<BASE_URL>/auth/google/callback`.
+3. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `ALLOWED_EMAILS` (or `ALLOWED_DOMAINS` for a Workspace domain).
+
+### Any OpenID Connect provider
+
+Create an OAuth2/OIDC client (confidential, authorization code flow) with the redirect URI `<BASE_URL>/auth/oidc/callback` and the scopes `openid email profile`, then set:
+
+| Variable | Example |
+|---|---|
+| `OIDC_ISSUER` | Authentik: `https://auth.example.com/application/o/feedstash/` · Authelia: `https://auth.example.com` · Keycloak: `https://sso.example.com/realms/home` · Pocket ID: `https://id.example.com` |
+| `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | From the provider |
+| `OIDC_NAME` | Button text: "Sign in with **Pocket ID**" |
+| `ALLOWED_EMAILS` | Who may sign in; `*` lets in anyone your provider allows |
+
+Google and OIDC sign-ins need an email in `ALLOWED_EMAILS`/`ALLOWED_DOMAINS`. If someone already has a password account, signing in with Google or OIDC under the same (verified) email opens that same account. An admin can also give a Google or OIDC account a password in Settings.
+
+## Configuration
+
+All settings are environment variables (see `.env.example`).
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `BASE_URL` | `http://localhost:8672` | The address you open FeedStash at. Redirect URIs and secure cookies depend on it; with `https://` the session cookie is marked `Secure`. |
+| `PASSWORD_LOGIN` | `true` | Password accounts and first-run setup. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | | Google sign-in. |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | | OpenID Connect sign-in. |
+| `OIDC_NAME`, `OIDC_SCOPES` | `single sign-on`, `openid email profile` | Button label and requested scopes. |
+| `ALLOWED_EMAILS`, `ALLOWED_DOMAINS` | | Comma-separated. Who may sign in with Google or OIDC. |
+| `PUID`, `PGID` | `1000`, `1000` | The user and group the app runs as. The container makes `/data` theirs on start. |
+| `PORT` | `8672` | Port inside the container. |
+| `FORWARDED_ALLOW_IPS` | `*` | Addresses whose `X-Forwarded-*` headers are trusted. Set it to your proxy's IP if the port is also reachable directly. |
+| `SECRET_KEY` | generated | Signs session cookies. Generated once into `/data/secret.key` when empty. |
+| `SESSION_DAYS` | `30` | How long you stay signed in. |
+| `REFRESH_INTERVAL_MINUTES` | `15` | How often feeds are fetched (5 or more). |
+| `RETENTION_DAYS` | `90` | Feed articles older than this are deleted; starred ones and the newest 50 per feed are kept. Stash items are never deleted automatically. |
+| `DEV_LOGIN` | `false` | Local testing only: skips sign-in entirely. |
+
+## Deploying
+
+The image runs on amd64 and arm64. It starts as root just long enough to give `/data` to `PUID:PGID` (only when the owner is wrong), then runs the app as that user.
+
+### unRAID
+
+Use the template in `deploy/unraid/feedstash.xml`: copy it to `/boot/config/plugins/dockerMan/templates-user/my-feedstash.xml`, then **Docker → Add Container** and pick **feedstash**. Or add the container by hand:
+
+| Field | Value |
+|---|---|
+| Repository | `liftbridgelabs/feedstash:latest` |
+| Port | container `8672` → any free host port |
+| Path | container `/data` → `/mnt/cache/appdata/feedstash` |
+| Variables | `BASE_URL`, `PUID=99`, `PGID=100`, plus any sign-in settings |
+
+Point `/data` at a pool (`/mnt/cache/...`), not `/mnt/user/...`: SQLite doesn't do well on the `/mnt/user` FUSE layer, and make sure the mover doesn't move the appdata share. To update: **Docker → feedstash → Force update**.
+
+### Synology and other NAS
+
+In **Container Manager → Project**, create a project from this compose file, change the volume to a folder such as `/volume1/docker/feedstash:/data`, and set `PUID`/`PGID` to the owner of that folder (run `id your-user` over SSH; on Synology the group is usually `100`).
+
+### A Linux server behind a reverse proxy
+
+```bash
+cp .env.example .env    # BASE_URL=https://feedstash.example.com
+docker compose up -d
+```
+
+Point the proxy at port 8672. Caddy:
 
 ```
-reader.example.com {
-    reverse_proxy localhost:8651
+feedstash.example.com {
+    reverse_proxy localhost:8672
 }
 ```
 
-## Trying it without Google
+With Nginx Proxy Manager, add a proxy host for the container's IP and port 8672 and request a certificate; websockets aren't needed. If the container's port is published to the internet as well, bind it to localhost (`127.0.0.1:8672:8672`) or set `FORWARDED_ALLOW_IPS` to the proxy's address.
 
-Set `DEV_LOGIN=true` to skip Google and sign in as a local user. **Anyone who can reach the server can then sign in**, so only use it on your own machine.
+### Windows and macOS
+
+Install Docker Desktop and use the compose file as above. Keep the named volume (`feedstash-data`) rather than a Windows folder for `/data`: SQLite is much happier on it.
+
+### Backups and updates
+
+Back up while it runs:
 
 ```bash
-python -m venv .venv && . .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-DEV_LOGIN=true uvicorn --factory app.main:create_app --port 8651
-# PowerShell: $env:DEV_LOGIN="true"; uvicorn --factory app.main:create_app --port 8651
+docker exec feedstash python -m app.cli backup /data/backups/feedstash-$(date +%F).db
 ```
+
+Then copy `/data/backups/` and `/data/uploads/` somewhere safe. Or stop the container and copy the whole `/data` folder.
+
+To update, pull the new image and recreate the container (`docker compose pull && docker compose up -d`, or Force update on unRAID). Database changes are applied automatically on start; take a backup first.
+
+Other admin commands: `create-account`, `set-password`, `list-accounts` (`docker exec feedstash python -m app.cli --help`).
+
+## Connecting the extension, email worker and phone apps
+
+Each client signs in with its own API token, so you can revoke one without affecting the others.
+
+1. In the web app, open **Settings → Connected apps** and click **New token**. Copy the token; it's shown only once (only a hash is stored).
+2. Configure the client with your `BASE_URL` and that token:
+   - **Browser extension** (`clients/extension/`): load it unpacked, then set the server URL and token in its options.
+   - **Email worker** (`clients/email-worker/`): set `FEEDSTASH_API_BASE` and `FEEDSTASH_API_TOKEN` for the Cloudflare Worker.
+   - **Android / iOS apps**: enter the server URL and token in the app's Settings tab.
+
+See the extension's and email worker's READMEs for install steps. None of the clients has been built and tried against FeedStash yet.
+
+## Client API
+
+The clients use these endpoints (camelCase fields, `{"error": "..."}` on failures):
+
+- `POST /api/items` (JSON or multipart; `type`, `title`, `content`, `url`, `links`, `tags`, `image`, `source`)
+- `GET /api/items?type=&tag=&reviewed=&archived=&q=&limit=&offset=`, `GET/PATCH/DELETE /api/items/{id}`
+- `GET /api/tags`, `GET /api/health`
+- `GET/POST /api/tokens`, `DELETE /api/tokens/{id}`
+- `GET /uploads/{name}`
+
+Every item has a `links` list of `{id, url, label}`, and `url` mirrors the first link, so clients that only know one URL keep working. `links` can be sent as a list of URLs or `{url, label}` objects, as a JSON string of either (for multipart), or one URL per line. `PATCH` with `links` replaces the whole list; `PATCH` with only `url` swaps the first link and keeps the rest.
+
+API tokens can't manage accounts; that needs a signed-in browser session.
+
+## Publishing the image
+
+`.github/workflows/docker-publish.yml` runs the tests, builds the image, checks that it starts, drops root and serves the setup page, then pushes `linux/amd64` and `linux/arm64` builds to Docker Hub as `liftbridgelabs/feedstash`. It runs when you push a version tag, or by hand from the Actions tab.
+
+1. Push this repository to GitHub.
+2. Add the repository secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` (a Docker Hub access token with read and write access).
+3. Tag a release: `git tag v0.1.0 && git push origin v0.1.0`. That publishes `0.1.0`, `0.1` and `latest`.
+
+To use another image name, change `IMAGE` in the workflow, `image:` in `docker-compose.yml`, and the unRAID template.
 
 ## How it's built
 
@@ -85,54 +197,59 @@ Dependencies point one way: `web` → `services` → `feeds` → `db`. Lower lay
 
 ```
 app/
-  main.py            create_app(): wires settings, database, scheduler, middleware and routers
+  __main__.py        python -m app: runs the server with host/port from the settings
+  main.py            create_app(): wires settings, database, image store, scheduler, middleware and routers
   settings.py        typed, validated configuration (pydantic-settings)
+  cli.py             admin commands: accounts, passwords, backups
+  passwords.py       scrypt password hashing
   errors.py          domain errors (InvalidInput, NotFound, Conflict); the web layer maps them to 400/404/409
+  images.py          uploaded images: validated by content, random names
   opml.py            OPML parse/build, pure functions
 
   db/
     database.py      connections; one transaction per unit of work
     migrations.py    versioned schema changes, tracked in PRAGMA user_version
     models.py        plain dataclasses returned by the repositories
-    repositories/    all SQL lives here, one module per table (users, folders, feeds, articles)
+    repositories/    all SQL lives here: users, folders, feeds, articles, items, tokens
 
-  feeds/
-    parser.py        RSS/Atom bytes -> ParsedFeed (feedparser, sanitizing). No I/O.
-    fetcher.py       HTTP only: conditional GETs and feed discovery. No database.
-    ingest.py        stores fetch results; refreshes batches of feeds concurrently
-    scheduler.py     background loop: refresh due feeds, purge old articles
+  feeds/             parser (no I/O), fetcher (HTTP only), ingest (storage), scheduler (background refresh)
 
   services/
-    subscriptions.py following a feed (discover + store), importing OPML
+    accounts.py      first-run setup, checking passwords, admin changes to accounts
+    subscriptions.py following a feed, importing OPML
+    stash.py         capturing items, saving feed articles to the stash
 
   web/
-    api/             JSON routers: tree, articles, folders, feeds, opml
-    schemas.py       request and response models
-    auth.py          Google OIDC, allowlist, session user
-    deps.py          FastAPI dependencies (settings, database, signed-in user)
-    pages.py         the app page, login page, health check
-    security.py      CSRF check and security headers
-    errors.py        error -> JSON response mapping
+    api/             JSON routers: tree, articles, folders, feeds, opml, stash, tokens, accounts
+    auth.py          sign-in (passwords, Google, OIDC), API tokens, allowlist
+    ratelimit.py     pauses password guessing
+    ...
 
-  static/            the single-page UI (plain JavaScript, no build step)
+  static/            the single-page UI (plain JavaScript modules, no build step)
+
+clients/             browser extension and email worker
+deploy/unraid/       unRAID container template
+docker-entrypoint.sh fixes /data ownership, then runs the app as PUID:PGID
 ```
 
-The background refresher runs inside the web process, so run a single process (the Docker image does). If you ever run several, set `SCHEDULER_ENABLED=false` on all but one.
+The background refresher runs inside the web process, so run a single process (the Docker image does).
 
 ## Tests
 
 ```bash
 pip install -r requirements-dev.txt
-pytest                                # unit tests + API tests
-READER_E2E_BROWSER="/path/to/chrome" pytest   # also run the browser tests (Chrome or Edge)
+pytest                                           # unit tests + API tests
+READER_E2E_BROWSER="/path/to/chrome" pytest      # also run the browser tests (Chrome or Edge)
 ```
 
-- `tests/unit/` tests each layer directly: settings, parser, fetcher (with a mock HTTP transport), migrations, repositories, ingest.
-- `tests/test_*.py` start the real server on a free port with a fresh database and a local feed server, and exercise the HTTP API.
-- `tests/e2e/` drive a headless browser: scroll-to-mark-read, drag-and-drop ordering, auto-refresh.
+- `tests/unit/`: each layer directly (settings, parser, fetcher, migrations, repositories, passwords, accounts, images).
+- `tests/test_*.py`: the real server on a free port with a fresh database. `test_auth.py` covers setup, passwords, lockout, accounts and a full OIDC sign-in against a local test provider; `test_client_compat.py` sends requests shaped exactly like the extension, email worker and phone apps.
+- `tests/e2e/`: a headless browser (first-run setup, scroll-to-mark-read, drag and drop, auto-refresh, capturing and reviewing).
 
 **Security notes**
 
-- Feed HTML is sanitized twice: by feedparser on the server and again in the browser. On top of that, a strict Content-Security-Policy blocks all scripts except the app's own.
-- State-changing API calls require a custom header, and the session cookie is `SameSite=Lax`.
-- Any signed-in user can make the server fetch any http(s) URL when adding a feed. Only allow accounts you trust.
+- Passwords are hashed with scrypt. Sessions are signed cookies (`SameSite=Lax`, `Secure` over https), started fresh on every sign-in.
+- Feed HTML is sanitized twice (server and browser), and a strict Content-Security-Policy blocks all scripts except the app's own. Stash text is always shown as plain text.
+- Browser requests need a CSRF header; API clients use bearer tokens, which browsers never send on their own.
+- Uploaded image URLs are not behind sign-in, so the random file name is what protects them. SVG and other non-image uploads are rejected.
+- Any signed-in user can make the server fetch any http(s) URL when adding a feed. Only give accounts to people you trust.

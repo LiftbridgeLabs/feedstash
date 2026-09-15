@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>FeedStash Settings</title>
+<link rel="stylesheet" href="popup.css" />
+</head>
+<body class="options-body">
+  <h1>FeedStash Settings</h1>
+
+  <label class="field">
+    <span>Server URL</span>
+    <input type="text" id="baseUrlInput" placeholder="https://stash.yourdomain.com" />
+  </label>
+
+  <label class="field">
+    <span>API token</span>
+    <input type="text" id="tokenInput" placeholder="Paste a token minted for this client" />
+  </label>
+
+  <button id="saveBtn" class="primary-btn">Save</button>
+  <button id="testBtn" class="primary-btn secondary">Test connection</button>
+  <p id="status"></p>
+
+<script src="common.js"></script>
+<script src="options.js"></script>
+</body>
+</html>

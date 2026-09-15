@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>FeedStash</title>
+<link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <h1>FeedStash</h1>
+
+  <div class="type-switch">
+    <button type="button" class="type-btn active" data-type="link">Link</button>
+    <button type="button" class="type-btn" data-type="snippet">Snippet</button>
+    <button type="button" class="type-btn" data-type="screenshot">Screenshot</button>
+  </div>
+
+  <label class="field" data-for="link">
+    <span>URL</span>
+    <input type="text" id="urlInput" />
+  </label>
+
+  <label class="field">
+    <span>Title</span>
+    <input type="text" id="titleInput" />
+  </label>
+
+  <label class="field" data-for="snippet">
+    <span>Content</span>
+    <textarea id="contentInput" rows="4"></textarea>
+  </label>
+
+  <div class="field" data-for="screenshot">
+    <span>A screenshot of the visible tab will be captured on save.</span>
+  </div>
+
+  <label class="field">
+    <span>Tags</span>
+    <input type="text" id="tagsInput" placeholder="reading, later" />
+  </label>
+
+  <button id="saveBtn" class="primary-btn">Save to FeedStash</button>
+  <p id="status"></p>
+  <a href="#" id="optionsLink">Settings</a>
+
+<script src="common.js"></script>
+<script src="popup.js"></script>
+</body>
+</html>

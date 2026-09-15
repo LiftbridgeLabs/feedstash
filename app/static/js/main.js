@@ -9,7 +9,9 @@ import { wireKeyboard } from './keyboard.js';
 import { applyLayout, openContextMenu, setPref, wireToolbar } from './menus.js';
 import { wireOrganize } from './organize.js';
 import { applyRoute } from './router.js';
+import { wireSettings } from './settings.js';
 import { loadTree, wireNav } from './sidebar.js';
+import { captureDialog, stashArticle, wireStash } from './stash.js';
 import { state } from './state.js';
 import { $ } from './util.js';
 
@@ -20,6 +22,8 @@ async function init() {
   wireToolbar();
   wireList();
   wireOrganize();
+  wireStash();
+  wireSettings();
   wireKeyboard();
   startAutoRefresh();
 
@@ -40,6 +44,8 @@ async function init() {
 }
 
 // Handle for poking at the app from the console, and for the browser tests.
-window.reader = { state, api, loadTree, applyRoute, setPref, openContextMenu, pollForNew, showNewBanner };
+window.reader = {
+  state, api, loadTree, applyRoute, setPref, openContextMenu, pollForNew, showNewBanner, captureDialog, stashArticle,
+};
 
 init();

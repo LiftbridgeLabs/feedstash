@@ -1,0 +1,13 @@
+name = "feedstash-email-worker"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+# Your FeedStash server's public base URL (no trailing slash)
+FEEDSTASH_API_BASE = "https://stash.yourdomain.com"
+
+# FEEDSTASH_API_TOKEN is a secret, NOT set here.
+# After creating the worker, run:
+#   wrangler secret put FEEDSTASH_API_TOKEN
+# and paste in a token minted specifically for this client (clientName "email-worker").

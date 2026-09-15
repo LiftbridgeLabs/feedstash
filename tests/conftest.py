@@ -22,6 +22,7 @@ import httpx
 import pytest
 
 from support.feedgen import write_feeds
+from support.oidc import FakeOidcProvider
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 APP_COMMAND = ["-m", "uvicorn", "--factory", "app.main:create_app"]
@@ -127,6 +128,14 @@ def api(server) -> httpx.Client:
     client = server.login()
     yield client
     client.close()
+
+
+@pytest.fixture
+def oidc_provider() -> FakeOidcProvider:
+    provider = FakeOidcProvider(free_port())
+    provider.start()
+    yield provider
+    provider.stop()
 
 
 @pytest.fixture

@@ -7,6 +7,7 @@ import { api } from './api.js';
 import { flushMarks, resetList } from './articles.js';
 import { icon } from './icons.js';
 import { moveFeedBy, moveFolderBy, sortFeedsAlpha } from './ordering.js';
+import { captureDialog } from './stash.js';
 import { els, feedById, feedIdsIn, state } from './state.js';
 import { $, $$, esc, saveJSON } from './util.js';
 
@@ -104,7 +105,14 @@ export function wireToolbar() {
   });
 
   $('#refresh-btn').addEventListener('click', () => refresh());
-  $('#add-feed-btn').addEventListener('click', addFeedDialog);
+  $('#add-menu').addEventListener('click', (e) => {
+    const choice = e.target.closest('[data-add]')?.dataset.add;
+    if (!choice) return;
+    closeMenus();
+    if (choice === 'save') captureDialog();
+    else addFeedDialog();
+  });
+  $('#capture-btn').addEventListener('click', () => captureDialog());
   $('#menu-toggle').addEventListener('click', () => document.body.classList.toggle('nav-open'));
   $('#scrim').addEventListener('click', () => document.body.classList.remove('nav-open'));
   $('#logout-btn').addEventListener('click', async () => {

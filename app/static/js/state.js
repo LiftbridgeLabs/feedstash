@@ -8,11 +8,27 @@ export const els = {
   articles: $('#articles'),
   listEnd: $('#list-end'),
   organize: $('#organize'),
+  stash: $('#stash'),
+  settings: $('#settings'),
   title: $('#view-title'),
   count: $('#view-count'),
   toast: $('#toast'),
   contextMenu: $('#context-menu'),
   newBanner: $('#new-banner'),
+};
+
+/** Routes that show the article list (as opposed to the stash, organize or settings panels). */
+export const ARTICLE_SCOPES = new Set(['all', 'starred', 'uncategorized', 'folder', 'feed']);
+
+export const ITEM_TYPES = ['link', 'snippet', 'screenshot', 'email'];
+export const STASH_VIEWS = {
+  inbox: 'Inbox',
+  all: 'Everything saved',
+  link: 'Links',
+  snippet: 'Snippets',
+  screenshot: 'Screenshots',
+  email: 'Emails',
+  archived: 'Archive',
 };
 
 const PREF_DEFAULTS = { layout: 'magazine', order: 'newest', unreadOnly: true, markOnScroll: true };
@@ -26,6 +42,13 @@ export const state = {
   openId: null,
   activeId: null,
   orgFilter: '',
+  stash: {
+    summary: { inbox: 0, total: 0, archived: 0, by_type: {} },
+    tags: [],
+    query: '',
+    items: null, // the loaded item list for the current stash view
+    openId: null,
+  },
 };
 
 /** A fresh, empty article list. Replacing state.list also cancels in-flight loads for the old one. */
@@ -66,8 +89,10 @@ export function scopeTitle(scope, id) {
     case 'starred': return 'Read later';
     case 'uncategorized': return 'Uncategorized';
     case 'organize': return 'Organize feeds';
+    case 'settings': return 'Settings';
+    case 'stash': return id?.startsWith('tag:') ? `#${id.slice(4)}` : STASH_VIEWS[id] || 'Stash';
     case 'folder': return folderById(id)?.name || 'Folder';
     case 'feed': return feedById(id)?.title || 'Feed';
-    default: return 'All';
+    default: return 'All articles';
   }
 }

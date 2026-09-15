@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Reader</title>
+  <title>FeedStash</title>
   <link rel="icon" href="/static/icon.svg">
   <link rel="stylesheet" href="/static/style.css">
   <script type="module" src="/static/js/main.js"></script>
@@ -12,13 +12,22 @@
   <div class="app">
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-head">
-        <a class="brand" href="#/all"><img src="/static/icon.svg" alt="" width="26" height="26"><span>Reader</span></a>
-        <button class="btn btn-primary btn-sm" id="add-feed-btn" title="Follow a new feed">+ Follow</button>
+        <a class="brand" href="#/"><img src="/static/icon.svg" alt="" width="26" height="26"><span>FeedStash</span></a>
+        <div class="dropdown">
+          <button class="btn btn-primary btn-sm" data-dropdown="add-menu" title="Save something or follow a feed">+ Add</button>
+          <div class="menu" id="add-menu" hidden>
+            <button data-add="save"><span data-icon="inbox"></span>Save something… <span class="kbd">c</span></button>
+            <button data-add="follow"><span data-icon="rss"></span>Follow a feed…</button>
+          </div>
+        </div>
       </div>
-      <nav class="nav" id="nav" aria-label="Feeds"></nav>
+      <nav class="nav" id="nav" aria-label="Feeds and stash"></nav>
       <div class="sidebar-foot">
         <a class="nav-row" href="#/organize" data-route="organize">
           <span class="nav-icon" data-icon="sliders"></span><span class="nav-label">Organize feeds</span>
+        </a>
+        <a class="nav-row" href="#/settings" data-route="settings">
+          <span class="nav-icon" data-icon="gear"></span><span class="nav-label">Settings</span>
         </a>
         <div class="user" id="user">
           <img class="avatar" id="user-avatar" alt="" hidden>
@@ -33,7 +42,7 @@
       <header class="toolbar">
         <button class="icon-btn menu-toggle" id="menu-toggle" title="Menu" data-icon="menu"></button>
         <div class="title-block">
-          <h1 id="view-title">All</h1>
+          <h1 id="view-title">All articles</h1>
           <span class="muted" id="view-count"></span>
         </div>
         <div class="actions" id="list-actions">
@@ -64,6 +73,9 @@
             </div>
           </div>
         </div>
+        <div class="actions" id="stash-actions" hidden>
+          <button class="btn btn-primary btn-sm" id="capture-btn" title="Save something (c)"><span data-icon="plus"></span>Save</button>
+        </div>
       </header>
 
       <section class="content" id="content" tabindex="-1">
@@ -71,6 +83,8 @@
         <div class="articles" id="articles"></div>
         <div class="list-end" id="list-end"></div>
         <div class="organize" id="organize" hidden></div>
+        <div class="stash" id="stash" hidden></div>
+        <div class="organize settings" id="settings" hidden></div>
       </section>
     </main>
   </div>

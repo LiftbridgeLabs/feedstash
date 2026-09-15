@@ -18,10 +18,13 @@ class Scope:
 @dataclass(frozen=True, slots=True)
 class User:
     id: int
-    sub: str
+    sub: str  # "<provider>:<subject>" (google:…, oidc:…, local:<uuid>), or "dev-login"
     email: str
     name: str | None
     picture: str | None
+    is_admin: bool = False
+    has_password: bool = False
+    created_at: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,3 +96,71 @@ class ArticlePage:
     articles: list[ArticleSummary]
     next_cursor: str | None
     max_id: int
+
+
+# ------------------------------------------------------------------ stash
+
+
+@dataclass(frozen=True, slots=True)
+class ItemLink:
+    url: str
+    label: str | None = None
+    id: int | None = None  # None until stored
+
+
+@dataclass(frozen=True, slots=True)
+class StashItem:
+    id: int
+    type: str  # link | snippet | screenshot | email
+    title: str | None
+    content: str | None
+    url: str | None
+    image_name: str | None
+    source: str
+    reviewed: bool
+    archived: bool
+    created_at: int
+    updated_at: int
+    tags: list[str]
+    links: list[ItemLink]  # the first is the primary link, mirrored in `url`
+
+
+@dataclass(frozen=True, slots=True)
+class ItemFilter:
+    type: str | None = None
+    tag: str | None = None
+    reviewed: bool | None = None
+    archived: bool = False
+    query: str | None = None
+    limit: int = 50
+    offset: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class TagCount:
+    name: str
+    count: int
+
+
+@dataclass(frozen=True, slots=True)
+class StashSummary:
+    inbox: int  # active and not yet reviewed
+    total: int  # active
+    archived: int
+    by_type: dict[str, int]
+
+
+@dataclass(frozen=True, slots=True)
+class ApiToken:
+    id: int
+    client_name: str
+    hint: str  # last four characters, for recognizing a token
+    created_at: int
+    last_used_at: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class TokenMatch:
+    token_id: int
+    user_id: int
+    client_name: str

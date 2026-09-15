@@ -5,7 +5,8 @@ from typing import TypeVar
 
 from pydantic import BaseModel, Field
 
-from app.db.models import ScopeKind
+from app.clock import iso
+from app.db.models import ApiToken, ScopeKind, StashItem, User
 
 
 # ------------------------------------------------------------------ responses
@@ -20,6 +21,26 @@ class UserOut(BaseModel):
     email: str
     name: str | None
     picture: str | None
+    is_admin: bool
+    has_password: bool
+
+
+class AccountOut(BaseModel):
+    id: int
+    email: str
+    name: str | None
+    is_admin: bool
+    has_password: bool
+    sign_in: str  # how the account first signed in: password, google, oidc or dev
+    created_at: int
+
+    @classmethod
+    def from_user(cls, user: User) -> "AccountOut":
+        provider = user.sub.split(":", 1)[0] if ":" in user.sub else "dev"
+        return cls(
+            id=user.id, email=user.email, name=user.name, is_admin=user.is_admin, has_password=user.has_password,
+            sign_in="password" if provider == "local" else provider, created_at=user.created_at,
+        )
 
 
 class FolderOut(BaseModel):
@@ -124,6 +145,31 @@ def to_schema(schema: type[Out], value) -> Out:
 # ------------------------------------------------------------------ requests
 
 
+class PasswordLoginIn(BaseModel):
+    email: str = Field(max_length=320)
+    password: str = Field(max_length=1024)
+
+
+class SetupIn(BaseModel):
+    email: str = Field(max_length=320)
+    name: str | None = Field(default=None, max_length=100)
+    password: str = Field(max_length=1024)
+
+
+class NewAccountIn(SetupIn):
+    is_admin: bool = False
+
+
+class AccountUpdateIn(BaseModel):
+    password: str | None = Field(default=None, max_length=1024)
+    is_admin: bool | None = None
+
+
+class PasswordChangeIn(BaseModel):
+    current_password: str = Field(default="", max_length=1024)
+    new_password: str = Field(max_length=1024)
+
+
 class MarkArticlesIn(BaseModel):
     ids: list[int] = Field(max_length=2000)
     read: bool = True
@@ -175,3 +221,81 @@ class FeedUpdateIn(BaseModel):
 class RefreshIn(BaseModel):
     scope: ScopeKind = "all"
     id: int | None = None
+
+
+# ------------------------------------------------------------------ stash and API tokens
+# Field names are camelCase: the browser extension, email worker and phone apps in clients/ decode these shapes.
+
+
+class LinkOut(BaseModel):
+    id: int
+    url: str
+    label: str | None
+
+
+class StashItemOut(BaseModel):
+    id: int
+    type: str
+    title: str | None
+    content: str | None
+    url: str | None  # mirrors links[0], for clients that only know one url
+    imagePath: str | None
+    source: str
+    reviewed: bool
+    archived: bool
+    createdAt: str
+    updatedAt: str
+    tags: list[str]
+    links: list[LinkOut]
+
+    @classmethod
+    def from_item(cls, item: StashItem) -> "StashItemOut":
+        return cls(
+            id=item.id, type=item.type, title=item.title, content=item.content, url=item.url,
+            imagePath=f"/uploads/{item.image_name}" if item.image_name else None, source=item.source,
+            reviewed=item.reviewed, archived=item.archived, createdAt=iso(item.created_at),
+            updatedAt=iso(item.updated_at), tags=item.tags,
+            links=[LinkOut(id=link.id, url=link.url, label=link.label) for link in item.links],
+        )
+
+
+class TagCountOut(BaseModel):
+    name: str
+    count: int
+
+
+class StashSummaryOut(BaseModel):
+    inbox: int
+    total: int
+    archived: int
+    by_type: dict[str, int]
+
+
+class StashArticleOut(BaseModel):
+    item: StashItemOut
+    created: bool
+
+
+class TokenOut(BaseModel):
+    id: int
+    clientName: str
+    tokenPreview: str
+    createdAt: str
+    lastUsedAt: str | None
+
+    @classmethod
+    def from_token(cls, token: ApiToken) -> "TokenOut":
+        return cls(
+            id=token.id, clientName=token.client_name, tokenPreview=f"...{token.hint}",
+            createdAt=iso(token.created_at), lastUsedAt=iso(token.last_used_at) if token.last_used_at else None,
+        )
+
+
+class NewTokenIn(BaseModel):
+    clientName: str
+
+
+class NewTokenOut(BaseModel):
+    id: int
+    token: str
+    clientName: str

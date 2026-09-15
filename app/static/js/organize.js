@@ -6,17 +6,11 @@ import { toast } from './dialogs.js';
 import { icon } from './icons.js';
 import { moveFeedBy, moveFolderBy, orderButtons, sortFoldersAlpha } from './ordering.js';
 import { loadTree } from './sidebar.js';
-import { els, feedIdsIn, newList, state, sumUnread } from './state.js';
+import { els, feedIdsIn, state, sumUnread } from './state.js';
 import { $, $$, agoLong, esc, favicon, plural } from './util.js';
 
+/** The router has already switched to the organize panel. */
 export function showOrganize() {
-  els.newBanner.hidden = true;
-  state.list = newList(); // cancels in-flight article loads
-  state.openId = null;
-  els.articles.hidden = true;
-  els.listEnd.hidden = true;
-  els.organize.hidden = false;
-  els.content.scrollTop = 0;
   renderOrganize();
 }
 

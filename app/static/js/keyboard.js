@@ -1,4 +1,7 @@
-/* Keyboard shortcuts: j/k open next/previous, n/p select, o/Enter toggle, v original, m read, s star, r refresh, A mark all. */
+/* Keyboard shortcuts.
+   Anywhere: c capture, Esc close.
+   Articles: j/k open next/previous, n/p select, o/Enter toggle, v original, m read, s read later, b save to stash,
+             r refresh, A mark all read. */
 
 import { markScope, refresh } from './actions.js';
 import {
@@ -6,7 +9,8 @@ import {
   toggleStar,
 } from './articles.js';
 import { closeMenus } from './menus.js';
-import { state } from './state.js';
+import { captureDialog, closeStashItem, stashArticle } from './stash.js';
+import { ARTICLE_SCOPES, state } from './state.js';
 import { $ } from './util.js';
 
 function step(dir, open) {
@@ -39,9 +43,15 @@ export function wireKeyboard() {
       closeMenus();
       document.body.classList.remove('nav-open');
       closeArticle();
+      closeStashItem();
       return;
     }
-    if (state.route.scope === 'organize') return;
+    if (e.key === 'c') {
+      e.preventDefault();
+      captureDialog();
+      return;
+    }
+    if (!ARTICLE_SCOPES.has(state.route.scope)) return;
     if (e.key === 'Enter' && e.target.closest('button, a, [tabindex]:not(#content)')) return;
     const a = state.list.byId.get(state.activeId);
     switch (e.key) {
@@ -58,6 +68,7 @@ export function wireKeyboard() {
         break;
       case 'm': if (a) toggleRead(a); break;
       case 's': if (a) toggleStar(a); break;
+      case 'b': if (a) stashArticle(a); break;
       case 'r': refresh(); break;
       case 'A': markScope(state.route.scope, state.route.id, null); break;
       default: return;

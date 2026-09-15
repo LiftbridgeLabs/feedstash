@@ -6,7 +6,8 @@ from app.settings import Settings, resolve_secret_key
 ENV_KEYS = (
     "BASE_URL", "DATABASE_PATH", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "ALLOWED_EMAILS", "ALLOWED_DOMAINS",
     "DEV_LOGIN", "SECRET_KEY", "COOKIE_SECURE", "SESSION_DAYS", "REFRESH_INTERVAL_MINUTES", "RETENTION_DAYS",
-    "KEEP_PER_FEED", "SCHEDULER_ENABLED",
+    "KEEP_PER_FEED", "SCHEDULER_ENABLED", "HOST", "PORT", "FORWARDED_ALLOW_IPS", "PASSWORD_LOGIN", "OIDC_ISSUER",
+    "OIDC_CLIENT_ID", "OIDC_CLIENT_SECRET", "OIDC_NAME", "OIDC_SCOPES",
 )
 
 
@@ -24,13 +25,27 @@ def settings_from_env(monkeypatch):
 
 def test_defaults(settings_from_env):
     settings = settings_from_env()
-    assert settings.base_url == "http://localhost:8651"
+    assert settings.base_url == "http://localhost:8672"
+    assert settings.uploads_dir == settings.database_path.parent / "uploads"
     assert settings.refresh_interval_minutes == 15
     assert settings.allowed_emails == []
     assert not settings.dev_login
     assert not settings.google_configured
     assert not settings.secure_cookies
     assert settings.scheduler_enabled
+    assert (settings.host, settings.port) == ("127.0.0.1", 8672)
+    assert settings.password_login and not settings.oidc_configured
+
+
+def test_oidc_issuer_or_discovery_url(settings_from_env):
+    settings = settings_from_env(
+        OIDC_ISSUER="https://auth.example.com/application/o/feedstash/", OIDC_CLIENT_ID="id", OIDC_CLIENT_SECRET="s"
+    )
+    assert settings.oidc_configured
+    assert settings.oidc_discovery_url == "https://auth.example.com/application/o/feedstash/.well-known/openid-configuration"
+    discovery = "https://id.example.com/.well-known/openid-configuration"
+    assert settings_from_env(OIDC_ISSUER=discovery).oidc_discovery_url == discovery
+    assert not settings_from_env(OIDC_ISSUER="https://id.example.com", OIDC_CLIENT_ID="id").oidc_configured
 
 
 def test_values_are_parsed_from_the_environment(settings_from_env):
@@ -66,6 +81,8 @@ def test_secure_cookies_can_be_turned_off_explicitly(settings_from_env):
         ("BASE_URL", "reader.example.com"),
         ("DEV_LOGIN", "maybe"),
         ("RETENTION_DAYS", "0"),
+        ("PORT", "70000"),
+        ("OIDC_ISSUER", "auth.example.com"),
     ],
 )
 def test_invalid_values_are_rejected(settings_from_env, name, value):

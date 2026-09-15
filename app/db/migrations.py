@@ -72,6 +72,65 @@ MIGRATIONS: list[str] = [
           AND (o.title COLLATE NOCASE < feeds.title COLLATE NOCASE
                OR (o.title COLLATE NOCASE = feeds.title COLLATE NOCASE AND o.id < feeds.id)));
     """,
+    # 3: the stash (captured links, snippets, screenshots, emails) and API tokens for its clients
+    """
+    CREATE TABLE items (
+        id           INTEGER PRIMARY KEY,
+        user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        type         TEXT NOT NULL CHECK (type IN ('link', 'snippet', 'screenshot', 'email')),
+        title        TEXT,
+        content      TEXT,
+        url          TEXT,
+        image_name   TEXT,
+        source       TEXT NOT NULL DEFAULT 'web',
+        reviewed_at  INTEGER,
+        archived_at  INTEGER,
+        created_at   INTEGER NOT NULL,
+        updated_at   INTEGER NOT NULL
+    );
+    CREATE INDEX idx_items_user ON items(user_id, archived_at, created_at);
+    CREATE TABLE tags (
+        id       INTEGER PRIMARY KEY,
+        user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name     TEXT NOT NULL,
+        UNIQUE (user_id, name)
+    );
+    CREATE TABLE item_tags (
+        item_id  INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+        tag_id   INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+        PRIMARY KEY (item_id, tag_id)
+    );
+    CREATE INDEX idx_item_tags_tag ON item_tags(tag_id);
+    CREATE TABLE api_tokens (
+        id            INTEGER PRIMARY KEY,
+        user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token_hash    TEXT NOT NULL UNIQUE,
+        hint          TEXT NOT NULL,
+        client_name   TEXT NOT NULL,
+        created_at    INTEGER NOT NULL,
+        last_used_at  INTEGER
+    );
+    """,
+    # 4: several links per stash item; items.url mirrors the first one
+    """
+    CREATE TABLE item_links (
+        id        INTEGER PRIMARY KEY,
+        item_id   INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+        url       TEXT NOT NULL,
+        label     TEXT,
+        position  INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX idx_item_links_item ON item_links(item_id, position);
+    INSERT INTO item_links (item_id, url, position) SELECT id, url, 0 FROM items WHERE url IS NOT NULL;
+    """,
+    # 5: password sign-in and admins; sign-in subjects say which provider they came from
+    """
+    ALTER TABLE users ADD COLUMN password_hash TEXT;
+    ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0;
+    UPDATE users SET sub = 'google:' || sub WHERE sub <> 'dev-login' AND instr(sub, ':') = 0;
+    UPDATE users SET is_admin = 1 WHERE id = (SELECT MIN(id) FROM users);
+    CREATE INDEX idx_users_email ON users(email);
+    """,
 ]
 
 

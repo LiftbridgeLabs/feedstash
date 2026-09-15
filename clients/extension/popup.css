@@ -1,0 +1,68 @@
+:root {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --border: #2e3340;
+  --text: #e6e8ef;
+  --text-dim: #9aa0ae;
+  --accent: #4f46e5;
+  --accent-hover: #6058ea;
+  --danger: #e5484d;
+  --success: #3fb950;
+  --radius: 8px;
+}
+* { box-sizing: border-box; }
+body {
+  width: 320px;
+  margin: 0;
+  padding: 0.9rem;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 0.85rem;
+}
+body.options-body { width: 380px; }
+h1 { font-size: 1rem; margin: 0 0 0.75rem; }
+
+.type-switch { display: flex; gap: 0.35rem; margin-bottom: 0.75rem; }
+.type-btn {
+  flex: 1;
+  padding: 0.4rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+.type-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+.field { display: block; margin-bottom: 0.65rem; }
+.field span { display: block; font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.25rem; }
+.field input, .field textarea {
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+
+.primary-btn {
+  width: 100%;
+  padding: 0.55rem;
+  background: var(--accent);
+  border: none;
+  color: white;
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  cursor: pointer;
+  margin-bottom: 0.5rem;
+}
+.primary-btn:hover { background: var(--accent-hover); }
+.primary-btn.secondary { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
+
+#status { min-height: 1rem; font-size: 0.78rem; color: var(--text-dim); }
+
+a#optionsLink { color: var(--accent); font-size: 0.78rem; text-decoration: none; }

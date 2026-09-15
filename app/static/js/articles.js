@@ -6,7 +6,8 @@ import { toast } from './dialogs.js';
 import { icon } from './icons.js';
 import { sanitize } from './sanitize.js';
 import { scheduleNavRender } from './sidebar.js';
-import { els, feedById, newList, state, unreadFor } from './state.js';
+import { stashArticle } from './stash.js';
+import { ARTICLE_SCOPES, els, feedById, newList, state, unreadFor } from './state.js';
 import { $, $$, ago, esc, favicon, fullDate } from './util.js';
 
 const PAGE_SIZE = 40;
@@ -25,7 +26,7 @@ export function resetList() {
 
 export async function loadMore() {
   const list = state.list;
-  if (list.loading || list.done || state.route.scope === 'organize') return;
+  if (list.loading || list.done || !ARTICLE_SCOPES.has(state.route.scope)) return;
   list.loading = true;
   const { scope, id } = state.route;
   const params = new URLSearchParams({
@@ -123,6 +124,7 @@ function articleHTML(a) {
 function readerBar(a) {
   return `
     <button class="btn btn-sm" data-action="star">${icon('star', a.starred)}${a.starred ? 'Saved' : 'Read later'}</button>
+    <button class="btn btn-sm" data-action="stash" title="Save to stash (b)">${icon('inbox')}Save to stash</button>
     <button class="btn btn-sm" data-action="toggle-read">${icon(a.read ? 'circle' : 'check')}${a.read ? 'Keep unread' : 'Mark as read'}</button>
     ${a.url ? `<a class="btn btn-sm" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">${icon('external')}Visit website</a>` : ''}
     <button class="btn btn-sm" data-action="close">${icon('x')}Close</button>`;
@@ -292,7 +294,7 @@ function onScroll() {
 }
 
 function checkScroll() {
-  if (state.route.scope === 'organize') return;
+  if (!ARTICLE_SCOPES.has(state.route.scope)) return;
   const list = state.list;
   const top = els.content.getBoundingClientRect().top;
   const items = els.articles.children;
@@ -329,6 +331,7 @@ export function wireList() {
       case 'close': closeArticle(); break;
       case 'star': toggleStar(a); break;
       case 'toggle-read': toggleRead(a); break;
+      case 'stash': stashArticle(a); break;
     }
   });
 

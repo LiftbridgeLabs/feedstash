@@ -53,7 +53,8 @@ export function modal({ title, html, confirmText = 'Save', busyText, danger = fa
 
     onOpen?.(dialog);
     dialog.showModal();
-    const first = $('input:not([type=checkbox]), select', dialog);
+    const first = [...dialog.querySelectorAll('input:not([type=checkbox]):not([type=radio]):not([type=file]), textarea, select')]
+      .find((el) => !el.closest('[hidden]'));
     if (first) {
       first.focus();
       first.select?.();

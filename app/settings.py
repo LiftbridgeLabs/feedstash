@@ -20,15 +20,29 @@ CommaSeparated = Annotated[list[str], NoDecode]
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(frozen=True, extra="ignore", env_ignore_empty=True)
 
-    # Public URL the reader is served at. The Google redirect URI is <base_url>/auth/callback.
-    base_url: str = "http://localhost:8651"
-    database_path: Path = Path("data/reader.db")
+    # Public URL the app is served at. Redirect URIs are <base_url>/auth/google/callback and /auth/oidc/callback.
+    base_url: str = "http://localhost:8672"
+    database_path: Path = Path("data/feedstash.db")
+    host: str = "127.0.0.1"
+    port: int = Field(default=8672, ge=1, le=65535)
+    # Proxies whose X-Forwarded-For/-Proto headers are trusted ("*" = any; fine when only a proxy can reach the app).
+    forwarded_allow_ips: str = "127.0.0.1"
 
+    # Accounts with a FeedStash password. The first one is created on the setup page and is an admin.
+    password_login: bool = True
+
+    # Google and any other OpenID Connect provider (Authentik, Authelia, Keycloak, Pocket ID...).
+    # Their users need an email in ALLOWED_EMAILS or ALLOWED_DOMAINS, or an existing password account.
     google_client_id: str = ""
     google_client_secret: SecretStr = SecretStr("")
+    oidc_issuer: str = ""
+    oidc_client_id: str = ""
+    oidc_client_secret: SecretStr = SecretStr("")
+    oidc_name: str = "single sign-on"
+    oidc_scopes: str = "openid email profile"
     allowed_emails: CommaSeparated = Field(default_factory=list)
     allowed_domains: CommaSeparated = Field(default_factory=list)
-    # Skips Google and signs everyone in as one local user. Never enable on a reachable server.
+    # Skips sign-in and signs everyone in as one local user. Never enable on a reachable server.
     dev_login: bool = False
 
     # Signs session cookies. When unset, a key is generated once and stored next to the database.
@@ -51,6 +65,14 @@ class Settings(BaseSettings):
             raise ValueError("must start with http:// or https://")
         return value
 
+    @field_validator("oidc_issuer")
+    @classmethod
+    def _check_issuer(cls, value: str) -> str:
+        value = value.strip().rstrip("/")
+        if value and not value.startswith(("http://", "https://")):
+            raise ValueError("must start with http:// or https://")
+        return value
+
     @field_validator("allowed_emails", "allowed_domains", mode="before")
     @classmethod
     def _split_list(cls, value: object) -> list[str]:
@@ -62,8 +84,23 @@ class Settings(BaseSettings):
         return bool(self.google_client_id and self.google_client_secret.get_secret_value())
 
     @property
+    def oidc_configured(self) -> bool:
+        return bool(self.oidc_issuer and self.oidc_client_id and self.oidc_client_secret.get_secret_value())
+
+    @property
+    def oidc_discovery_url(self) -> str:
+        """OIDC_ISSUER may be the issuer itself or the full URL of its discovery document."""
+        suffix = "/.well-known/openid-configuration"
+        return self.oidc_issuer if self.oidc_issuer.endswith(suffix) else self.oidc_issuer + suffix
+
+    @property
     def secure_cookies(self) -> bool:
         return self.base_url.startswith("https://") if self.cookie_secure is None else self.cookie_secure
+
+    @property
+    def uploads_dir(self) -> Path:
+        """Uploaded images live next to the database, so backing up the data directory covers both."""
+        return self.database_path.parent / "uploads"
 
 
 def resolve_secret_key(settings: Settings) -> str:
