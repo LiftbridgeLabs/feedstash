@@ -89,9 +89,9 @@ def save_skipped(conn: sqlite3.Connection, job: PageJob, *, now: int, reason: st
     )
 
 
-def save_failure(conn: sqlite3.Connection, job: PageJob, *, now: int, error: str) -> None:
-    """Tries again later, up to MAX_ATTEMPTS in all, then gives up."""
-    if job.attempts >= MAX_ATTEMPTS:
+def save_failure(conn: sqlite3.Connection, job: PageJob, *, now: int, error: str, final: bool = False) -> None:
+    """Tries again later, up to MAX_ATTEMPTS in all, then gives up; `final` gives up right away."""
+    if final or job.attempts >= MAX_ATTEMPTS:
         conn.execute(
             "UPDATE item_pages SET status = 'failed', error = ?, fetched_at = ? WHERE item_id = ? AND url = ?",
             (error, now, job.item_id, job.url),

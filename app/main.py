@@ -21,6 +21,7 @@ from app.web.api import folders as folders_api
 from app.web.api import imports as imports_api
 from app.web.api import opml as opml_api
 from app.web.api import stash as stash_api
+from app.web.api import stash_organize as stash_organize_api
 from app.web.api import tokens as tokens_api
 from app.web.api import tree as tree_api
 from app.web.ratelimit import LoginLimiter
@@ -73,7 +74,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.add_middleware(security.SecureCookieOverHttps, cookie_name=SESSION_COOKIE)
     for router in (
         pages.router, auth.router, tree_api.router, articles_api.router, folders_api.router, feeds_api.router,
-        opml_api.router, imports_api.router, stash_api.router, stash_api.uploads_router, tokens_api.router,
+        opml_api.router, imports_api.router, stash_api.router, stash_api.uploads_router, stash_organize_api.router, tokens_api.router,
         accounts_api.router,
     ):
         app.include_router(router)

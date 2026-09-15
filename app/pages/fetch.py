@@ -9,7 +9,16 @@ import trafilatura
 from lxml import html as lxml_html
 from trafilatura.metadata import extract_metadata
 
-USER_AGENT = "Mozilla/5.0 (compatible; FeedStash; +https://github.com/LiftbridgeLabs/feedstash)"
+# Plenty of sites turn away requests that don't look like they come from a browser, so ask like one.
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Upgrade-Insecure-Requests": "1",
+}
+BLOCKED_STATUSES = {401, 403, 451}
 MAX_BYTES = 5 * 1024 * 1024
 MAX_TEXT = 200_000
 MAX_HTML = 1_000_000
@@ -17,6 +26,10 @@ MAX_HTML = 1_000_000
 
 class PageError(Exception):
     """The page couldn't be fetched right now; it may work later. The message is shown to users."""
+
+
+class PageBlocked(PageError):
+    """The site refuses to give FeedStash the page; trying again won't help. Shown to users."""
 
 
 class NotAWebPage(Exception):
@@ -38,7 +51,7 @@ def create_client() -> httpx.AsyncClient:
     return httpx.AsyncClient(
         timeout=httpx.Timeout(20.0, connect=10.0),
         follow_redirects=True,
-        headers={"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5"},
+        headers=HEADERS,
         limits=httpx.Limits(max_connections=8),
     )
 
@@ -46,6 +59,8 @@ def create_client() -> httpx.AsyncClient:
 async def fetch_page(client: httpx.AsyncClient, url: str) -> Page:
     try:
         async with client.stream("GET", url) as response:
+            if response.status_code in BLOCKED_STATUSES:
+                raise PageBlocked(f"the site blocked FeedStash (HTTP {response.status_code})")
             if response.status_code >= 400:
                 raise PageError(f"HTTP {response.status_code}")
             content_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
@@ -63,7 +78,7 @@ async def fetch_page(client: httpx.AsyncClient, url: str) -> Page:
     return await asyncio.to_thread(extract, b"".join(chunks), final_url)
 
 
-def extract(body: bytes, url: str) -> Page:
+def extract(body: bytes | str, url: str) -> Page:
     """The preview (title, description, image, site name) and readable copy of an HTML document."""
     meta = extract_metadata(trafilatura.load_html(body), default_url=url)
     options = {"url": url, "include_comments": False, "include_tables": True}

@@ -175,7 +175,10 @@ def undo_mark_scope_read(conn: sqlite3.Connection, user_id: int, scope: Scope, *
 # ------------------------------------------------------------------ storing & cleanup
 
 
-def insert_new(conn: sqlite3.Connection, feed_id: int, articles: Iterable[NewArticle], *, fetched_at: int) -> int:
+def insert_new(
+    conn: sqlite3.Connection, feed_id: int, articles: Iterable[NewArticle], *, fetched_at: int,
+    added_ids: list[int] | None = None,
+) -> int:
     """Stores articles not seen before (by guid), skipping read ones the cleanup already removed. Returns how many
     were new."""
     added = 0
@@ -191,6 +194,8 @@ def insert_new(conn: sqlite3.Connection, feed_id: int, articles: Iterable[NewArt
         if cursor.rowcount == 1:
             search.index_article(conn, cursor.lastrowid, article.title, article.search_text or article.summary)
             added += 1
+            if added_ids is not None:
+                added_ids.append(cursor.lastrowid)
     return added
 
 

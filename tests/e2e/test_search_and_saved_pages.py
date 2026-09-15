@@ -1,6 +1,6 @@
 def type_search(page, text: str) -> None:
     page.js(f"""(() => {{
-      const box = document.getElementById('article-search');
+      const box = document.getElementById('toolbar-search');
       box.value = {text!r};
       box.dispatchEvent(new Event('input', {{ bubbles: true }}));
     }})()""")

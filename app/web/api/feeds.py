@@ -47,6 +47,8 @@ async def update_feed(feed_id: int, body: FeedUpdateIn, user: UserDep, db: Datab
                 feeds_repo.rename(conn, user.id, feed_id, body.title)
             if "folder_id" in body.model_fields_set:
                 feeds_repo.move(conn, user.id, feed_id, body.folder_id)
+            if body.auto_stash is not None:
+                feeds_repo.set_auto_stash(conn, user.id, feed_id, body.auto_stash)
             return to_schema(FeedOut, feeds_repo.get(conn, user.id, feed_id))
 
     return await run_in_threadpool(apply_rest)

@@ -7,6 +7,7 @@ fetches what's due. Run it in one process only, like the feed refresher.
 import asyncio
 import contextlib
 import logging
+import sqlite3
 
 from app.clock import now
 from app.db import Database
@@ -14,12 +15,25 @@ from app.db.models import PageJob
 from app.db.repositories import items as items_repo
 from app.db.repositories import pages as pages_repo
 from app.db.repositories import search
-from app.pages.fetch import NotAWebPage, Page, PageError, create_client, fetch_page
+from app.pages.fetch import NotAWebPage, Page, PageBlocked, PageError, create_client, fetch_page
 
 log = logging.getLogger("feedstash.pages")
 
 BATCH_SIZE = 4
 IDLE_SECONDS = 2
+
+
+def store_page(conn: sqlite3.Connection, job: PageJob, page: Page, *, now: int) -> bool:
+    """Saves a page (fetched here, or sent by a client that had it open), gives an untitled item the page's title,
+    and reindexes the item. False when the item was deleted or its address changed meanwhile."""
+    saved = pages_repo.save_ready(
+        conn, job, now=now, title=page.title, description=page.description, image_url=page.image_url,
+        site_name=page.site_name, text=page.text, html=page.html,
+    )
+    if saved:
+        items_repo.set_title_if_missing(conn, job.item_id, page.title)
+        search.index_item(conn, job.item_id)
+    return saved
 
 
 class PageWorker:
@@ -56,6 +70,8 @@ class PageWorker:
             page = await fetch_page(client, job.url)
         except NotAWebPage as exc:
             await asyncio.to_thread(self._skipped, job, str(exc))
+        except PageBlocked as exc:
+            await asyncio.to_thread(self._failed, job, str(exc), True)
         except PageError as exc:
             await asyncio.to_thread(self._failed, job, str(exc))
         except Exception as exc:
@@ -66,21 +82,15 @@ class PageWorker:
 
     def _ready(self, job: PageJob, page: Page) -> None:
         with self._db.transaction() as conn:
-            saved = pages_repo.save_ready(
-                conn, job, now=now(), title=page.title, description=page.description, image_url=page.image_url,
-                site_name=page.site_name, text=page.text, html=page.html,
-            )
-            if saved:
-                items_repo.set_title_if_missing(conn, job.item_id, page.title)
-                search.index_item(conn, job.item_id)
+            store_page(conn, job, page, now=now())
 
     def _skipped(self, job: PageJob, reason: str) -> None:
         with self._db.transaction() as conn:
             pages_repo.save_skipped(conn, job, now=now(), reason=reason)
 
-    def _failed(self, job: PageJob, error: str) -> None:
+    def _failed(self, job: PageJob, error: str, final: bool = False) -> None:
         with self._db.transaction() as conn:
-            pages_repo.save_failure(conn, job, now=now(), error=error)
+            pages_repo.save_failure(conn, job, now=now(), error=error, final=final)
 
     async def _run(self) -> None:
         await asyncio.sleep(1)

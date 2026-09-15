@@ -3,6 +3,24 @@ async function getSettings() {
   return { apiBaseUrl: apiBaseUrl || '', apiToken: apiToken || '' };
 }
 
+/**
+ * The page as this browser sees it, so FeedStash can keep a readable copy of sites that turn servers away
+ * (and of pages behind a sign-in). Undefined when the page can't be read: the server then fetches it itself.
+ */
+async function pageHtml(tabId) {
+  if (!tabId) return undefined;
+  try {
+    const [injected] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => document.documentElement.outerHTML,
+    });
+    const html = injected?.result;
+    return typeof html === 'string' && html.length <= 4_000_000 ? html : undefined;
+  } catch {
+    return undefined; // a page extensions may not read, e.g. the browser's own pages
+  }
+}
+
 async function saveItem(fields) {
   const { apiBaseUrl, apiToken } = await getSettings();
   if (!apiBaseUrl || !apiToken) {

@@ -5,10 +5,15 @@ import {
 } from './actions.js';
 import { api } from './api.js';
 import { flushMarks, resetList } from './articles.js';
+import { toast } from './dialogs.js';
 import { icon } from './icons.js';
 import { moveFeedBy, moveFolderBy, sortFeedsAlpha } from './ordering.js';
+import { loadTree } from './sidebar.js';
 import { captureDialog } from './stash.js';
-import { els, feedById, feedIdsIn, state } from './state.js';
+import {
+  deleteSmartList, deleteStashFolder, editSmartList, moveStashFolderBy, renameStashFolder,
+} from './stashlists.js';
+import { els, feedById, feedIdsIn, smartListById, stashFolderById, state } from './state.js';
 import { $, $$, esc, saveJSON } from './util.js';
 
 export function closeMenus() {
@@ -16,9 +21,16 @@ export function closeMenus() {
   $$('.dropdown .menu').forEach((m) => { m.hidden = true; });
 }
 
+const MENUS = {
+  folder: folderMenuItems,
+  feed: feedMenuItems,
+  'stash-folder': stashFolderMenuItems,
+  'smart-list': smartListMenuItems,
+};
+
 export function openContextMenu(kind, id, anchor) {
   closeMenus();
-  const items = kind === 'folder' ? folderMenuItems(id) : feedMenuItems(id);
+  const items = (MENUS[kind] || feedMenuItems)(id);
   const menu = els.contextMenu;
   menu.innerHTML = items.map(([label, , cls], i) => `<button data-i="${i}" class="${cls || ''}">${esc(label)}</button>`).join('');
   menu.onclick = (e) => {
@@ -61,9 +73,45 @@ function feedMenuItems(id) {
   if (at > 0) items.push(['Move up', () => moveFeedBy(id, -1)]);
   if (at < siblings.length - 1) items.push(['Move down', () => moveFeedBy(id, 1)]);
   items.push(['Refresh now', () => refresh('feed', id)]);
+  items.push([
+    feed?.auto_stash ? 'Stop saving new articles to the stash' : 'Save new articles to the stash',
+    () => toggleAutoStash(id),
+  ]);
   if (feed?.site_url) items.push(['Open website', () => window.open(feed.site_url, '_blank', 'noopener')]);
   items.push(['Unfollow', () => unfollowFeed(id), 'danger']);
   return items;
+}
+
+/** A feed whose new articles go straight to the stash (and are marked read here). */
+export async function toggleAutoStash(id) {
+  const feed = feedById(id);
+  if (!feed) return;
+  try {
+    await api('PATCH', `/api/feeds/${id}`, { auto_stash: !feed.auto_stash });
+    await loadTree();
+    toast(feed.auto_stash
+      ? `New articles from ${feed.title} stay in the feed`
+      : `New articles from ${feed.title} will go straight to your stash`);
+  } catch (err) {
+    toast(err.message, { error: true });
+  }
+}
+
+function stashFolderMenuItems(id) {
+  const order = (state.stash.summary.folders || []).map((f) => f.id);
+  const at = order.indexOf(id);
+  const items = [['Rename', () => renameStashFolder(id)]];
+  if (at > 0) items.push(['Move up', () => moveStashFolderBy(id, -1)]);
+  if (at >= 0 && at < order.length - 1) items.push(['Move down', () => moveStashFolderBy(id, 1)]);
+  items.push([`Delete folder${stashFolderById(id)?.count ? ' (keeps its items)' : ''}`, () => deleteStashFolder(id), 'danger']);
+  return items;
+}
+
+function smartListMenuItems(id) {
+  return [
+    ['Edit', () => editSmartList(id)],
+    ['Delete', () => deleteSmartList(id), 'danger'],
+  ].filter(() => smartListById(id));
 }
 
 export function wireToolbar() {

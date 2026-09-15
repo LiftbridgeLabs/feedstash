@@ -320,17 +320,6 @@ function checkScroll() {
 export function wireList() {
   els.content.addEventListener('scroll', onScroll, { passive: true });
 
-  // Searching lists matching articles, read ones included; "mark as read" acts on whole folders, so it's paused.
-  let searchTimer = null;
-  $('#article-search')?.addEventListener('input', (e) => {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => {
-      state.articleQuery = e.target.value.trim();
-      const markButton = $('[data-dropdown="mark-menu"]');
-      if (markButton) markButton.disabled = Boolean(state.articleQuery);
-      resetList();
-    }, 300);
-  });
 
   els.articles.addEventListener('click', (e) => {
     const item = e.target.closest('.item');

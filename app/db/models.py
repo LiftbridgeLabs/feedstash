@@ -46,6 +46,7 @@ class Feed:
     last_fetched_at: int | None
     last_error: str | None
     unread: int
+    auto_stash: bool = False  # new articles go straight to the stash
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,6 +160,8 @@ class StashItem:
     tags: list[str]
     links: list[ItemLink]  # the first is the primary link, mirrored in `url`
     page: PagePreview | None = None  # None when the item has no web address
+    folder_id: int | None = None
+    feed_id: int | None = None  # the feed it was saved from
 
 
 @dataclass(frozen=True, slots=True)
@@ -168,6 +171,7 @@ class ItemFilter:
     reviewed: bool | None = None
     archived: bool = False
     query: str | None = None
+    folder_id: int | None = None
     limit: int = 50
     offset: int = 0
 
@@ -184,6 +188,40 @@ class StashSummary:
     total: int  # active
     archived: int
     by_type: dict[str, int]
+
+
+@dataclass(frozen=True, slots=True)
+class StashFolder:
+    id: int
+    name: str
+    position: int
+    count: int = 0  # active (not archived) items in it
+
+
+@dataclass(frozen=True, slots=True)
+class SmartList:
+    """A saved stash search, shown in the sidebar."""
+
+    id: int
+    name: str
+    position: int
+    query: str | None
+    type: str | None
+    tag: str | None
+    folder_id: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class StashRule:
+    """When a new stash item matches `field` and `value`, tag it, file it, mark it reviewed and/or archive it."""
+
+    id: int
+    field: str  # domain | url | title | text | feed | type
+    value: str
+    add_tag: str | None
+    folder_id: int | None
+    mark_reviewed: bool
+    archive: bool
 
 
 @dataclass(frozen=True, slots=True)

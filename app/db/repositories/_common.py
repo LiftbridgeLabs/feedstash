@@ -15,8 +15,13 @@ def clean_name(value: str | None, what: str) -> str:
     return name[:MAX_NAME_LENGTH]
 
 
-def next_position(conn: sqlite3.Connection, table: Literal["folders", "feeds"], where: str, params: Sequence) -> int:
-    """Position for an item appended to the end of the folder list, or of one folder's feeds."""
+def next_position(
+    conn: sqlite3.Connection,
+    table: Literal["folders", "feeds", "stash_folders", "smart_lists", "stash_rules"],
+    where: str,
+    params: Sequence,
+) -> int:
+    """Position for a row appended to the end of an ordered list (folders, one folder's feeds, stash folders...)."""
     return conn.execute(f"SELECT COALESCE(MAX(position) + 1, 0) FROM {table} WHERE {where}", list(params)).fetchone()[0]
 
 

@@ -12,6 +12,7 @@ from app.db.repositories import articles as articles_repo
 from app.db.repositories import feeds as feeds_repo
 from app.feeds.fetcher import Fetcher, FetchError, FetchResult, create_client
 from app.feeds.parser import ParsedFeed
+from app.feeds.to_stash import stash_article
 from app.text import html_to_text
 
 log = logging.getLogger("reader.ingest")
@@ -27,6 +28,8 @@ def save_entries(
 
     Entries older than the retention window are only accepted on a feed's first fetch; afterwards
     they would just bring back articles the cleanup already removed. Undated entries count as `now`.
+    On a feed set to auto-save, new articles also go to the stash, except on a first fetch (a whole
+    backlog arriving at once).
     """
     cutoff = now - retention_days * DAY_SECONDS
     fresh = []
@@ -39,7 +42,21 @@ def save_entries(
             content=entry.content, image=entry.image, published_at=published_at,
             search_text=html_to_text(entry.content or entry.summary),
         ))
-    return articles_repo.insert_new(conn, feed_id, fresh, fetched_at=now)
+    added_ids: list[int] = []
+    added = articles_repo.insert_new(conn, feed_id, fresh, fetched_at=now, added_ids=added_ids)
+    if added_ids and not first_fetch:
+        _auto_stash(conn, feed_id, added_ids, now=now)
+    return added
+
+
+def _auto_stash(conn: sqlite3.Connection, feed_id: int, article_ids: list[int], *, now: int) -> None:
+    """New articles of a feed set to auto-save go to its owner's stash, and are marked read in the feed."""
+    user_id = feeds_repo.auto_stash_owner(conn, feed_id)
+    if user_id is None:
+        return
+    for article_id in article_ids:
+        stash_article(conn, user_id, articles_repo.get(conn, user_id, article_id), now=now)
+    articles_repo.set_read(conn, user_id, article_ids, read=True, now=now)
 
 
 def store_result(db: Database, feed: FeedFetchState, result: FetchResult, *, retention_days: int) -> int:

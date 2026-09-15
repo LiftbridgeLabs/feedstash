@@ -6,8 +6,11 @@ import { icon } from './icons.js';
 import { closeMenus, openContextMenu } from './menus.js';
 import { reorderFeeds, reorderFolders } from './ordering.js';
 import { navigate } from './router.js';
-import { captureDialog } from './stash.js';
-import { els, feedById, feedIdsIn, scopeTitle, STASH_VIEWS, state, sumUnread, unreadFor } from './state.js';
+import { captureDialog, ITEM_DRAG, moveItemToFolder } from './stash.js';
+import { newStashFolder } from './stashlists.js';
+import {
+  els, feedById, feedIdsIn, scopeTitle, stashFolderById, STASH_VIEWS, state, stashViewRef, sumUnread, unreadFor,
+} from './state.js';
 import { $, $$, esc, favicon, saveJSON } from './util.js';
 
 /** Loads everything the sidebar shows: feeds and folders, plus stash counts and tags. */
@@ -86,20 +89,36 @@ export function renderNav() {
   }
 
   const stash = state.stash.summary;
-  // Type and tag views are filters inside the stash, so "Everything saved" stays highlighted for them.
+  // Type and tag views are filters inside the stash, so "Everything saved" stays highlighted for them; a folder
+  // or smart list is a place of its own.
+  const elsewhere = stashViewRef(id).kind !== null;
   const stashActive = (view) => (scope === 'stash'
-    && (id === view || (view === 'all' && id !== 'inbox' && id !== 'archived')) ? 'active' : '');
+    && (id === view || (view === 'all' && !elsewhere && id !== 'inbox' && id !== 'archived')) ? 'active' : '');
   const stashRow = (view, iconName, n) => `
     <div class="nav-row ${stashActive(view)} ${n ? '' : 'zero'}" role="link" tabindex="0" data-href="#/stash/${view}">
       <span class="nav-icon">${icon(iconName)}</span><span class="nav-label">${esc(STASH_VIEWS[view])}</span>${count(n)}
     </div>`;
+  const stashFolderRow = (folder) => `
+    <div class="nav-row ${stashActive(`folder:${folder.id}`)} ${folder.count ? '' : 'zero'}" role="link" tabindex="0"
+         data-href="#/stash/folder/${folder.id}" data-stash-folder="${folder.id}">
+      <span class="nav-icon">${icon('folder')}</span><span class="nav-label">${esc(folder.name)}</span>${count(folder.count)}
+      <button class="icon-btn more" data-menu="stash-folder" data-id="${folder.id}" title="Folder options">${icon('more')}</button>
+    </div>`;
+  const smartListRow = (list) => `
+    <div class="nav-row ${stashActive(`list:${list.id}`)}" role="link" tabindex="0" data-href="#/stash/list/${list.id}">
+      <span class="nav-icon">${icon('search')}</span><span class="nav-label">${esc(list.name)}</span>
+      <button class="icon-btn more" data-menu="smart-list" data-id="${list.id}" title="Smart list options">${icon('more')}</button>
+    </div>`;
   html += `
     <div class="nav-section"><span>Stash</span>
+      <button class="icon-btn" data-action="new-stash-folder" title="New stash folder">${icon('folder')}</button>
       <button class="icon-btn" data-action="capture" title="Save something (c)">${icon('plus')}</button>
     </div>
     ${stashRow('inbox', 'inbox', stash.inbox)}
     ${stashRow('all', 'layers', stash.total)}
-    ${stashRow('archived', 'archive', stash.archived)}`;
+    ${stashRow('archived', 'archive', stash.archived)}
+    ${(stash.folders || []).map(stashFolderRow).join('')}
+    ${(stash.lists || []).map(smartListRow).join('')}`;
 
   els.nav.innerHTML = html;
   $('[data-route="organize"]').classList.toggle('active', scope === 'organize');
@@ -122,6 +141,9 @@ function headerCount(scope, id) {
     if (id === 'inbox') return `${summary.inbox} to review`;
     if (id === 'archived') return `${summary.archived} archived`;
     if (id === 'all') return `${summary.total} saved`;
+    const ref = stashViewRef(id);
+    if (ref.kind === 'folder') return `${stashFolderById(ref.id)?.count ?? 0} saved`;
+    if (ref.kind === 'list') return 'Smart list';
     return summary.by_type[id] != null ? `${summary.by_type[id]} saved` : '';
   }
   const n = unreadFor(scope, id);
@@ -142,6 +164,7 @@ export function wireNav() {
     const more = e.target.closest('[data-menu]');
     if (more) return openContextMenu(more.dataset.menu, Number(more.dataset.id), more);
     if (e.target.closest('[data-action="new-folder"]')) return newFolder();
+    if (e.target.closest('[data-action="new-stash-folder"]')) return newStashFolder();
     if (e.target.closest('[data-action="capture"]')) return captureDialog();
     if (e.target.closest('a[href]')) return;
     const row = e.target.closest('[data-href]');
@@ -155,6 +178,28 @@ export function wireNav() {
     }
   });
   wireDragAndDrop();
+  wireItemDrop();
+}
+
+/* Dragging a saved item from the stash onto a folder in the sidebar files it there. Registered after the nav's
+   own drag handling, which clears drop marks for drags it doesn't recognize. */
+function wireItemDrop() {
+  const target = (e) => (e.dataTransfer.types.includes(ITEM_DRAG) ? e.target.closest('[data-stash-folder]') : null);
+  els.nav.addEventListener('dragover', (e) => {
+    const row = target(e);
+    if (!row) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    row.classList.add('drop-target');
+  });
+  els.nav.addEventListener('dragleave', (e) => target(e)?.classList.remove('drop-target'));
+  els.nav.addEventListener('drop', (e) => {
+    const row = target(e);
+    if (!row) return;
+    e.preventDefault();
+    row.classList.remove('drop-target');
+    moveItemToFolder(Number(e.dataTransfer.getData(ITEM_DRAG)), Number(row.dataset.stashFolder));
+  });
 }
 
 /* Drag and drop: reorder folders, reorder feeds, or drop a feed on a folder header to move it there. */

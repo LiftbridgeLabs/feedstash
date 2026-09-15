@@ -131,6 +131,7 @@ def test_summary_counts_inbox_types_and_archive(api):
     api.patch(f"/api/items/{link['id']}", json={"archived": True})
     assert api.get("/api/stash/summary").json() == {
         "inbox": 1, "total": 2, "archived": 1, "by_type": {"link": 0, "snippet": 2, "screenshot": 0, "email": 0},
+        "folders": [], "lists": [],
     }
 
 

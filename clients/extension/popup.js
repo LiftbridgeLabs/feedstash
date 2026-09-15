@@ -43,7 +43,10 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
 
   try {
     if (currentType === 'link') {
-      await saveItem({ type: 'link', url: document.getElementById('urlInput').value, title, tags });
+      const url = document.getElementById('urlInput').value;
+      // Only the page that's open can be read, so only send it when the address is still that page's.
+      const html = url === activeTab?.url ? await pageHtml(activeTab.id) : undefined;
+      await saveItem({ type: 'link', url, title, tags, pageHtml: html });
     } else if (currentType === 'snippet') {
       await saveItem({
         type: 'snippet',

@@ -171,6 +171,45 @@ MIGRATIONS: list[str] = [
         DELETE FROM articles_fts WHERE rowid = old.id;
     END;
     """,
+    # 8: organizing the stash: folders (an item is in at most one), smart lists (saved searches), rules applied to
+    #    new items, the feed an item came from, and feeds whose new articles go straight to the stash
+    """
+    CREATE TABLE stash_folders (
+        id        INTEGER PRIMARY KEY,
+        user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name      TEXT NOT NULL,
+        position  INTEGER NOT NULL DEFAULT 0,
+        UNIQUE (user_id, name)
+    );
+    ALTER TABLE items ADD COLUMN folder_id INTEGER REFERENCES stash_folders(id) ON DELETE SET NULL;
+    ALTER TABLE items ADD COLUMN feed_id INTEGER REFERENCES feeds(id) ON DELETE SET NULL;
+    CREATE INDEX idx_items_folder ON items(folder_id);
+    CREATE INDEX idx_items_feed ON items(feed_id);
+    CREATE TABLE smart_lists (
+        id         INTEGER PRIMARY KEY,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name       TEXT NOT NULL,
+        position   INTEGER NOT NULL DEFAULT 0,
+        query      TEXT,
+        type       TEXT,
+        tag        TEXT,
+        folder_id  INTEGER REFERENCES stash_folders(id) ON DELETE CASCADE,
+        UNIQUE (user_id, name)
+    );
+    CREATE TABLE stash_rules (
+        id             INTEGER PRIMARY KEY,
+        user_id        INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        position       INTEGER NOT NULL DEFAULT 0,
+        field          TEXT NOT NULL,
+        value          TEXT NOT NULL,
+        add_tag        TEXT,
+        folder_id      INTEGER REFERENCES stash_folders(id) ON DELETE SET NULL,
+        mark_reviewed  INTEGER NOT NULL DEFAULT 0,
+        archive        INTEGER NOT NULL DEFAULT 0,
+        created_at     INTEGER NOT NULL
+    );
+    ALTER TABLE feeds ADD COLUMN auto_stash INTEGER NOT NULL DEFAULT 0;
+    """,
 ]
 
 

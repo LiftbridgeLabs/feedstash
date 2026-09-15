@@ -1,5 +1,5 @@
 /* Keyboard shortcuts.
-   Anywhere: c capture, Esc close.
+   Anywhere: c capture, / search, Esc close.
    Articles: j/k open next/previous, n/p select, o/Enter toggle, v original, m read, s read later, b save to stash,
              r refresh, A mark all read. */
 
@@ -9,6 +9,7 @@ import {
   toggleStar,
 } from './articles.js';
 import { closeMenus } from './menus.js';
+import { focusSearch } from './search.js';
 import { captureDialog, closeStashItem, stashArticle } from './stash.js';
 import { ARTICLE_SCOPES, state } from './state.js';
 import { $ } from './util.js';
@@ -49,6 +50,11 @@ export function wireKeyboard() {
     if (e.key === 'c') {
       e.preventDefault();
       captureDialog();
+      return;
+    }
+    if (e.key === '/') {
+      e.preventDefault();
+      focusSearch();
       return;
     }
     if (!ARTICLE_SCOPES.has(state.route.scope)) return;

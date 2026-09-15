@@ -4,8 +4,10 @@ import { api } from './api.js';
 import { modal, toast } from './dialogs.js';
 import { icon } from './icons.js';
 import { importSectionHTML, renderImportPlan, wireImport } from './importlinks.js';
+import { loadRules, rulesSectionHTML, wireRules } from './rules.js';
 import { els } from './state.js';
-import { $, agoLong, esc, fullDate } from './util.js';
+import { MODES, SCHEMES, setTheme, theme } from './theme.js';
+import { $, $$, agoLong, esc, fullDate } from './util.js';
 
 const timestamp = (iso) => Math.floor(Date.parse(iso) / 1000);
 const SIGN_IN_LABELS = { password: 'Password', google: 'Google', oidc: 'Single sign-on', dev: 'Local dev login' };
@@ -27,6 +29,20 @@ export function showSettings() {
     <h3>Your account</h3>
     <div data-account><p class="muted">Loading…</p></div>
 
+    <h3>Appearance</h3>
+    <div class="setting-row">
+      <label for="theme-mode">Theme</label>
+      <select id="theme-mode" data-settings-field="theme-mode">
+        ${MODES.map(([value, label]) => `<option value="${value}" ${value === theme.mode ? 'selected' : ''}>${label}</option>`).join('')}
+      </select>
+      <p class="muted">“Match my system” follows your device's light or dark setting. Appearance is kept in this
+        browser, so each device can look the way you like.</p>
+    </div>
+    <div class="setting-row">
+      <span class="field-label">Colors</span>
+      <div class="swatches" data-schemes>${schemeButtons()}</div>
+    </div>
+
     <div data-accounts-section hidden>
       <h3>Accounts</h3>
       <div class="org-head">
@@ -40,6 +56,8 @@ export function showSettings() {
     </div>
 
     ${importSectionHTML()}
+
+    ${rulesSectionHTML()}
 
     <h3>Connected apps</h3>
     <div class="org-head">
@@ -66,7 +84,24 @@ export function showSettings() {
     </div>`;
   renderImportPlan(els.settings); // files chosen before leaving Settings are still listed
   loadAccount();
+  loadRules(els.settings);
   loadTokens();
+}
+
+/* ---- appearance */
+
+function schemeButtons() {
+  return SCHEMES.map(([id, label, color]) => `
+    <button type="button" class="swatch ${id === theme.scheme ? 'active' : ''}" data-scheme="${id}">
+      <span style="background: ${color}"></span>${esc(label)}
+    </button>`).join('');
+}
+
+function chooseScheme(scheme) {
+  setTheme({ scheme });
+  $$('[data-schemes] .swatch', els.settings).forEach((button) => {
+    button.classList.toggle('active', button.dataset.scheme === scheme);
+  });
 }
 
 /* ---- your account */
@@ -278,12 +313,16 @@ async function saveReadRetention(select) {
 
 export function wireSettings() {
   wireImport(els.settings);
+  wireRules(els.settings);
   els.settings.addEventListener('change', (e) => {
     if (e.target.matches('[data-settings-field=read-retention]')) saveReadRetention(e.target);
+    if (e.target.matches('[data-settings-field=theme-mode]')) setTheme({ mode: e.target.value });
   });
   els.settings.addEventListener('click', (e) => {
     const copy = e.target.closest('[data-copy]');
     if (copy) return copyFrom(copy);
+    const swatch = e.target.closest('.swatch[data-scheme]'); // <html> carries data-scheme too
+    if (swatch) return chooseScheme(swatch.dataset.scheme);
     const button = e.target.closest('[data-settings]');
     if (!button) return;
     const { id, name } = button.dataset;

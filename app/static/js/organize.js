@@ -20,7 +20,8 @@ export function renderOrganize() {
     const inFolder = feeds.filter((x) => x.folder_id === f.id);
     return `<tr>
       <td class="order">${orderButtons('folder', f.id, i, folders.length)}</td>
-      <td><input type="text" value="${esc(f.name)}" data-folder-name="${f.id}" aria-label="Folder name" maxlength="200"></td>
+      <td><input type="text" value="${esc(f.name)}" data-folder-name="${f.id}" aria-label="Folder name" maxlength="200"
+        autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other"></td>
       <td class="num">${inFolder.length}</td>
       <td class="num">${sumUnread(inFolder)}</td>
       <td class="row-actions"><button class="icon-btn" data-org="delete-folder" data-id="${f.id}" title="Delete folder">${icon('trash')}</button></td>
@@ -40,9 +41,14 @@ export function renderOrganize() {
     return `<tr data-search="${esc(`${f.title} ${f.url}`.toLowerCase())}">
       <td class="order" ${alone}>${orderButtons('feed', f.id, siblings.indexOf(f.id), siblings.length)}</td>
       <td><div class="feed-cell"><img src="${esc(favicon(f))}" alt="" loading="lazy">
-        <div class="grow"><input type="text" value="${esc(f.title)}" data-feed-title="${f.id}" aria-label="Feed name" maxlength="200">
-        <input type="text" class="url" value="${esc(f.url)}" data-feed-url="${f.id}" aria-label="Feed address" title="Edit the feed's address (it's checked before it's saved)" spellcheck="false"></div></div></td>
+        <div class="grow"><input type="text" value="${esc(f.title)}" data-feed-title="${f.id}" aria-label="Feed name" maxlength="200"
+          autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other">
+        <input type="url" class="url" value="${esc(f.url)}" data-feed-url="${f.id}" aria-label="Feed address"
+          title="Edit the feed's address (it's checked before it's saved)" spellcheck="false" inputmode="url"
+          autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other"></div></div></td>
       <td><select data-feed-folder="${f.id}" aria-label="Folder">${folderOptions(f.folder_id)}</select></td>
+      <td class="check-cell"><label class="check" title="New articles go straight to your stash, and are marked read here">
+        <input type="checkbox" data-feed-autostash="${f.id}" ${f.auto_stash ? 'checked' : ''}><span class="hide-sm">Auto-save</span></label></td>
       <td>${status}</td>
       <td class="num">${f.unread}</td>
       <td class="row-actions"><button class="btn btn-sm" data-org="unfollow" data-id="${f.id}">Unfollow</button></td>
@@ -52,8 +58,8 @@ export function renderOrganize() {
   els.organize.innerHTML = `
     <div class="org-head">
       <p class="muted">Names save when you leave the field. Reorder with the arrows, or drag folders and feeds in the
-        sidebar. To bring feeds in from Feedly or an OPML file, or export yours, use
-        <a href="#/settings">Settings → Import &amp; export</a>.</p>
+        sidebar. Tick <b>Auto-save</b> to send a feed's new articles straight to your stash. To bring feeds in from
+        Feedly or an OPML file, or export yours, use <a href="#/settings">Settings → Import &amp; export</a>.</p>
       <div class="org-actions">
         <button class="btn btn-sm" data-org="add-feed">${icon('plus')}Follow feed</button>
         <button class="btn btn-sm" data-org="new-folder">${icon('folder')}New folder</button>
@@ -69,7 +75,7 @@ export function renderOrganize() {
     <h3>Feeds (${feeds.length})</h3>
     ${feeds.length ? `<input type="search" class="org-filter" placeholder="Filter feeds…" value="${esc(state.orgFilter)}" data-org-filter>
       <div class="table-wrap"><table class="org-table">
-      <thead><tr><th></th><th>Name</th><th>Folder</th><th>Status</th><th class="num">Unread</th><th></th></tr></thead>
+      <thead><tr><th></th><th>Name</th><th>Folder</th><th>To stash</th><th>Status</th><th class="num">Unread</th><th></th></tr></thead>
       <tbody data-feed-rows>${feedRows}</tbody></table></div>` : '<p class="muted">No feeds yet.</p>'}`;
   applyOrgFilter();
 }
@@ -132,8 +138,8 @@ export function wireOrganize() {
   });
 
   org.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && e.target.matches('input[type=text]')) e.target.blur();
-    if (e.key === 'Escape' && e.target.matches('input[type=text]')) {
+    if (e.key === 'Enter' && e.target.matches('input[type=text], input[type=url]')) e.target.blur();
+    if (e.key === 'Escape' && e.target.matches('input[type=text], input[type=url]')) {
       e.target.value = e.target.defaultValue;
       e.target.blur();
     }
@@ -169,6 +175,12 @@ export function wireOrganize() {
         await loadTree();
         renderOrganize();
         toast('Feed address updated');
+      } else if (t.matches('[data-feed-autostash]')) {
+        await api('PATCH', `/api/feeds/${t.dataset.feedAutostash}`, { auto_stash: t.checked });
+        await loadTree();
+        toast(t.checked
+          ? 'New articles from this feed will go straight to your stash'
+          : 'New articles from this feed stay in the feed');
       } else if (t.matches('[data-feed-folder]')) {
         await api('PATCH', `/api/feeds/${t.dataset.feedFolder}`, { folder_id: t.value ? Number(t.value) : null });
         await loadTree();
@@ -176,7 +188,8 @@ export function wireOrganize() {
         toast('Feed moved');
       }
     } catch (err) {
-      if ('defaultValue' in t && t.type === 'text') t.value = t.defaultValue;
+      if (t.type === 'checkbox') t.checked = !t.checked;
+      if ('defaultValue' in t && (t.type === 'text' || t.type === 'url')) t.value = t.defaultValue;
       toast(err.message, { error: true });
       if (t.matches('select')) renderOrganize();
     }

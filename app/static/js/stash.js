@@ -7,11 +7,14 @@ import { collectLinks, linkRowsHTML, wireLinkRows } from './links.js';
 import { navigate } from './router.js';
 import { sanitize } from './sanitize.js';
 import { renderHeader, renderNav } from './sidebar.js';
-import { els, ITEM_TYPES, STASH_VIEWS, state } from './state.js';
+import { editSmartList, saveCurrentAsSmartList } from './stashlists.js';
+import { els, ITEM_TYPES, smartListById, stashFolderById, STASH_VIEWS, state, stashViewRef } from './state.js';
 import { $, $$, ago, esc, fullDate } from './util.js';
 
 const PAGE_SIZE = 50;
-const TYPE_LABELS = { link: 'Link', snippet: 'Snippet', screenshot: 'Screenshot', email: 'Email' };
+/** Drag type for moving a saved item onto a folder in the sidebar. */
+export const ITEM_DRAG = 'application/x-feedstash-item';
+export const TYPE_LABELS = { link: 'Link', snippet: 'Snippet', screenshot: 'Screenshot', email: 'Email' };
 const TYPE_ICONS = { link: 'external', snippet: 'text', screenshot: 'image', email: 'mail' };
 
 const timestamp = (iso) => Math.floor(Date.parse(iso) / 1000);
@@ -33,12 +36,30 @@ function hostOf(url) {
 
 function viewQuery(view) {
   const params = new URLSearchParams({ limit: PAGE_SIZE });
+  const ref = stashViewRef(view);
+  const words = [];
   if (view === 'inbox') params.set('reviewed', 'false');
   else if (view === 'archived') params.set('archived', 'true');
   else if (view.startsWith('tag:')) params.set('tag', view.slice(4));
-  else if (ITEM_TYPES.includes(view)) params.set('type', view);
-  if (state.stash.query) params.set('q', state.stash.query);
+  else if (ref.kind === 'folder') params.set('folder', ref.id);
+  else if (ref.kind === 'list') {
+    const list = smartListById(ref.id);
+    if (list?.query) words.push(list.query);
+    if (list?.type) params.set('type', list.type);
+    if (list?.tag) params.set('tag', list.tag);
+    if (list?.folderId) params.set('folder', list.folderId);
+  } else if (ITEM_TYPES.includes(view)) params.set('type', view);
+  if (state.stash.query) words.push(state.stash.query);
+  if (words.length) params.set('q', words.join(' '));
   return params;
+}
+
+/** The folders to choose from, for the pickers in the dialogs and the open item. */
+export function folderOptionsHTML(selected) {
+  const options = (state.stash.summary.folders || [])
+    .map((f) => `<option value="${f.id}" ${f.id === selected ? 'selected' : ''}>${esc(f.name)}</option>`)
+    .join('');
+  return `<option value="" ${selected ? '' : 'selected'}>No folder</option>${options}`;
 }
 
 /** Whether an item still belongs in the view after a change (reviewing removes it from the Inbox, etc.). */
@@ -47,6 +68,16 @@ function belongsInView(item, view) {
   if (item.archived) return false;
   if (view === 'inbox') return !item.reviewed;
   if (view.startsWith('tag:')) return item.tags.includes(view.slice(4));
+  const ref = stashViewRef(view);
+  if (ref.kind === 'folder') return item.folderId === ref.id;
+  if (ref.kind === 'list') {
+    const list = smartListById(ref.id);
+    if (!list) return true;
+    if (list.type && item.type !== list.type) return false;
+    if (list.tag && !item.tags.includes(list.tag)) return false;
+    if (list.folderId && item.folderId !== list.folderId) return false;
+    return true; // the words themselves are matched by the server
+  }
   if (ITEM_TYPES.includes(view)) return item.type === view;
   return true;
 }
@@ -58,13 +89,35 @@ export function showStash() {
   state.stash.openId = null;
   els.stash.innerHTML = `
     <div class="stash-head">
-      <input type="search" class="stash-search" placeholder="Search your stash, including saved pages…" value="${esc(state.stash.query)}"
-             data-stash-search aria-label="Search your stash">
       <div class="tag-chips" data-type-chips>${typeChips(view)}</div>
       <div class="tag-chips" data-tag-chips>${tagChips(view)}</div>
+      <div class="stash-tools" data-stash-tools>${toolsHTML(view)}</div>
     </div>
     <div class="articles stash-list" data-stash-items></div>
     <div class="list-end" data-stash-end></div>`;
+  reloadItems();
+}
+
+/** Keeping a search or filter: turn it into a smart list. A smart list itself can be edited. */
+function toolsHTML(view) {
+  if (stashViewRef(view).kind === 'list') {
+    return `<button type="button" class="btn btn-sm" data-stash-action="edit-list">${icon('sliders')}Edit smart list</button>`;
+  }
+  const filtered = Boolean(state.stash.query) || view.startsWith('tag:') || ITEM_TYPES.includes(view)
+    || stashViewRef(view).kind === 'folder';
+  return filtered
+    ? `<button type="button" class="btn btn-sm" data-stash-action="save-list">${icon('search')}Save as smart list</button>`
+    : '';
+}
+
+export function renderStashTools() {
+  const tools = $('[data-stash-tools]', els.stash);
+  if (tools) tools.innerHTML = toolsHTML(state.route.id);
+}
+
+/** Runs the toolbar search again over the stash. */
+export function searchStash() {
+  renderStashTools();
   reloadItems();
 }
 
@@ -160,8 +213,9 @@ function renderEnd() {
 function itemHTML(item) {
   const ts = timestamp(item.createdAt);
   const host = hostOf(item.url);
+  const folder = item.folderId ? stashFolderById(item.folderId) : null;
   return `
-    <article class="item stash-item ${item.reviewed ? 'read' : ''}" data-id="${item.id}">
+    <article class="item stash-item ${item.reviewed ? 'read' : ''}" data-id="${item.id}" draggable="true">
       <div class="item-row" data-stash-action="open">
         ${item.imagePath || item.preview?.image ? `<img class="thumb" src="${esc(item.imagePath || item.preview.image)}" alt="" loading="lazy">` : ''}
         <div class="item-main">
@@ -169,6 +223,7 @@ function itemHTML(item) {
           <div class="item-meta">
             <span class="type-badge">${icon(TYPE_ICONS[item.type])}${TYPE_LABELS[item.type]}</span>
             ${host ? `<span class="dot">·</span><span class="feed-name">${esc(host)}</span>` : ''}
+            ${folder ? `<span class="dot">·</span><span class="folder-name">${icon('folder')}${esc(folder.name)}</span>` : ''}
             ${item.links.length > 1 ? `<span class="dot">·</span><span class="link-count">${item.links.length} links</span>` : ''}
             <span class="dot">·</span><span class="age" title="${esc(fullDate(ts))}">${ago(ts)}</span>
             <span class="dot">·</span><span class="source">via ${esc(item.source)}</span>
@@ -213,6 +268,8 @@ function readerHTML(item) {
       <button class="btn btn-sm" data-stash-action="review">${icon(item.reviewed ? 'inbox' : 'check')}${item.reviewed ? 'Back to Inbox' : 'Mark reviewed'}</button>
       <button class="btn btn-sm" data-stash-action="archive">${icon('archive')}${item.archived ? 'Unarchive' : 'Archive'}</button>
       ${link ? `<a class="btn btn-sm" href="${esc(link)}" target="_blank" rel="noopener noreferrer">${icon('external')}Open link</a>` : ''}
+      <label class="folder-pick">${icon('folder')}
+        <select data-item-folder aria-label="Folder">${folderOptionsHTML(item.folderId)}</select></label>
       <button class="btn btn-sm" data-stash-action="edit">${icon('text')}Edit</button>
       <button class="btn btn-sm" data-stash-action="delete">${icon('trash')}Delete</button>
       <button class="btn btn-sm" data-stash-action="close">${icon('x')}Close</button>
@@ -253,11 +310,16 @@ async function loadSavedPage(item) {
   if (!box || !page) return;
   const again = (label) => `<button type="button" class="btn btn-sm" data-stash-action="refetch">${icon('refresh')}${label}</button>`;
   if (isSaving(item)) {
-    box.innerHTML = `<p class="muted">${page.error ? `Couldn't save a copy of this page yet (${esc(page.error)}); trying again soon.` : 'Saving a copy of this page…'}</p>`;
+    box.innerHTML = page.error
+      ? `<p class="muted">Couldn't save a copy of this page yet (${esc(page.error)}); trying again soon. ${again('Try now')}</p>`
+      : '<p class="muted">Saving a copy of this page…</p>';
     return;
   }
   if (!page.hasCopy) {
-    if (page.status === 'failed') box.innerHTML = `<p class="muted">Couldn't save a copy of this page: ${esc(page.error || 'unknown error')}. ${again('Try again')}</p>`;
+    // A site that turns the server away will do it again; the browser extension sends the page it can see.
+    const blocked = /blocked/i.test(page.error || '')
+      ? ' Saving this page from the FeedStash browser extension keeps a copy of what you see.' : '';
+    if (page.status === 'failed') box.innerHTML = `<p class="muted">Couldn't save a copy of this page: ${esc(page.error || 'unknown error')}.${esc(blocked)} ${again('Try again')}</p>`;
     else if (page.status === 'skipped') box.innerHTML = `<p class="muted">No copy saved: ${esc(page.error || 'not a web page')}.</p>`;
     else box.innerHTML = '';
     return;
@@ -353,6 +415,7 @@ export async function refreshStashCounts() {
   renderNav();
   renderHeader();
   if (state.route.scope !== 'stash') return;
+  renderStashTools();
   const types = $('[data-type-chips]', els.stash);
   if (types) types.innerHTML = typeChips(state.route.id);
   const chips = $('[data-tag-chips]', els.stash);
@@ -390,6 +453,17 @@ const toggleArchived = (item) => changeItem(item, { archived: !item.archived }, 
   undo: { archived: item.archived },
 });
 
+/** Files an item in a stash folder, or takes it out of one (folderId null). */
+export function moveItemToFolder(itemId, folderId) {
+  const item = state.stash.items?.byId.get(itemId);
+  if (!item || (item.folderId ?? null) === (folderId ?? null)) return;
+  const name = folderId ? stashFolderById(folderId)?.name : null;
+  return changeItem(item, { folderId: folderId ?? null }, {
+    message: name ? `Filed in ${name}` : 'Taken out of its folder',
+    undo: { folderId: item.folderId ?? null },
+  });
+}
+
 async function editItem(item) {
   let dialogEl = null;
   const updated = await modal({
@@ -399,7 +473,8 @@ async function editItem(item) {
       <label>Title<input type="text" name="title" value="${esc(item.title || '')}" maxlength="1000" autocomplete="off"></label>
       <label>Notes<textarea name="content" rows="4">${esc(item.content || '')}</textarea></label>
       <div class="field-group"><span class="field-label">Links <small>(the first is the primary link)</small></span>${linkRowsHTML(item.links)}</div>
-      <label><span>Tags <small>(separate with commas)</small></span><input type="text" name="tags" value="${esc(item.tags.join(', '))}" placeholder="reading, later" autocomplete="off"></label>`,
+      <label><span>Tags <small>(separate with commas)</small></span><input type="text" name="tags" value="${esc(item.tags.join(', '))}" placeholder="reading, later" autocomplete="off"></label>
+      <label>Folder<select name="folder">${folderOptionsHTML(item.folderId)}</select></label>`,
     onOpen: (dialog) => {
       dialogEl = dialog;
       wireLinkRows(dialog);
@@ -409,6 +484,7 @@ async function editItem(item) {
       content: fd.get('content') || null,
       links: collectLinks(dialogEl),
       tags: fd.get('tags') || '',
+      folderId: fd.get('folder') ? Number(fd.get('folder')) : null,
     }),
   });
   if (!updated || updated === true) return;
@@ -457,7 +533,8 @@ export async function captureDialog({ type = 'link' } = {}) {
         <img class="capture-preview" alt="" hidden>
       </div>
       <label>Title (optional)<input type="text" name="title" maxlength="1000" autocomplete="off"></label>
-      <label>Tags (optional)<input type="text" name="tags" placeholder="reading, later" autocomplete="off"></label>`,
+      <label>Tags (optional)<input type="text" name="tags" placeholder="reading, later" autocomplete="off"></label>
+      <label>Folder<select name="folder">${folderOptionsHTML(stashViewRef(state.route.id).kind === 'folder' ? stashViewRef(state.route.id).id : null)}</select></label>`,
     onOpen: (dialog) => {
       dialogEl = dialog;
       wireLinkRows(dialog);
@@ -499,6 +576,7 @@ export async function captureDialog({ type = 'link' } = {}) {
         const value = (fd.get(key) || '').trim();
         if (value) body.set(key, value);
       }
+      if (fd.get('folder')) body.set('folderId', fd.get('folder'));
       const links = collectLinks(dialogEl);
       if (kind === 'link') {
         if (!links.length) throw new Error('Enter a URL');
@@ -557,6 +635,8 @@ export function wireStash() {
     if (!action) return;
     if (action === 'more') return loadMoreItems();
     if (action === 'capture') return captureDialog();
+    if (action === 'save-list') return saveCurrentAsSmartList();
+    if (action === 'edit-list') return editSmartList(stashViewRef(state.route.id).id);
     const item = state.stash.items?.byId.get(Number(e.target.closest('.item')?.dataset.id));
     if (!item) return;
     switch (action) {
@@ -570,14 +650,19 @@ export function wireStash() {
     }
   });
 
-  let searchTimer = null;
-  els.stash.addEventListener('input', (e) => {
-    if (!e.target.matches('[data-stash-search]')) return;
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => {
-      state.stash.query = e.target.value.trim();
-      reloadItems();
-    }, 300);
+  els.stash.addEventListener('change', (e) => {
+    if (!e.target.matches('[data-item-folder]')) return;
+    const id = Number(e.target.closest('.item')?.dataset.id);
+    moveItemToFolder(id, e.target.value ? Number(e.target.value) : null);
+  });
+
+  // Items can be dragged onto a folder in the sidebar.
+  els.stash.addEventListener('dragstart', (e) => {
+    const el = e.target.closest('.stash-item');
+    if (!el) return;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData(ITEM_DRAG, el.dataset.id);
+    e.dataTransfer.setData('text/plain', ''); // Firefox won't start a drag without this
   });
 
   els.content.addEventListener('scroll', () => {

@@ -6,7 +6,7 @@ from typing import TypeVar
 from pydantic import BaseModel, Field
 
 from app.clock import iso
-from app.db.models import ApiToken, PagePreview, ScopeKind, StashItem, User
+from app.db.models import ApiToken, PagePreview, ScopeKind, SmartList, StashItem, StashRule, User
 
 
 # ------------------------------------------------------------------ responses
@@ -64,6 +64,7 @@ class FeedOut(BaseModel):
     last_fetched_at: int | None
     last_error: str | None
     unread: int
+    auto_stash: bool = False  # new articles go straight to the stash
 
 
 class TreeOut(BaseModel):
@@ -243,6 +244,7 @@ class FeedUpdateIn(BaseModel):
     title: str | None = None
     folder_id: int | None = None
     url: str | None = Field(default=None, max_length=4000)  # the feed's new address; fetched before it's accepted
+    auto_stash: bool | None = None  # send new articles straight to the stash
 
 
 class RefreshIn(BaseModel):
@@ -303,6 +305,8 @@ class StashItemOut(BaseModel):
     tags: list[str]
     links: list[LinkOut]
     preview: PagePreviewOut | None = None  # the web page behind `url`, once FeedStash has looked at it
+    folderId: int | None = None  # the stash folder it's in
+    feedId: int | None = None  # the feed it was saved from
 
     @classmethod
     def from_item(cls, item: StashItem) -> "StashItemOut":
@@ -313,7 +317,76 @@ class StashItemOut(BaseModel):
             updatedAt=iso(item.updated_at), tags=item.tags,
             links=[LinkOut(id=link.id, url=link.url, label=link.label) for link in item.links],
             preview=PagePreviewOut.from_preview(item.page) if item.page else None,
+            folderId=item.folder_id, feedId=item.feed_id,
         )
+
+
+class StashFolderOut(BaseModel):
+    id: int
+    name: str
+    position: int
+    count: int  # items in it that aren't archived
+
+
+class StashFolderIn(BaseModel):
+    name: str = Field(max_length=1000)
+
+
+class SmartListOut(BaseModel):
+    id: int
+    name: str
+    position: int
+    query: str | None
+    type: str | None
+    tag: str | None
+    folderId: int | None
+
+    @classmethod
+    def from_list(cls, smart_list: SmartList) -> "SmartListOut":
+        return cls(
+            id=smart_list.id, name=smart_list.name, position=smart_list.position, query=smart_list.query,
+            type=smart_list.type, tag=smart_list.tag, folderId=smart_list.folder_id,
+        )
+
+
+class SmartListIn(BaseModel):
+    """On PATCH, only the fields sent are changed."""
+
+    name: str | None = Field(default=None, max_length=1000)
+    query: str | None = Field(default=None, max_length=2000)
+    type: str | None = None
+    tag: str | None = Field(default=None, max_length=200)
+    folderId: int | None = None
+
+
+class StashRuleOut(BaseModel):
+    id: int
+    field: str  # domain | url | title | text | feed | type
+    value: str
+    addTag: str | None
+    folderId: int | None
+    markReviewed: bool
+    archive: bool
+
+    @classmethod
+    def from_rule(cls, rule: StashRule) -> "StashRuleOut":
+        return cls(
+            id=rule.id, field=rule.field, value=rule.value, addTag=rule.add_tag, folderId=rule.folder_id,
+            markReviewed=rule.mark_reviewed, archive=rule.archive,
+        )
+
+
+class StashRuleIn(BaseModel):
+    field: str
+    value: str | int
+    addTag: str | None = Field(default=None, max_length=200)
+    folderId: int | None = None
+    markReviewed: bool = False
+    archive: bool = False
+
+
+class ChangedOut(BaseModel):
+    changed: int
 
 
 class TagCountOut(BaseModel):
@@ -326,6 +399,8 @@ class StashSummaryOut(BaseModel):
     total: int
     archived: int
     by_type: dict[str, int]
+    folders: list[StashFolderOut] = Field(default_factory=list)
+    lists: list[SmartListOut] = Field(default_factory=list)  # smart lists
 
 
 class StashArticleOut(BaseModel):

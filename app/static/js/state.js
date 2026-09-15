@@ -42,8 +42,9 @@ export const state = {
   openId: null,
   activeId: null,
   orgFilter: '',
+  articleQuery: '', // the toolbar search, while you're in the feeds
   stash: {
-    summary: { inbox: 0, total: 0, archived: 0, by_type: {} },
+    summary: { inbox: 0, total: 0, archived: 0, by_type: {}, folders: [], lists: [] },
     tags: [],
     query: '',
     items: null, // the loaded item list for the current stash view
@@ -66,6 +67,13 @@ export function newList() {
 state.list = newList();
 
 export const feedById = (id) => state.tree.feeds.find((f) => f.id === id);
+export const stashFolderById = (id) => (state.stash.summary.folders || []).find((f) => f.id === id);
+export const smartListById = (id) => (state.stash.summary.lists || []).find((l) => l.id === id);
+/** A stash view id like "folder:3" or "list:7" split into its kind and number; both null for plain views. */
+export function stashViewRef(view) {
+  const match = /^(folder|list):(\d+)$/.exec(view || '');
+  return match ? { kind: match[1], id: Number(match[2]) } : { kind: null, id: null };
+}
 export const folderById = (id) => state.tree.folders.find((f) => f.id === id);
 export const sumUnread = (feeds) => feeds.reduce((n, f) => n + f.unread, 0);
 export const feedIdsIn = (folderId) => state.tree.feeds.filter((f) => (f.folder_id ?? null) === folderId).map((f) => f.id);
@@ -90,7 +98,13 @@ export function scopeTitle(scope, id) {
     case 'uncategorized': return 'Uncategorized';
     case 'organize': return 'Organize feeds';
     case 'settings': return 'Settings';
-    case 'stash': return id?.startsWith('tag:') ? `#${id.slice(4)}` : STASH_VIEWS[id] || 'Stash';
+    case 'stash': {
+      if (id?.startsWith('tag:')) return `#${id.slice(4)}`;
+      const ref = stashViewRef(id);
+      if (ref.kind === 'folder') return stashFolderById(ref.id)?.name || 'Folder';
+      if (ref.kind === 'list') return smartListById(ref.id)?.name || 'Smart list';
+      return STASH_VIEWS[id] || 'Stash';
+    }
     case 'folder': return folderById(id)?.name || 'Folder';
     case 'feed': return feedById(id)?.title || 'Feed';
     default: return 'All articles';

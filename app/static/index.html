@@ -6,6 +6,8 @@
   <title>FeedStash</title>
   <link rel="icon" href="/static/icon.svg">
   <link rel="apple-touch-icon" href="/static/icon-512.png">
+  <!-- Light or dark (and which color scheme) before the first paint, so the page never flashes the wrong one. -->
+  <script src="/static/js/theme-boot.js"></script>
   <link rel="stylesheet" href="/static/style.css">
   <script type="module" src="/static/js/main.js"></script>
 </head>
@@ -48,8 +50,9 @@
           <h1 id="view-title">All articles</h1>
           <span class="muted" id="view-count"></span>
         </div>
+        <input type="search" class="list-search" id="toolbar-search" placeholder="Search articles" aria-label="Search articles"
+               autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" hidden>
         <div class="actions" id="list-actions">
-          <input type="search" class="list-search" id="article-search" placeholder="Search articles" aria-label="Search articles">
           <button class="icon-btn" id="refresh-btn" title="Refresh (r)" data-icon="refresh"></button>
           <div class="dropdown">
             <button class="btn btn-sm" data-dropdown="mark-menu"><span data-icon="check"></span><span class="hide-sm">Mark as read</span><span data-icon="chevron-down"></span></button>

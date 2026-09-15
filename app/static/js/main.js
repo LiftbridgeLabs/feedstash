@@ -9,14 +9,17 @@ import { wireKeyboard } from './keyboard.js';
 import { applyLayout, openContextMenu, setPref, wireToolbar } from './menus.js';
 import { wireOrganize } from './organize.js';
 import { applyRoute } from './router.js';
+import { wireSearch } from './search.js';
 import { wireSettings } from './settings.js';
 import { loadTree, wireNav } from './sidebar.js';
 import { wireSidebarWidth } from './sidebarwidth.js';
 import { captureDialog, stashArticle, wireStash } from './stash.js';
 import { state } from './state.js';
+import { applyTheme } from './theme.js';
 import { $ } from './util.js';
 
 async function init() {
+  applyTheme();
   hydrateIcons();
   applyLayout();
   wireNav();
@@ -25,6 +28,7 @@ async function init() {
   wireList();
   wireOrganize();
   wireStash();
+  wireSearch();
   wireSettings();
   wireKeyboard();
   startAutoRefresh();

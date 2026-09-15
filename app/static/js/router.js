@@ -2,11 +2,13 @@
    home     #/  (All articles, or the stash Inbox when no feeds are followed)
    feeds    #/all  #/starred  #/uncategorized  #/folder/3  #/feed/7  #/organize
    stash    #/stash/inbox (all, link, snippet, screenshot, email, archived)  #/stash/tag/<name>
+            #/stash/folder/2 (a stash folder)  #/stash/list/5 (a smart list)
    other    #/settings */
 
 import { resetList } from './articles.js';
 import { closeMenus } from './menus.js';
 import { showOrganize } from './organize.js';
+import { syncSearchBox } from './search.js';
 import { showSettings } from './settings.js';
 import { renderHeader, renderNav } from './sidebar.js';
 import { showStash } from './stash.js';
@@ -26,6 +28,10 @@ function parseRoute() {
       try {
         return { scope, id: `tag:${decodeURIComponent(extra)}` };
       } catch { /* malformed escape: fall through to the inbox */ }
+    }
+    if ((rawId === 'folder' || rawId === 'list') && extra) {
+      const id = parseInt(extra, 10);
+      if (id > 0) return { scope, id: `${rawId}:${id}` };
     }
     return { scope, id: Object.hasOwn(STASH_VIEWS, rawId ?? '') ? rawId : 'inbox' };
   }
@@ -56,6 +62,7 @@ function showPanel(name) {
     els.stash.innerHTML = '';
     state.stash.items = null; // cancels in-flight stash loads
   }
+  syncSearchBox(name);
   els.content.scrollTop = 0;
 }
 

@@ -20,7 +20,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     } else if (info.menuItemId === 'save-selection') {
       await saveItem({ type: 'snippet', content: info.selectionText, title: tab.title, url: tab.url });
     } else if (info.menuItemId === 'save-page') {
-      await saveItem({ type: 'link', url: tab.url, title: tab.title });
+      await saveItem({ type: 'link', url: tab.url, title: tab.title, pageHtml: await pageHtml(tab.id) });
     } else if (info.menuItemId === 'save-screenshot') {
       const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
       const blob = await (await fetch(dataUrl)).blob();

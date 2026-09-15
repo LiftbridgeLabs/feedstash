@@ -8,7 +8,8 @@ Everything you want to read, in one self-hosted app: the feeds you follow, and t
 - **Folders and feeds.** Follow a site or feed URL (the feed is found automatically). Rename, move, reorder by drag and drop, unfollow.
 - **Mark as read.** Everything, or only articles older than 12 hours, 1 day or 1 week, with Undo. Articles are also marked read as they scroll off the top of the list (can be turned off).
 - **Auto-refresh.** Feeds are fetched in the background; new articles appear on their own, or behind a "↑ N new articles" button while you're reading.
-- **Search.** The search box above the list searches the full text of the articles in the feed or folder you're viewing, read ones included.
+- **Search.** The search box in the toolbar (or press `/`) searches the full text of the articles in the feed or folder you're viewing, read ones included. In the stash, the same box searches what you've saved.
+- **Auto-save to the stash.** Tick **Auto-save** for a feed (in Organize feeds, or its ⋯ menu) and its new articles go straight to your stash instead of waiting to be read.
 - **OPML import and export**, e.g. from Feedly.
 
 **Stash**
@@ -16,12 +17,17 @@ Everything you want to read, in one self-hosted app: the feeds you follow, and t
 - **Review.** New items land in the **Inbox**. Mark them reviewed, archive, edit, tag, search, or filter by type and tag.
 - **Link previews and saved copies.** When you save a link, FeedStash fetches the page in the background: the list shows its title, description and image, and opening the item shows a readable copy of the article that stays even if the site changes or goes away.
 - **Full-text search.** Stash search covers titles, notes, links, tags and the text of saved pages, and matches other forms of a word ("reefs" finds "reef").
+- **Folders.** Keep saved items together by project or topic: make a folder in the sidebar, then drag items onto it, pick it as you save, or use the folder picker on an open item. An item is in one folder at a time; tags still work across everything.
+- **Smart lists.** Any search or filter can be saved to the sidebar with **Save as smart list**. It always shows what matches now.
+- **Rules.** Under **Settings → Stash rules**, say what happens to something new: by website, address, title, feed or kind, it can be tagged, filed in a folder, marked reviewed or archived. Rules run on everything that arrives (except bulk imports), and **Run on everything saved** applies them to what's already there.
 - **Save articles.** "Save to stash" on any feed article (or press `b`).
 - **Import saved links** from Feedly boards, browser bookmarks, Pocket or Raindrop, choosing for each file where its links go and how they're tagged.
 
+**Appearance.** Light, dark, or following your system, in a choice of color schemes (FeedStash green, Ocean, Plum, Ember, Sepia or Nord) under **Settings → Appearance**. The choice is kept per browser, so each device can look however you like.
+
 **Accounts.** Several people can share one server; each has their own feeds and stash. Admins add and remove accounts in **Settings → Accounts**. Each person also chooses how long their read articles are kept (**Settings → Your account**, 30 days by default; Read later is never deleted).
 
-**Keyboard:** `j`/`k` next/previous article, `o` open, `v` open original, `m` toggle read, `s` read later, `b` save to stash, `c` capture, `r` refresh, `Shift+A` mark all read, `Esc` close.
+**Keyboard:** `j`/`k` next/previous article, `o` open, `v` open original, `m` toggle read, `s` read later, `b` save to stash, `c` capture, `/` search, `r` refresh, `Shift+A` mark all read, `Esc` close.
 
 ## Quick start
 
@@ -188,14 +194,19 @@ See the extension's and email worker's READMEs for install steps. None of the cl
 
 The clients use these endpoints (camelCase fields, `{"error": "..."}` on failures):
 
-- `POST /api/items` (JSON or multipart; `type`, `title`, `content`, `url`, `links`, `tags`, `image`, `source`)
-- `GET /api/items?type=&tag=&reviewed=&archived=&q=&limit=&offset=`, `GET/PATCH/DELETE /api/items/{id}`
+- `POST /api/items` (JSON or multipart; `type`, `title`, `content`, `url`, `links`, `tags`, `image`, `source`, `folderId`, `pageHtml`)
+- `GET /api/items?type=&tag=&reviewed=&archived=&q=&folder=&limit=&offset=`, `GET/PATCH/DELETE /api/items/{id}`
 - `GET /api/items/{id}/page` (the saved readable copy: `{url, status, title, html, fetchedAt, error}`), `POST /api/items/{id}/page/refresh`
+- `GET/POST /api/stash/folders`, `PATCH/DELETE /api/stash/folders/{id}`, `POST /api/stash/folders/reorder`
+- `GET/POST /api/stash/lists`, `PATCH/DELETE /api/stash/lists/{id}` (smart lists)
+- `GET/POST /api/stash/rules`, `DELETE /api/stash/rules/{id}`, `POST /api/stash/rules/apply`
 - `GET /api/tags`, `GET /api/health`
 - `GET/POST /api/tokens`, `DELETE /api/tokens/{id}`
 - `GET /uploads/{name}`
 
 Every item has a `links` list of `{id, url, label}`, and `url` mirrors the first link, so clients that only know one URL keep working. `links` can be sent as a list of URLs or `{url, label}` objects, as a JSON string of either (for multipart), or one URL per line. `PATCH` with `links` replaces the whole list; `PATCH` with only `url` swaps the first link and keeps the rest.
+
+`pageHtml` is the page as the client sees it. Sites that turn servers away (or need you to be signed in) can't be fetched by FeedStash, so the browser extension sends the open tab's HTML and the readable copy is made from that. Rules run on everything posted to `/api/items`.
 
 Items with a web address also have a `preview`: `{status, title, description, image, siteName, hasCopy, fetchedAt, error}`, where `status` is `pending` or `working` while the page is being saved, then `ready`, `skipped` (not a web page) or `failed`. It's `null` for items without an address.
 
@@ -230,9 +241,11 @@ app/
     database.py      connections; one transaction per unit of work
     migrations.py    versioned schema changes, tracked in PRAGMA user_version
     models.py        plain dataclasses returned by the repositories
-    repositories/    all SQL lives here: users, folders, feeds, articles, items, pages, search (FTS5), tokens
+    repositories/    all SQL lives here: users, folders, feeds, articles, items, pages, search (FTS5), tokens,
+                     and for organizing the stash: stash_folders, smart_lists, stash_rules
 
-  feeds/             parser (no I/O), fetcher (HTTP only), ingest (storage), scheduler (background refresh)
+  feeds/             parser (no I/O), fetcher (HTTP only), ingest (storage), scheduler (background refresh),
+                     to_stash (saving an article to the stash, by hand or automatically)
   pages/             fetching a saved link's page and extracting its preview and readable copy (trafilatura)
 
   services/
@@ -243,7 +256,8 @@ app/
     pages.py         background worker that saves the pages behind stash items
 
   web/
-    api/             JSON routers: tree, articles, folders, feeds, opml, imports, stash, tokens, accounts
+    api/             JSON routers: tree, articles, folders, feeds, opml, imports, stash, stash_organize, tokens,
+                     accounts
     auth.py          sign-in (passwords, Google, OIDC), API tokens, allowlist
     ratelimit.py     pauses password guessing
     ...

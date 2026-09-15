@@ -1,0 +1,57 @@
+def test_filing_a_saved_item_in_a_folder(reader):
+    page = reader
+    page.js("reader.api('POST', '/api/stash/folders', { name: 'Project X' }).then(() => reader.loadTree())")
+    assert page.wait_for("[...document.querySelectorAll('#nav .nav-label')].some((e) => e.textContent === 'Project X')")
+
+    page.js("reader.api('POST', '/api/items', { type: 'link', url: 'https://example.com/plan', title: 'The plan' })")
+    page.js("location.hash = '#/stash/all'")
+    assert page.wait_for("document.querySelector('#stash .item-title')?.textContent === 'The plan'", timeout=10)
+
+    # The folder picker on the open item files it, and the sidebar count follows.
+    page.js("document.querySelector('#stash .item-row').click()")
+    assert page.wait_for("!!document.querySelector('#stash [data-item-folder]')")
+    page.js("""(() => {
+      const select = document.querySelector('#stash [data-item-folder]');
+      select.value = [...select.options].find((o) => o.textContent === 'Project X').value;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    })()""")
+    assert page.wait_for("document.querySelector('#nav [data-stash-folder] .nav-count')?.textContent === '1'", timeout=10)
+
+    page.js("document.querySelector('#nav [data-stash-folder]').click()")
+    assert page.wait_for(
+        "location.hash.startsWith('#/stash/folder/') && document.querySelectorAll('#stash .item').length === 1"
+    )
+    assert page.js("document.getElementById('view-title').textContent") == "Project X"
+
+
+def test_searching_the_stash_from_the_toolbar(reader):
+    page = reader
+    page.js("reader.api('POST', '/api/items', { type: 'snippet', content: 'Nudibranch sightings' })")
+    page.js("reader.api('POST', '/api/items', { type: 'snippet', content: 'Groceries' })")
+    page.js("location.hash = '#/stash/all'")
+    assert page.wait_for("document.querySelectorAll('#stash .item').length === 2", timeout=10)
+
+    page.js("""(() => {
+      const box = document.getElementById('toolbar-search');
+      box.value = 'nudibranch';
+      box.dispatchEvent(new Event('input', { bubbles: true }));
+    })()""")
+    assert page.wait_for("document.querySelectorAll('#stash .item').length === 1", timeout=10)
+    assert page.js("document.getElementById('toolbar-search').placeholder") == "Search your stash"
+    assert page.wait_for("!!document.querySelector('[data-stash-action=\"save-list\"]')")
+
+
+def test_choosing_a_theme(reader):
+    page = reader
+    page.js("location.hash = '#/settings'")
+    assert page.wait_for("!!document.getElementById('theme-mode')")
+    page.js("""(() => {
+      const select = document.getElementById('theme-mode');
+      select.value = 'dark';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    })()""")
+    assert page.wait_for("document.documentElement.dataset.mode === 'dark'")
+
+    page.js("document.querySelector('[data-scheme=\"nord\"]').click()")
+    assert page.wait_for("document.documentElement.dataset.scheme === 'nord'")
+    assert page.js("JSON.parse(localStorage.getItem('reader.theme')).mode") == "dark"

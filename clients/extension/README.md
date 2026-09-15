@@ -26,6 +26,7 @@ curl -X POST https://notes.yourdomain.com/api/tokens \
 - Right-click a link → "Save link to FeedStash"
 - Select text, right-click → "Save selection to FeedStash" (saved as a snippet)
 - Right-click anywhere on a page → "Save this page to FeedStash" (link) or "Save screenshot to FeedStash" (captures the visible tab as a PNG)
+- When you save the page you're on, the extension also sends the page itself, so FeedStash keeps a readable copy even of sites that turn servers away or need you to be signed in. Pages the browser won't let extensions read are saved as a plain link, and the server fetches them itself.
 - Toolbar icon → popup with type switcher (link/snippet/screenshot), tags field, and a save button — prefilled with the current tab's URL/title
 
 A green badge flash on the toolbar icon means success; red means it failed (check the background service worker console at `chrome://extensions` → FeedStash Capture → "service worker" link for the error).

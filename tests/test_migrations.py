@@ -22,7 +22,7 @@ def test_legacy_database_is_upgraded_in_place_keeping_alphabetical_order(start_s
     assert [f["title"] for f in tree["feeds"] if f["folder_id"] is None] == ["a", "b"]
     articles = api.get("/api/articles", params={"scope": "all", "unread_only": "false"}).json()["articles"]
     assert [a["title"] for a in articles] == ["Kept"]
-    assert schema_version(db_path) == 7
+    assert schema_version(db_path) == 8
 
 
 def test_upgraded_database_keeps_custom_order_across_restarts(start_server, tmp_path):

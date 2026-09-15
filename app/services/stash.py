@@ -1,21 +1,30 @@
 """Capturing into the stash: validating input, storing images, and saving feed articles."""
 
 import json
+import logging
 from dataclasses import dataclass, field
 
 from app.clock import now
 from app.db import Database
-from app.db.models import ItemLink, StashItem
+from app.db.models import ItemLink, PageJob, StashItem
 from app.db.repositories import articles as articles_repo
 from app.db.repositories import items as items_repo
+from app.db.repositories import pages as pages_repo
+from app.db.repositories import stash_rules
 from app.errors import InvalidInput
+from app.feeds import to_stash
 from app.images import ImageStore
+from app.pages.fetch import Page, extract
+from app.services.pages import store_page
+
+log = logging.getLogger("feedstash.stash")
 
 MAX_TITLE = 1000
 MAX_URL = 4000
 MAX_SOURCE = 50
 MAX_CONTENT = 1_000_000
 MAX_LINKS = 100
+MAX_PAGE_HTML = 5 * 1024 * 1024
 
 
 def parse_tags(value) -> list[str]:
@@ -60,6 +69,21 @@ def parse_links(value) -> list[ItemLink] | None:
     return links
 
 
+def parse_folder_id(value) -> int | None:
+    """A stash folder's id, from JSON (a number, or null for none) or a form field (text; empty for none)."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, bool):
+        raise InvalidInput("folderId must be a folder's id")
+    try:
+        folder_id = int(value)
+    except (TypeError, ValueError):
+        raise InvalidInput("folderId must be a folder's id") from None
+    if folder_id <= 0:
+        raise InvalidInput("folderId must be a folder's id")
+    return folder_id
+
+
 def _line(value, limit: int) -> str | None:
     """A single-line field: trimmed, clipped, empty becomes None."""
     if value is None:
@@ -84,9 +108,13 @@ class Capture:
     tags: list[str] = field(default_factory=list)
     image: bytes | None = None
     links: list[ItemLink] = field(default_factory=list)
+    folder_id: int | None = None
+    # The page as the client saw it (the browser extension sends the open tab), for sites that block servers.
+    page_html: str | None = None
 
     @classmethod
     def from_fields(cls, fields: dict, *, image: bytes | None = None) -> "Capture":
+        page_html = fields.get("pageHtml")
         return cls(
             type=str(fields.get("type") or "").strip(),
             title=_line(fields.get("title"), MAX_TITLE),
@@ -96,6 +124,8 @@ class Capture:
             source=_line(fields.get("source"), MAX_SOURCE),
             tags=parse_tags(fields.get("tags")),
             image=image or None,
+            folder_id=parse_folder_id(fields.get("folderId")),
+            page_html=page_html[:MAX_PAGE_HTML] if isinstance(page_html, str) and page_html.strip() else None,
         )
 
 
@@ -112,23 +142,41 @@ def _check(capture: Capture) -> None:
         raise InvalidInput("An email needs a subject or a body")
 
 
+def _sent_page(capture: Capture) -> Page | None:
+    """Extracts the page a client sent along. A page that can't be read is ignored: the server fetches it instead."""
+    url = capture.url or (capture.links[0].url if capture.links else None)
+    if not capture.page_html or not pages_repo.is_web_url(url):
+        return None
+    try:
+        return extract(capture.page_html, url)
+    except Exception:
+        log.warning("Couldn't read the page sent with %s", url, exc_info=True)
+        return None
+
+
 def capture(db: Database, images: ImageStore, user_id: int, item: Capture, *, default_source: str) -> StashItem:
     _check(item)
+    page = _sent_page(item)  # before the transaction: extracting can take a moment
     image_name = images.save(item.image) if item.image else None
     try:
         with db.transaction() as conn:
-            return items_repo.create(
+            timestamp = now()
+            created = items_repo.create(
                 conn, user_id, type=item.type, title=item.title, content=item.content, url=item.url,
                 links=item.links, image_name=image_name, source=item.source or default_source, tags=item.tags,
-                now=now(),
+                now=timestamp, folder_id=item.folder_id,
             )
+            stash_rules.apply(conn, user_id, created.id, now=timestamp)
+            if page is not None and pages_repo.is_web_url(created.url):
+                store_page(conn, PageJob(item_id=created.id, url=created.url, attempts=1), page, now=timestamp)
+            return items_repo.get(conn, user_id, created.id)
     except BaseException:
         images.delete(image_name)  # don't leave an orphaned file behind
         raise
 
 
 def update(db: Database, user_id: int, item_id: int, fields: dict) -> StashItem:
-    """Applies the fields present in a PATCH body: title, content, url, links, reviewed, archived, tags."""
+    """Applies the fields present in a PATCH body: title, content, url, links, reviewed, archived, tags, folderId."""
     changes: dict = {}
     if "title" in fields:
         changes["title"] = _line(fields["title"], MAX_TITLE)
@@ -143,6 +191,8 @@ def update(db: Database, user_id: int, item_id: int, fields: dict) -> StashItem:
         changes["tags"] = parse_tags(fields["tags"])
     if (links := parse_links(fields.get("links"))) is not None:
         changes["links"] = links
+    if "folderId" in fields:
+        changes["folder_id"] = parse_folder_id(fields["folderId"])
     with db.transaction() as conn:
         return items_repo.update(conn, user_id, item_id, now=now(), **changes)
 
@@ -157,17 +207,4 @@ def stash_article(db: Database, user_id: int, article_id: int) -> tuple[StashIte
     """Saves a feed article as a link. Returns the item and whether it was newly created."""
     with db.transaction() as conn:
         article = articles_repo.get(conn, user_id, article_id)
-        if article.url and (existing := items_repo.find_link(conn, user_id, article.url)):
-            return existing, False
-        item = items_repo.create(
-            conn, user_id,
-            type="link" if article.url else "snippet",
-            title=_line(article.title, MAX_TITLE),
-            content=article.summary or (None if article.url else article.title),
-            url=article.url,
-            image_name=None,
-            source="feed",
-            tags=[],
-            now=now(),
-        )
-        return item, True
+        return to_stash.stash_article(conn, user_id, article, now=now())

@@ -15,11 +15,22 @@ from app.clock import iso, now
 from app.db.models import ItemFilter
 from app.db.repositories import items as items_repo
 from app.db.repositories import pages as pages_repo
+from app.db.repositories import smart_lists, stash_folders
 from app.errors import InvalidInput, NotFound
 from app.images import MAX_IMAGE_BYTES
 from app.services import stash
 from app.web.deps import DatabaseDep, ImagesDep, UserDep, api_client_name
-from app.web.schemas import OkOut, PageCopyOut, StashArticleOut, StashItemOut, StashSummaryOut, TagCountOut
+from app.web.schemas import (
+    OkOut,
+    PageCopyOut,
+    SmartListOut,
+    StashArticleOut,
+    StashFolderOut,
+    StashItemOut,
+    StashSummaryOut,
+    TagCountOut,
+    to_schema,
+)
 
 MAX_FIELD_BYTES = 5 * 1024 * 1024
 
@@ -63,12 +74,13 @@ def list_items(
     reviewed: bool | None = None,
     archived: bool = False,
     q: str | None = None,
+    folder: int | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> list[StashItemOut]:
     criteria = ItemFilter(
         type=item_type or None, tag=tag or None, reviewed=reviewed, archived=archived, query=q or None,
-        limit=limit, offset=offset,
+        folder_id=folder, limit=limit, offset=offset,
     )
     with db.transaction() as conn:
         return [StashItemOut.from_item(item) for item in items_repo.search(conn, user.id, criteria)]
@@ -125,10 +137,16 @@ def list_tags(user: UserDep, db: DatabaseDep) -> list[TagCountOut]:
 
 @router.get("/stash/summary", response_model=StashSummaryOut)
 def stash_summary(user: UserDep, db: DatabaseDep) -> StashSummaryOut:
-    """Counts for the sidebar."""
+    """Counts, folders and smart lists for the sidebar."""
     with db.transaction() as conn:
         summary = items_repo.summary(conn, user.id)
-    return StashSummaryOut(inbox=summary.inbox, total=summary.total, archived=summary.archived, by_type=summary.by_type)
+        folders = stash_folders.list_for_user(conn, user.id)
+        lists = smart_lists.list_for_user(conn, user.id)
+    return StashSummaryOut(
+        inbox=summary.inbox, total=summary.total, archived=summary.archived, by_type=summary.by_type,
+        folders=[to_schema(StashFolderOut, folder) for folder in folders],
+        lists=[SmartListOut.from_list(smart_list) for smart_list in lists],
+    )
 
 
 @router.post("/articles/{article_id}/stash", response_model=StashArticleOut)
