@@ -11,6 +11,7 @@ import { wireOrganize } from './organize.js';
 import { applyRoute } from './router.js';
 import { wireSettings } from './settings.js';
 import { loadTree, wireNav } from './sidebar.js';
+import { wireSidebarWidth } from './sidebarwidth.js';
 import { captureDialog, stashArticle, wireStash } from './stash.js';
 import { state } from './state.js';
 import { $ } from './util.js';
@@ -19,6 +20,7 @@ async function init() {
   hydrateIcons();
   applyLayout();
   wireNav();
+  wireSidebarWidth();
   wireToolbar();
   wireList();
   wireOrganize();

@@ -72,8 +72,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         accounts_api.router,
     ):
         app.include_router(router)
-    app.mount("/static", StaticFiles(directory=pages.STATIC_DIR), name="static")
+    app.mount("/static", RevalidatedStaticFiles(directory=pages.STATIC_DIR), name="static")
     return app
+
+
+class RevalidatedStaticFiles(StaticFiles):
+    """Static files the browser must re-check on every load (cheap: ETag), so an update shows up right away
+    instead of after the browser's guess at a cache lifetime."""
+
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers.setdefault("Cache-Control", "no-cache")
+        return response
 
 
 def load_settings() -> Settings:
