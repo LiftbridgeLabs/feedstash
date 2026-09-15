@@ -69,6 +69,28 @@ def _save_followed(
         return feeds_repo.get(conn, user_id, feed_id)
 
 
+async def change_url(db: Database, settings: Settings, user_id: int, feed_id: int, url: str) -> Feed:
+    """Points a followed feed at a different address (e.g. after a site moved), keeping its name, folder and
+    articles. The new address is fetched first, so a wrong one is rejected instead of breaking the feed."""
+    try:
+        async with create_client() as client:
+            result = await Fetcher(client).discover(url)
+    except FetchError as exc:
+        raise InvalidInput(str(exc)) from exc
+
+    def save() -> Feed:
+        now = current_time()
+        with db.transaction() as conn:
+            feeds_repo.change_source(
+                conn, user_id, feed_id, url=result.url, site_url=result.feed.site_url, etag=result.etag,
+                last_modified=result.last_modified, fetched_at=now,
+            )
+            ingest.save_entries(conn, feed_id, result.feed, first_fetch=True, retention_days=settings.retention_days, now=now)
+            return feeds_repo.get(conn, user_id, feed_id)
+
+    return await asyncio.to_thread(save)
+
+
 def import_opml(db: Database, user_id: int, data: bytes) -> ImportResult:
     """Adds the OPML file's feeds (skipping ones already followed). Articles are fetched later."""
     try:

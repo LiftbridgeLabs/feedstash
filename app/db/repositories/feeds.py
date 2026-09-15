@@ -5,7 +5,7 @@ from app.clock import now
 from app.db.models import Feed, FeedFetchState, Scope
 from app.db.repositories import folders as folders_repo
 from app.db.repositories._common import clean_name, next_position, ordered_ids
-from app.errors import NotFound
+from app.errors import Conflict, NotFound
 
 _FEED_SELECT = """SELECT f.id, f.folder_id, f.title, f.position, f.url, f.site_url, f.last_fetched_at, f.last_error,
     (SELECT COUNT(*) FROM articles a WHERE a.feed_id = f.id AND a.read_at IS NULL) AS unread
@@ -78,6 +78,21 @@ def create(
 def rename(conn: sqlite3.Connection, user_id: int, feed_id: int, title: str) -> None:
     get(conn, user_id, feed_id)
     conn.execute("UPDATE feeds SET title = ? WHERE id = ?", (clean_name(title, "Name"), feed_id))
+
+
+def change_source(
+    conn: sqlite3.Connection, user_id: int, feed_id: int, *, url: str, site_url: str | None, etag: str | None,
+    last_modified: str | None, fetched_at: int,
+) -> None:
+    """Points a feed at a new URL that has just been fetched successfully, clearing any old error."""
+    get(conn, user_id, feed_id)
+    if conn.execute("SELECT 1 FROM feeds WHERE user_id = ? AND url = ? AND id <> ?", (user_id, url, feed_id)).fetchone():
+        raise Conflict("You already follow that feed")
+    conn.execute(
+        """UPDATE feeds SET url = ?, site_url = COALESCE(?, site_url), etag = ?, last_modified = ?,
+               last_fetched_at = ?, last_error = NULL WHERE id = ?""",
+        (url, site_url, etag, last_modified, fetched_at, feed_id),
+    )
 
 
 def move(conn: sqlite3.Connection, user_id: int, feed_id: int, folder_id: int | None) -> None:

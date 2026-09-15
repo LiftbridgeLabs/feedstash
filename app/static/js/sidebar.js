@@ -81,8 +81,8 @@ export function renderNav() {
   const uncategorized = feeds.filter((f) => f.folder_id == null);
   if (uncategorized.length) html += folderBlock(null, uncategorized);
   if (!feeds.length && !folders.length) {
-    html += `<div class="nav-empty">You're not following anything yet. Use <b>+ Add → Follow a feed</b>, or import
-      an OPML file from <a href="#/organize">Organize feeds</a>.</div>`;
+    html += `<div class="nav-empty">You're not following anything yet. Use <b>+ Add → Follow a feed</b>, or bring
+      feeds in from Feedly or an OPML file under <a href="#/settings">Settings</a>.</div>`;
   }
 
   const stash = state.stash.summary;

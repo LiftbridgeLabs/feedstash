@@ -13,6 +13,9 @@ def test_choosing_a_whole_feedly_export_folder(reader, subscriptions):
     reader.js("location.hash = '#/settings'")
     assert reader.wait_for("!!document.querySelector('[data-import-folder]')")
     assert reader.js("document.querySelector('#app-version').textContent") == "dev"
+    # Every import and export lives here, none on Organize feeds.
+    assert reader.js("!!document.querySelector('[data-import-opml]') && !!document.querySelector('#settings a[href=\"/api/opml/export\"]')")
+    assert reader.js("!document.querySelector('#organize [data-org=import]')")
     files = [
         [OPML.format(feed_server=subscriptions.feed_server), "subscriptions.opml"],
         [BOARD, "board-Projects-bookmarks.html"],

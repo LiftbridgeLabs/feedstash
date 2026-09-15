@@ -251,7 +251,8 @@ body.resizing { cursor: col-resize; user-select: none; }
 .org-table input[type=text], .org-table select { width: 100%; min-width: 140px; padding: 5px 8px; border: 1px solid transparent; border-radius: 5px; background: transparent; }
 .org-table input[type=text]:hover, .org-table select:hover { border-color: var(--border); }
 .org-table input[type=text]:focus, .org-table select:focus { border-color: var(--accent); outline: none; background: var(--bg); }
-.org-table .url { color: var(--text-muted); font-size: 12px; padding-left: 9px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.org-table input.url { color: var(--text-muted); font-size: 12px; max-width: 420px; text-overflow: ellipsis; }
+.org-table input.url:focus { color: var(--text); }
 .org-table .status-err { color: var(--danger); font-size: 12px; }
 .org-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .org-table .row-actions { white-space: nowrap; text-align: right; }

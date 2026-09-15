@@ -17,17 +17,20 @@ let skippedNote = ''; // what a folder import left out, shown above the plan
 
 export function importSectionHTML() {
   return `
-    <h3>Import</h3>
+    <h3>Import &amp; export</h3>
     <div class="org-head">
       <p class="muted"><b>From Feedly:</b> unzip the export you downloaded from Feedly and choose that whole folder.
         Your feeds and folders come in from its OPML right away, and each board shows up below so you can decide
-        where its links go. <b>Saved links</b> also come in from bookmark HTML files: browser bookmarks, Pocket or
-        Raindrop exports. Links you already have are skipped.</p>
+        where its links go. <b>Feeds</b> also come in from any OPML file, and <b>saved links</b> from bookmark HTML
+        files (browser bookmarks, Pocket or Raindrop exports). Links you already have are skipped.</p>
       <div class="org-actions">
-        <label class="btn btn-sm btn-primary">${icon('plus')}Choose a Feedly export folder…
+        <label class="btn btn-sm btn-primary">${icon('plus')}Feedly export folder…
           <input type="file" webkitdirectory hidden data-import-folder></label>
-        <label class="btn btn-sm">Choose bookmark files…
+        <label class="btn btn-sm">Import OPML…
+          <input type="file" accept=".opml,.xml,text/xml,application/xml,text/x-opml" hidden data-import-opml></label>
+        <label class="btn btn-sm">Bookmark files…
           <input type="file" accept=".html,.htm,text/html" multiple hidden data-import-files></label>
+        <a class="btn btn-sm" href="/api/opml/export" download>Export OPML</a>
       </div>
     </div>
     <div data-import-plan></div>`;
@@ -180,11 +183,12 @@ async function runImport(root) {
 
 export function wireImport(root) {
   root.addEventListener('change', (e) => {
-    if (e.target.matches('[data-import-files], [data-import-folder]')) {
+    if (e.target.matches('[data-import-files], [data-import-folder], [data-import-opml]')) {
       const files = [...e.target.files];
-      const folder = e.target.matches('[data-import-folder]');
+      const read = e.target.matches('[data-import-folder]') ? readFolder
+        : e.target.matches('[data-import-opml]') ? (_, [file]) => importOpml(file) : readFiles;
       e.target.value = '';
-      if (files.length) (folder ? readFolder : readFiles)(root, files);
+      if (files.length) read(root, files);
       return;
     }
     const group = groups[Number(e.target.dataset.index)];

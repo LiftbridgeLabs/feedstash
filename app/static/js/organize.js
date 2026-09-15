@@ -36,11 +36,12 @@ export function renderOrganize() {
     const status = f.last_error
       ? `<span class="status-err" title="${esc(f.last_error)}">${esc(f.last_error.slice(0, 60))}</span>`
       : f.last_fetched_at ? `<span class="muted">Updated ${agoLong(f.last_fetched_at)}</span>` : '<span class="muted">Waiting for first fetch</span>';
+    const alone = siblings.length === 1 ? 'title="The only feed in its folder: pick another folder to move it there"' : '';
     return `<tr data-search="${esc(`${f.title} ${f.url}`.toLowerCase())}">
-      <td class="order">${orderButtons('feed', f.id, siblings.indexOf(f.id), siblings.length)}</td>
+      <td class="order" ${alone}>${orderButtons('feed', f.id, siblings.indexOf(f.id), siblings.length)}</td>
       <td><div class="feed-cell"><img src="${esc(favicon(f))}" alt="" loading="lazy">
         <div class="grow"><input type="text" value="${esc(f.title)}" data-feed-title="${f.id}" aria-label="Feed name" maxlength="200">
-        <div class="url" title="${esc(f.url)}">${esc(f.url)}</div></div></div></td>
+        <input type="text" class="url" value="${esc(f.url)}" data-feed-url="${f.id}" aria-label="Feed address" title="Edit the feed's address (it's checked before it's saved)" spellcheck="false"></div></div></td>
       <td><select data-feed-folder="${f.id}" aria-label="Folder">${folderOptions(f.folder_id)}</select></td>
       <td>${status}</td>
       <td class="num">${f.unread}</td>
@@ -50,16 +51,13 @@ export function renderOrganize() {
 
   els.organize.innerHTML = `
     <div class="org-head">
-      <p class="muted">Moving from Feedly? Import its OPML here, or pick your whole unzipped Feedly export under
-        <a href="#/settings">Settings → Import</a> to bring the boards along too.
-        Names save when you leave the field. Reorder with the arrows, or drag folders and feeds in the sidebar.</p>
+      <p class="muted">Names save when you leave the field. Reorder with the arrows, or drag folders and feeds in the
+        sidebar. To bring feeds in from Feedly or an OPML file, or export yours, use
+        <a href="#/settings">Settings → Import &amp; export</a>.</p>
       <div class="org-actions">
         <button class="btn btn-sm" data-org="add-feed">${icon('plus')}Follow feed</button>
         <button class="btn btn-sm" data-org="new-folder">${icon('folder')}New folder</button>
         ${folders.length > 1 ? '<button class="btn btn-sm" data-org="sort-folders">Sort folders A–Z</button>' : ''}
-        <button class="btn btn-sm" data-org="import">Import OPML</button>
-        <a class="btn btn-sm" href="/api/opml/export" download>Export OPML</a>
-        <input type="file" accept=".opml,.xml,text/xml,application/xml,text/x-opml" data-org-file hidden>
       </div>
     </div>
 
@@ -116,7 +114,6 @@ export function wireOrganize() {
     switch (button.dataset.org) {
       case 'add-feed': addFeedDialog(); break;
       case 'new-folder': newFolder(); break;
-      case 'import': $('[data-org-file]', org).click(); break;
       case 'delete-folder': deleteFolder(id); break;
       case 'unfollow': unfollowFeed(id); break;
       case 'folder-up': moveFolderBy(id, -1); break;
@@ -145,10 +142,7 @@ export function wireOrganize() {
   org.addEventListener('change', async (e) => {
     const t = e.target;
     try {
-      if (t.matches('[data-org-file]')) {
-        if (t.files[0]) await importOpml(t.files[0]);
-        t.value = '';
-      } else if (t.matches('[data-folder-name]')) {
+      if (t.matches('[data-folder-name]')) {
         const name = t.value.trim();
         if (!name || name === t.defaultValue) { t.value = t.defaultValue; return; }
         await api('PATCH', `/api/folders/${t.dataset.folderName}`, { name });
@@ -162,6 +156,19 @@ export function wireOrganize() {
         t.defaultValue = title;
         await loadTree();
         toast('Feed renamed');
+      } else if (t.matches('[data-feed-url]')) {
+        const url = t.value.trim();
+        if (!url || url === t.defaultValue) { t.value = t.defaultValue; return; }
+        toast('Checking the new address…', { duration: 30000 });
+        try {
+          await api('PATCH', `/api/feeds/${t.dataset.feedUrl}`, { url });
+        } catch (err) {
+          t.value = t.defaultValue;
+          throw err;
+        }
+        await loadTree();
+        renderOrganize();
+        toast('Feed address updated');
       } else if (t.matches('[data-feed-folder]')) {
         await api('PATCH', `/api/feeds/${t.dataset.feedFolder}`, { folder_id: t.value ? Number(t.value) : null });
         await loadTree();

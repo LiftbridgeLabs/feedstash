@@ -27,6 +27,22 @@ def test_follow_rejects_duplicates_bad_urls_and_non_feeds(api, feed_server):
     assert "couldn't find" in page_without_feed.json()["detail"].lower()
 
 
+def test_change_a_feeds_address(api, subscriptions):
+    tech, atom, feeds = subscriptions.tech, subscriptions.atom, subscriptions.feed_server
+    # The new address is fetched first: a page with no feed is refused, and one someone already follows conflicts.
+    assert api.patch(f"/api/feeds/{tech['id']}", json={"url": f"{feeds}/plain.html"}).status_code == 400
+    assert api.patch(f"/api/feeds/{tech['id']}", json={"url": f"{feeds}/site.html"}).status_code == 409
+    unchanged = next(f for f in api.get("/api/tree").json()["feeds"] if f["id"] == tech["id"])
+    assert unchanged["url"] == f"{feeds}/tech.xml"
+
+    api.delete(f"/api/feeds/{atom['id']}")
+    changed = api.patch(f"/api/feeds/{tech['id']}", json={"url": f"{feeds}/site.html", "title": "Now Atom"}).json()
+    assert changed["url"] == f"{feeds}/posts.atom"  # discovered behind the page
+    assert changed["title"] == "Now Atom" and changed["folder_id"] == tech["folder_id"]
+    assert changed["last_error"] is None
+    assert changed["unread"] == 15 + 60  # the old articles stay, the new address's arrive
+
+
 def test_blank_names_are_rejected_with_a_readable_message(api, subscriptions):
     for response in (
         api.post("/api/folders", json={"name": "   "}),

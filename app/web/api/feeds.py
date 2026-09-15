@@ -37,13 +37,19 @@ def reorder_feeds(body: FeedReorderIn, user: UserDep, db: DatabaseDep) -> FeedOr
 
 
 @router.patch("/feeds/{feed_id}", response_model=FeedOut)
-def update_feed(feed_id: int, body: FeedUpdateIn, user: UserDep, db: DatabaseDep) -> FeedOut:
-    with db.transaction() as conn:
-        if "title" in body.model_fields_set and body.title is not None:
-            feeds_repo.rename(conn, user.id, feed_id, body.title)
-        if "folder_id" in body.model_fields_set:
-            feeds_repo.move(conn, user.id, feed_id, body.folder_id)
-        return to_schema(FeedOut, feeds_repo.get(conn, user.id, feed_id))
+async def update_feed(feed_id: int, body: FeedUpdateIn, user: UserDep, db: DatabaseDep, settings: SettingsDep) -> FeedOut:
+    if body.url is not None:
+        await subscriptions.change_url(db, settings, user.id, feed_id, body.url)
+
+    def apply_rest():
+        with db.transaction() as conn:
+            if "title" in body.model_fields_set and body.title is not None:
+                feeds_repo.rename(conn, user.id, feed_id, body.title)
+            if "folder_id" in body.model_fields_set:
+                feeds_repo.move(conn, user.id, feed_id, body.folder_id)
+            return to_schema(FeedOut, feeds_repo.get(conn, user.id, feed_id))
+
+    return await run_in_threadpool(apply_rest)
 
 
 @router.delete("/feeds/{feed_id}", response_model=OkOut)

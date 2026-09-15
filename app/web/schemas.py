@@ -241,6 +241,7 @@ class FeedUpdateIn(BaseModel):
 
     title: str | None = None
     folder_id: int | None = None
+    url: str | None = Field(default=None, max_length=4000)  # the feed's new address; fetched before it's accepted
 
 
 class RefreshIn(BaseModel):
