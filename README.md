@@ -14,8 +14,9 @@ Everything you want to read, in one self-hosted app: the feeds you follow, and t
 - **Capture from anywhere.** The browser extension, forwarding an email, the share sheet on Android and iOS, or **+ Add → Save something** in the web app (you can paste an image straight into it). One note can hold several labeled links.
 - **Review.** New items land in the **Inbox**. Mark them reviewed, archive, edit, tag, search, or filter by type and tag.
 - **Save articles.** "Save to stash" on any feed article (or press `b`).
+- **Import saved links** from Feedly boards, browser bookmarks, Pocket or Raindrop, choosing for each file where its links go and how they're tagged.
 
-**Accounts.** Several people can share one server; each has their own feeds and stash. Admins add and remove accounts in **Settings → Accounts**.
+**Accounts.** Several people can share one server; each has their own feeds and stash. Admins add and remove accounts in **Settings → Accounts**. Each person also chooses how long their read articles are kept (**Settings → Your account**, 30 days by default; Read later is never deleted).
 
 **Keyboard:** `j`/`k` next/previous article, `o` open, `v` open original, `m` toggle read, `s` read later, `b` save to stash, `c` capture, `r` refresh, `Shift+A` mark all read, `Esc` close.
 
@@ -96,7 +97,7 @@ All settings are environment variables (see `.env.example`).
 | `SECRET_KEY` | generated | Signs session cookies. Generated once into `/data/secret.key` when empty. |
 | `SESSION_DAYS` | `30` | How long you stay signed in. |
 | `REFRESH_INTERVAL_MINUTES` | `15` | How often feeds are fetched (5 or more). |
-| `RETENTION_DAYS` | `90` | Feed articles older than this are deleted; starred ones and the newest 50 per feed are kept. Stash items are never deleted automatically. |
+| `RETENTION_DAYS` | `90` | Feed articles older than this are deleted, read or not; Read later and the newest 50 per feed are kept. Read articles can go sooner: each account sets its own limit in Settings (30 days after reading by default). Stash items are never deleted automatically. |
 | `DEV_LOGIN` | `false` | Local testing only: skips sign-in entirely. |
 
 ## Deploying
@@ -156,6 +157,16 @@ Then copy `/data/backups/` and `/data/uploads/` somewhere safe. Or stop the cont
 To update, pull the new image and recreate the container (`docker compose pull && docker compose up -d`, or Force update on unRAID). Database changes are applied automatically on start; take a backup first.
 
 Other admin commands: `create-account`, `set-password`, `list-accounts` (`docker exec feedstash python -m app.cli --help`).
+
+## Moving from Feedly
+
+Download your data from Feedly and unzip it. The archive has:
+
+- **`subscriptions.opml`**: your feeds and folders. In FeedStash, open **Organize feeds** and import it.
+- **`my boards/`**: one HTML file per board. In FeedStash, open **Settings → Import saved links**, choose the files, and decide for each board whether it's imported, whether its links land in the Inbox, Everything saved or the Archive, and what they're tagged. Original save dates are kept, and links you already have are skipped.
+- **`my boards/board-Unsaved-bookmarks.html`** (links you removed from Feedly) and **`read/`** (every article you opened, titles only). The import leaves these unticked if you choose them; you rarely want them.
+
+The same import works for bookmarks exported from Chrome, Firefox, Edge or Safari, and for Pocket and Raindrop exports.
 
 ## Connecting the extension, email worker and phone apps
 
@@ -218,11 +229,12 @@ app/
 
   services/
     accounts.py      first-run setup, checking passwords, admin changes to accounts
+    bookmarks.py     importing saved links in bulk
     subscriptions.py following a feed, importing OPML
     stash.py         capturing items, saving feed articles to the stash
 
   web/
-    api/             JSON routers: tree, articles, folders, feeds, opml, stash, tokens, accounts
+    api/             JSON routers: tree, articles, folders, feeds, opml, imports, stash, tokens, accounts
     auth.py          sign-in (passwords, Google, OIDC), API tokens, allowlist
     ratelimit.py     pauses password guessing
     ...

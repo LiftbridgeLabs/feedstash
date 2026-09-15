@@ -169,15 +169,17 @@ def undo_mark_scope_read(conn: sqlite3.Connection, user_id: int, scope: Scope, *
 
 
 def insert_new(conn: sqlite3.Connection, feed_id: int, articles: Iterable[NewArticle], *, fetched_at: int) -> int:
-    """Stores articles not seen before (by guid). Returns how many were new."""
+    """Stores articles not seen before (by guid), skipping read ones the cleanup already removed. Returns how many
+    were new."""
     added = 0
     for article in articles:
         added += conn.execute(
             """INSERT OR IGNORE INTO articles
                    (feed_id, guid, title, url, author, summary, content, image, published_at, fetched_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+               WHERE NOT EXISTS (SELECT 1 FROM purged_articles WHERE feed_id = ? AND guid = ?)""",
             (feed_id, article.guid, article.title, article.url, article.author, article.summary,
-             article.content, article.image, article.published_at, fetched_at),
+             article.content, article.image, article.published_at, fetched_at, feed_id, article.guid),
         ).rowcount
     return added
 
@@ -194,3 +196,25 @@ def purge(conn: sqlite3.Connection, *, published_before: int, keep_per_feed: int
            )""",
         (published_before, keep_per_feed),
     ).rowcount
+
+
+# Read articles (not in Read later) whose owner read them longer ago than their chosen number of days.
+_READ_EXPIRED = """SELECT a.id FROM articles a JOIN feeds f ON f.id = a.feed_id JOIN users u ON u.id = f.user_id
+    WHERE u.read_retention_days > 0 AND a.starred_at IS NULL AND a.read_at IS NOT NULL
+      AND a.read_at < ? - u.read_retention_days * 86400"""
+
+
+def purge_read(conn: sqlite3.Connection, *, now: int) -> int:
+    """Deletes articles read longer ago than each owner's setting. Their guids are remembered, so the next
+    refresh of a feed that still lists them doesn't bring them back as unread."""
+    conn.execute(
+        f"""INSERT OR IGNORE INTO purged_articles (feed_id, guid, published_at)
+            SELECT feed_id, guid, published_at FROM articles WHERE id IN ({_READ_EXPIRED})""",
+        (now,),
+    )
+    return conn.execute(f"DELETE FROM articles WHERE id IN ({_READ_EXPIRED})", (now,)).rowcount
+
+
+def forget_purged(conn: sqlite3.Connection, *, published_before: int) -> int:
+    """Drops remembered guids of articles old enough that refreshes skip them anyway."""
+    return conn.execute("DELETE FROM purged_articles WHERE published_at < ?", (published_before,)).rowcount

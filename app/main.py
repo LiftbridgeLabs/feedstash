@@ -17,6 +17,7 @@ from app.web.api import accounts as accounts_api
 from app.web.api import articles as articles_api
 from app.web.api import feeds as feeds_api
 from app.web.api import folders as folders_api
+from app.web.api import imports as imports_api
 from app.web.api import opml as opml_api
 from app.web.api import stash as stash_api
 from app.web.api import tokens as tokens_api
@@ -67,7 +68,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.add_middleware(security.SecureCookieOverHttps, cookie_name=SESSION_COOKIE)
     for router in (
         pages.router, auth.router, tree_api.router, articles_api.router, folders_api.router, feeds_api.router,
-        opml_api.router, stash_api.router, stash_api.uploads_router, tokens_api.router, accounts_api.router,
+        opml_api.router, imports_api.router, stash_api.router, stash_api.uploads_router, tokens_api.router,
+        accounts_api.router,
     ):
         app.include_router(router)
     app.mount("/static", StaticFiles(directory=pages.STATIC_DIR), name="static")

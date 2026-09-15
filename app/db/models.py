@@ -25,6 +25,7 @@ class User:
     is_admin: bool = False
     has_password: bool = False
     created_at: int = 0
+    read_retention_days: int = 30  # read articles are deleted this long after reading; 0 = only the server's cleanup
 
 
 @dataclass(frozen=True, slots=True)

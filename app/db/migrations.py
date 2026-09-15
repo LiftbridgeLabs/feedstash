@@ -131,6 +131,18 @@ MIGRATIONS: list[str] = [
     UPDATE users SET is_admin = 1 WHERE id = (SELECT MIN(id) FROM users);
     CREATE INDEX idx_users_email ON users(email);
     """,
+    # 6: each account chooses how long read articles are kept; guids of deleted read articles are remembered so a
+    #    refresh doesn't bring them back as unread
+    """
+    ALTER TABLE users ADD COLUMN read_retention_days INTEGER NOT NULL DEFAULT 30;
+    CREATE TABLE purged_articles (
+        feed_id       INTEGER NOT NULL REFERENCES feeds(id) ON DELETE CASCADE,
+        guid          TEXT NOT NULL,
+        published_at  INTEGER NOT NULL,
+        PRIMARY KEY (feed_id, guid)
+    ) WITHOUT ROWID;
+    CREATE INDEX idx_purged_articles_published ON purged_articles(published_at);
+    """,
 ]
 
 

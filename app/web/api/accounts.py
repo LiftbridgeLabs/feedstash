@@ -1,4 +1,4 @@
-"""Your own password, and (for admins) everyone who can sign in."""
+"""Your own password and preferences, and (for admins) everyone who can sign in."""
 
 from typing import Annotated
 
@@ -8,7 +8,9 @@ from app.db.models import User
 from app.db.repositories import users as users_repo
 from app.services import accounts
 from app.web.deps import DatabaseDep, ImagesDep, UserDep
-from app.web.schemas import AccountOut, AccountUpdateIn, NewAccountIn, OkOut, PasswordChangeIn
+from app.web.schemas import (
+    AccountOut, AccountPrefsIn, AccountUpdateIn, NewAccountIn, OkOut, PasswordChangeIn, UserOut, to_schema,
+)
 
 router = APIRouter(prefix="/api")
 
@@ -36,6 +38,14 @@ AdminDep = Annotated[User, Depends(admin_user)]
 def change_password(body: PasswordChangeIn, user: SessionUserDep, db: DatabaseDep) -> OkOut:
     accounts.change_own_password(db, user, current_password=body.current_password, new_password=body.new_password)
     return OkOut()
+
+
+@router.patch("/account", response_model=UserOut)
+def update_preferences(body: AccountPrefsIn, user: SessionUserDep, db: DatabaseDep) -> UserOut:
+    """Your own preferences: how long read articles are kept."""
+    with db.transaction() as conn:
+        users_repo.set_read_retention(conn, user.id, body.read_retention_days)
+        return to_schema(UserOut, users_repo.get(conn, user.id))
 
 
 @router.get("/accounts", response_model=list[AccountOut])

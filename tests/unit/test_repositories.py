@@ -114,3 +114,27 @@ def test_purge_keeps_starred_articles_and_the_newest_per_feed(conn, user_id):
 
     assert articles.purge(conn, published_before=100, keep_per_feed=3) == 6
     assert {row["title"] for row in conn.execute("SELECT title FROM articles")} == {"T9", "T8", "T7", "T0"}
+
+
+def test_read_articles_are_purged_per_owner_and_stay_gone(conn, user_id):
+    bob = users.upsert(conn, sub="sub-bob", email="bob@example.com", name=None, picture=None)
+    users.set_read_retention(conn, bob, 0)  # Bob keeps read articles; Ann has the default 30 days
+    anns_feed = feeds.create(conn, user_id, url="https://a.example.com/feed", title="A")
+    bobs_feed = feeds.create(conn, bob, url="https://a.example.com/feed", title="A")
+    for feed_id, owner in ((anns_feed, user_id), (bobs_feed, bob)):
+        articles.insert_new(conn, feed_id, new_articles(3, first_published=100), fetched_at=200)
+        ids = [row[0] for row in conn.execute("SELECT id FROM articles WHERE feed_id = ? ORDER BY guid", (feed_id,))]
+        articles.set_read(conn, owner, ids, read=True, now=1000)
+        articles.set_starred(conn, owner, ids[0], starred=True, now=1000)  # g0 is in Read later
+
+    later = 1000 + 31 * 86400
+    assert articles.purge_read(conn, now=1000 + 29 * 86400) == 0  # not 30 days yet
+    assert articles.purge_read(conn, now=later) == 2
+    assert {row[0] for row in conn.execute("SELECT guid FROM articles WHERE feed_id = ?", (anns_feed,))} == {"g0"}
+    assert conn.execute("SELECT COUNT(*) FROM articles WHERE feed_id = ?", (bobs_feed,)).fetchone()[0] == 3
+
+    # The feed still lists them, but they don't come back as unread...
+    assert articles.insert_new(conn, anns_feed, new_articles(3, first_published=100), fetched_at=later) == 0
+    # ...until they're old enough that the refresher ignores them anyway and the reminders are dropped.
+    assert articles.forget_purged(conn, published_before=150) == 2
+    assert articles.insert_new(conn, anns_feed, new_articles(3, first_published=100), fetched_at=later) == 2

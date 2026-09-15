@@ -23,6 +23,11 @@ class UserOut(BaseModel):
     picture: str | None
     is_admin: bool
     has_password: bool
+    read_retention_days: int
+
+
+class AccountPrefsIn(BaseModel):
+    read_retention_days: int = Field(ge=0, le=3650)  # 0 keeps read articles until the server's own cleanup
 
 
 class AccountOut(BaseModel):
@@ -168,6 +173,25 @@ class AccountUpdateIn(BaseModel):
 class PasswordChangeIn(BaseModel):
     current_password: str = Field(default="", max_length=1024)
     new_password: str = Field(max_length=1024)
+
+
+class ImportedLinkIn(BaseModel):
+    url: str = Field(max_length=8000)
+    title: str | None = Field(default=None, max_length=5000)
+    saved_at: int | None = None  # Unix seconds
+    tags: list[str] = Field(default_factory=list, max_length=20)
+    reviewed: bool = False
+    archived: bool = False
+
+
+class ImportLinksIn(BaseModel):
+    links: list[ImportedLinkIn] = Field(max_length=2000)
+
+
+class ImportLinksOut(BaseModel):
+    added: int
+    already_saved: int
+    invalid: int
 
 
 class MarkArticlesIn(BaseModel):

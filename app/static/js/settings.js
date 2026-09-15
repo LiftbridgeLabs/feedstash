@@ -3,12 +3,21 @@
 import { api } from './api.js';
 import { modal, toast } from './dialogs.js';
 import { icon } from './icons.js';
+import { importSectionHTML, renderImportPlan, wireImport } from './importlinks.js';
 import { els } from './state.js';
 import { $, agoLong, esc, fullDate } from './util.js';
 
 const timestamp = (iso) => Math.floor(Date.parse(iso) / 1000);
 const SIGN_IN_LABELS = { password: 'Password', google: 'Google', oidc: 'Single sign-on', dev: 'Local dev login' };
 const PASSWORD_LABEL = (hint) => `<span>New password <small>(${hint})</small></span>`;
+const READ_RETENTION_CHOICES = [[1, '1 day'], [3, '3 days'], [7, '1 week'], [14, '2 weeks'], [30, '30 days'], [90, '90 days'], [0, 'Never']];
+
+function readRetentionOptions(current) {
+  const choices = READ_RETENTION_CHOICES.some(([days]) => days === current)
+    ? READ_RETENTION_CHOICES
+    : [...READ_RETENTION_CHOICES, [current, `${current} days`]];
+  return choices.map(([days, label]) => `<option value="${days}" ${days === current ? 'selected' : ''}>${label}</option>`).join('');
+}
 
 let me = null;
 
@@ -29,6 +38,8 @@ export function showSettings() {
       </div>
       <div data-account-list><p class="muted">Loading…</p></div>
     </div>
+
+    ${importSectionHTML()}
 
     <h3>Connected apps</h3>
     <div class="org-head">
@@ -53,6 +64,7 @@ export function showSettings() {
           FeedStash saves links, text and images.</li>
       </ul>
     </div>`;
+  renderImportPlan(els.settings); // files chosen before leaving Settings are still listed
   loadAccount();
   loadTokens();
 }
@@ -75,6 +87,12 @@ async function loadAccount() {
       <div class="org-actions">
         ${me.has_password ? `<button class="btn btn-sm" data-settings="change-password">${icon('key')}Change password</button>` : ''}
       </div>
+    </div>
+    <div class="setting-row">
+      <label for="read-retention">Delete read articles after</label>
+      <select id="read-retention" data-settings-field="read-retention">${readRetentionOptions(me.read_retention_days)}</select>
+      <p class="muted">Counted from when you read them. Articles in Read later are always kept, and everything else
+        is still cleared once it's older than this server keeps articles.</p>
     </div>`;
   if (me.is_admin) {
     $('[data-accounts-section]', els.settings).hidden = false;
@@ -247,7 +265,22 @@ async function revoke(id, name) {
   toast(`Revoked ${name}`);
 }
 
+async function saveReadRetention(select) {
+  const days = Number(select.value);
+  try {
+    me = await api('PATCH', '/api/account', { read_retention_days: days });
+    const label = READ_RETENTION_CHOICES.find(([value]) => value === days)?.[1] || `${days} days`;
+    toast(days ? `Read articles will be deleted ${label} after you read them` : 'Read articles are kept until the server clears old articles');
+  } catch (err) {
+    toast(err.message, { error: true });
+  }
+}
+
 export function wireSettings() {
+  wireImport(els.settings);
+  els.settings.addEventListener('change', (e) => {
+    if (e.target.matches('[data-settings-field=read-retention]')) saveReadRetention(e.target);
+  });
   els.settings.addEventListener('click', (e) => {
     const copy = e.target.closest('[data-copy]');
     if (copy) return copyFrom(copy);

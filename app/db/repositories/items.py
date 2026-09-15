@@ -269,6 +269,23 @@ def update(
     return get(conn, user_id, item_id)
 
 
+def existing_link_urls(conn: sqlite3.Connection, user_id: int, urls: Iterable[str]) -> set[str]:
+    """Which of these URLs the user already has, as an item's url or as one of an item's links."""
+    wanted = list(dict.fromkeys(urls))
+    found: set[str] = set()
+    for start in range(0, len(wanted), 500):
+        chunk = wanted[start:start + 500]
+        marks = ",".join("?" * len(chunk))
+        rows = conn.execute(
+            f"""SELECT url FROM items WHERE user_id = ? AND url IN ({marks})
+                UNION SELECT l.url FROM item_links l JOIN items i ON i.id = l.item_id
+                WHERE i.user_id = ? AND l.url IN ({marks})""",
+            [user_id, *chunk, user_id, *chunk],
+        )
+        found.update(row[0] for row in rows)
+    return found
+
+
 def image_names_for_user(conn: sqlite3.Connection, user_id: int) -> list[str]:
     rows = conn.execute("SELECT image_name FROM items WHERE user_id = ? AND image_name IS NOT NULL", (user_id,))
     return [row[0] for row in rows]

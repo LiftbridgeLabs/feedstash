@@ -51,23 +51,27 @@ class RefreshScheduler:
             added = await ingest.refresh(self._db, due, retention_days=self._settings.retention_days)
             log.info("Refreshed %d feeds in %.1fs, %d new articles", len(due), time.monotonic() - started, added)
         if time.monotonic() - self._last_purge >= PURGE_EVERY_SECONDS:
-            removed = await asyncio.to_thread(self._purge)
+            old, read = await asyncio.to_thread(self._purge)
             self._last_purge = time.monotonic()
-            if removed:
-                log.info("Purged %d articles older than %d days", removed, self._settings.retention_days)
+            if old or read:
+                log.info(
+                    "Purged %d articles older than %d days and %d read articles", old, self._settings.retention_days, read
+                )
         return added
 
     def _due_feeds(self, fetched_before: int):
         with self._db.transaction() as conn:
             return feeds_repo.due_for_refresh(conn, fetched_before=fetched_before)
 
-    def _purge(self) -> int:
+    def _purge(self) -> tuple[int, int]:
+        """Deletes articles past the server's retention, then read articles past each owner's setting."""
+        current = now()
+        cutoff = current - self._settings.retention_days * DAY_SECONDS
         with self._db.transaction() as conn:
-            return articles_repo.purge(
-                conn,
-                published_before=now() - self._settings.retention_days * DAY_SECONDS,
-                keep_per_feed=self._settings.keep_per_feed,
-            )
+            old = articles_repo.purge(conn, published_before=cutoff, keep_per_feed=self._settings.keep_per_feed)
+            read = articles_repo.purge_read(conn, now=current)
+            articles_repo.forget_purged(conn, published_before=cutoff)
+        return old, read
 
     async def _run(self) -> None:
         await asyncio.sleep(3)
