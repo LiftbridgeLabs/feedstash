@@ -12,6 +12,7 @@ from app.db.repositories import articles as articles_repo
 from app.db.repositories import feeds as feeds_repo
 from app.feeds.fetcher import Fetcher, FetchError, FetchResult, create_client
 from app.feeds.parser import ParsedFeed
+from app.text import html_to_text
 
 log = logging.getLogger("reader.ingest")
 
@@ -36,6 +37,7 @@ def save_entries(
         fresh.append(NewArticle(
             guid=entry.guid, title=entry.title, url=entry.url, author=entry.author, summary=entry.summary,
             content=entry.content, image=entry.image, published_at=published_at,
+            search_text=html_to_text(entry.content or entry.summary),
         ))
     return articles_repo.insert_new(conn, feed_id, fresh, fetched_at=now)
 

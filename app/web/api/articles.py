@@ -38,11 +38,13 @@ def list_articles(
     cursor: str | None = None,
     max_id: int | None = None,
     limit: int = 40,
+    q: str | None = None,
 ) -> ArticlePageOut:
+    """`q` searches the articles' full text (title and content)."""
     with db.transaction() as conn:
         page = articles_repo.page(
             conn, user.id, Scope(scope, scope_id),
-            unread_only=unread_only, order=order, cursor=cursor, max_id=max_id, limit=limit,
+            unread_only=unread_only, order=order, cursor=cursor, max_id=max_id, limit=limit, query=q or None,
         )
     return to_schema(ArticlePageOut, page)
 

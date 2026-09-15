@@ -90,6 +90,7 @@ def start_server(tmp_path):
             "BASE_URL": base_url,
             "DATABASE_PATH": str(db_path),
             "SECRET_KEY": "test-secret-key",
+            "PAGE_CAPTURE": "false",  # tests save example.com links; only page tests turn fetching on
             **env,
         }
         # A test can list extra addresses around the server's own, e.g. BASE_URL="https://x.example.com,{server}".

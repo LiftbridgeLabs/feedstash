@@ -26,4 +26,5 @@ def tree(user: UserDep, db: DatabaseDep, settings: SettingsDep) -> TreeOut:
             starred_count=articles_repo.starred_count(conn, user.id),
             refresh_interval_minutes=settings.refresh_interval_minutes,
             version=settings.feedstash_version,
+            page_capture=settings.page_capture,
         )

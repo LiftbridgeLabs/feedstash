@@ -284,6 +284,13 @@ body.resizing { cursor: col-resize; user-select: none; }
 .item-meta .source { white-space: nowrap; }
 .stash-text { white-space: pre-wrap; font-size: 16px; line-height: 1.6; }
 .stash-body img { max-height: 70vh; width: auto; }
+.saved-page { margin-top: 18px; }
+.saved-page-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 0 8px; border-top: 1px solid var(--border); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); }
+.saved-page-head .muted { font-weight: 400; letter-spacing: 0; text-transform: none; }
+.saved-page-head .btn { margin-left: auto; font-weight: 500; letter-spacing: 0; text-transform: none; }
+.list-search { width: 200px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; font-size: 14px; }
+.list-search:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+.actions .btn:disabled { opacity: .5; cursor: default; }
 .stash-links { list-style: none; margin: 16px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 15px; }
 .stash-links li { overflow-wrap: anywhere; }
 .link-host { margin-left: 8px; font-size: 13px; color: var(--text-muted); }
@@ -397,6 +404,7 @@ dialog.modal h2 { margin: 0 0 16px; font-size: 19px; }
   .title-block h1 { font-size: 18px; max-width: 100%; }
   .title-block .muted { font-size: 12px; }
   .hide-sm { display: none; }
+  .list-search { width: 110px; }
   .articles { padding: 4px 16px 0; }
   .thumb { width: 88px; height: 64px; }
   .item-title { font-size: 16px; }

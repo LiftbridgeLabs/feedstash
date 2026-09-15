@@ -11,6 +11,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.db import Database
 from app.feeds.scheduler import RefreshScheduler
 from app.images import ImageStore
+from app.services.pages import PageWorker
 from app.settings import Settings, resolve_secret_key
 from app.web import auth, errors, pages, security
 from app.web.api import accounts as accounts_api
@@ -34,6 +35,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or load_settings()
     db = Database(settings.database_path)
     scheduler = RefreshScheduler(db, settings)
+    page_worker = PageWorker(db)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -41,8 +43,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         _warn_about_sign_in(settings)
         if settings.scheduler_enabled:
             scheduler.start()
+            if settings.page_capture:
+                page_worker.start()
         yield
         await scheduler.stop()
+        await page_worker.stop()
         for task in list(app.state.background_tasks):
             task.cancel()
 

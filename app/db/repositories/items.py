@@ -4,6 +4,8 @@ import sqlite3
 from collections.abc import Iterable, Sequence
 
 from app.db.models import ItemFilter, ItemLink, StashItem, StashSummary, TagCount
+from app.db.repositories import pages as pages_repo
+from app.db.repositories import search as search_index
 from app.errors import InvalidInput, NotFound
 
 ITEM_TYPES = ("link", "snippet", "screenshot", "email")
@@ -61,13 +63,13 @@ def _links_by_item(conn: sqlite3.Connection, item_ids: Sequence[int]) -> dict[in
 
 def _items(conn: sqlite3.Connection, rows: Sequence[sqlite3.Row]) -> list[StashItem]:
     ids = [row["id"] for row in rows]
-    tags, links = _tags_by_item(conn, ids), _links_by_item(conn, ids)
+    tags, links, pages = _tags_by_item(conn, ids), _links_by_item(conn, ids), pages_repo.previews(conn, ids)
     return [
         StashItem(
             id=row["id"], type=row["type"], title=row["title"], content=row["content"], url=row["url"],
             image_name=row["image_name"], source=row["source"], reviewed=row["reviewed_at"] is not None,
             archived=row["archived_at"] is not None, created_at=row["created_at"], updated_at=row["updated_at"],
-            tags=tags[row["id"]], links=links[row["id"]],
+            tags=tags[row["id"]], links=links[row["id"]], page=pages.get(row["id"]),
         )
         for row in rows
     ]
@@ -130,12 +132,19 @@ def search(conn: sqlite3.Connection, user_id: int, criteria: ItemFilter) -> list
         where.append("i.reviewed_at IS NOT NULL" if criteria.reviewed else "i.reviewed_at IS NULL")
     where.append("i.archived_at IS NOT NULL" if criteria.archived else "i.archived_at IS NULL")
     if criteria.query:
+        # Words match anywhere, including tags and the saved page's text; the substring match still finds
+        # punctuation-only searches like "%" or "_" in titles, notes and addresses.
         pattern = f"%{_escape_like(criteria.query)}%"
-        where.append(
-            "(i.title LIKE ? ESCAPE '\\' OR i.content LIKE ? ESCAPE '\\' OR i.url LIKE ? ESCAPE '\\' OR EXISTS ("
-            "SELECT 1 FROM item_links l WHERE l.item_id = i.id AND (l.url LIKE ? ESCAPE '\\' OR l.label LIKE ? ESCAPE '\\')))"
+        substring = (
+            "i.title LIKE ? ESCAPE '\\' OR i.content LIKE ? ESCAPE '\\' OR i.url LIKE ? ESCAPE '\\' OR EXISTS ("
+            "SELECT 1 FROM item_links l WHERE l.item_id = i.id AND (l.url LIKE ? ESCAPE '\\' OR l.label LIKE ? ESCAPE '\\'))"
         )
         params += [pattern] * 5
+        if match := search_index.match_query(criteria.query):
+            where.append(f"({substring} OR {search_index.ITEM_MATCH})")
+            params.append(match)
+        else:
+            where.append(f"({substring})")
     limit = max(1, min(criteria.limit, MAX_PAGE_SIZE))
     rows = conn.execute(
         f"{_SELECT} WHERE {' AND '.join(where)} ORDER BY i.created_at DESC, i.id DESC LIMIT ? OFFSET ?",
@@ -214,6 +223,8 @@ def create(
     ).lastrowid
     _set_tags(conn, user_id, item_id, tags)
     _set_links(conn, item_id, links)
+    pages_repo.queue(conn, item_id, links[0].url if links else None, now=now)
+    search_index.index_item(conn, item_id)
     return get(conn, user_id, item_id)
 
 
@@ -266,7 +277,15 @@ def update(
         _set_tags(conn, user_id, item_id, tags)
     if new_links is not None:
         _set_links(conn, item_id, new_links)
+        pages_repo.queue(conn, item_id, url, now=now)
+    search_index.index_item(conn, item_id)
     return get(conn, user_id, item_id)
+
+
+def set_title_if_missing(conn: sqlite3.Connection, item_id: int, title: str | None) -> None:
+    """Gives an untitled item a title (e.g. from its web page), never overwriting one the user wrote."""
+    if title:
+        conn.execute("UPDATE items SET title = ? WHERE id = ? AND title IS NULL", (title[:1000], item_id))
 
 
 def existing_link_urls(conn: sqlite3.Connection, user_id: int, urls: Iterable[str]) -> set[str]:

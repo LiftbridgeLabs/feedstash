@@ -27,4 +27,5 @@
   <Config Name="PGID" Target="PGID" Default="100" Description="Group the app runs as (100 = users)." Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
   <Config Name="REFRESH_INTERVAL_MINUTES" Target="REFRESH_INTERVAL_MINUTES" Default="15" Description="How often feeds are fetched (5 or more)." Type="Variable" Display="advanced" Required="false" Mask="false">15</Config>
   <Config Name="RETENTION_DAYS" Target="RETENTION_DAYS" Default="90" Description="Feed articles older than this are deleted (starred ones and the newest 50 per feed are kept)." Type="Variable" Display="advanced" Required="false" Mask="false">90</Config>
+  <Config Name="PAGE_CAPTURE" Target="PAGE_CAPTURE" Default="true" Description="Fetch the page behind each saved link for its preview, a readable copy and full-text search." Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
 </Container>

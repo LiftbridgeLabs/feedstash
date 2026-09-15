@@ -11,13 +11,15 @@ from fastapi.responses import FileResponse
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile
 
+from app.clock import iso, now
 from app.db.models import ItemFilter
 from app.db.repositories import items as items_repo
+from app.db.repositories import pages as pages_repo
 from app.errors import InvalidInput, NotFound
 from app.images import MAX_IMAGE_BYTES
 from app.services import stash
 from app.web.deps import DatabaseDep, ImagesDep, UserDep, api_client_name
-from app.web.schemas import StashArticleOut, StashItemOut, StashSummaryOut, TagCountOut
+from app.web.schemas import OkOut, PageCopyOut, StashArticleOut, StashItemOut, StashSummaryOut, TagCountOut
 
 MAX_FIELD_BYTES = 5 * 1024 * 1024
 
@@ -88,6 +90,25 @@ async def update_item(item_id: int, request: Request, user: UserDep, db: Databas
         raise InvalidInput("Send the changes as a JSON object")
     item = await run_in_threadpool(stash.update, db, user.id, item_id, fields)
     return StashItemOut.from_item(item)
+
+
+@router.get("/items/{item_id}/page", response_model=PageCopyOut)
+def get_saved_page(item_id: int, user: UserDep, db: DatabaseDep) -> PageCopyOut:
+    """The readable copy saved of the item's web page."""
+    with db.transaction() as conn:
+        copy = pages_repo.get_copy(conn, user.id, item_id)
+    return PageCopyOut(
+        url=copy.url, status=copy.status, title=copy.title, html=copy.html,
+        fetchedAt=iso(copy.fetched_at) if copy.fetched_at else None, error=copy.error,
+    )
+
+
+@router.post("/items/{item_id}/page/refresh", response_model=OkOut)
+def refresh_saved_page(item_id: int, user: UserDep, db: DatabaseDep) -> OkOut:
+    """Saves the item's web page again."""
+    with db.transaction() as conn:
+        pages_repo.requeue(conn, user.id, item_id, now=now())
+    return OkOut()
 
 
 @router.delete("/items/{item_id}", status_code=204)

@@ -58,6 +58,8 @@ class Settings(BaseSettings):
     keep_per_feed: int = Field(default=50, ge=1)
     # Run the background refresher in this process. Keep it on in exactly one process.
     scheduler_enabled: bool = True
+    # Fetch the web page behind each saved link: its preview, a readable copy, and its text for search.
+    page_capture: bool = True
     # Set by the Docker image from the release tag; shown in the sidebar and /api/health.
     feedstash_version: str = "dev"
 

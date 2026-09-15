@@ -69,6 +69,7 @@ class NewArticle:
     content: str
     image: str | None
     published_at: int
+    search_text: str = ""  # the article as plain text, for the search index
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,6 +111,39 @@ class ItemLink:
 
 
 @dataclass(frozen=True, slots=True)
+class PagePreview:
+    """What has been saved of the web page behind an item."""
+
+    status: str  # pending | working | ready | failed | skipped
+    title: str | None
+    description: str | None
+    image_url: str | None
+    site_name: str | None
+    has_copy: bool
+    fetched_at: int | None
+    error: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class PageCopy:
+    url: str
+    status: str
+    title: str | None
+    html: str | None
+    fetched_at: int | None
+    error: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class PageJob:
+    """A page claimed for fetching."""
+
+    item_id: int
+    url: str
+    attempts: int  # including this one
+
+
+@dataclass(frozen=True, slots=True)
 class StashItem:
     id: int
     type: str  # link | snippet | screenshot | email
@@ -124,6 +158,7 @@ class StashItem:
     updated_at: int
     tags: list[str]
     links: list[ItemLink]  # the first is the primary link, mirrored in `url`
+    page: PagePreview | None = None  # None when the item has no web address
 
 
 @dataclass(frozen=True, slots=True)

@@ -143,6 +143,34 @@ MIGRATIONS: list[str] = [
     ) WITHOUT ROWID;
     CREATE INDEX idx_purged_articles_published ON purged_articles(published_at);
     """,
+    # 7: the web page behind each saved item (link preview and readable copy), and full-text search over the
+    #    stash and feed articles. Existing rows are indexed and queued at startup (see Database.initialize).
+    """
+    CREATE TABLE item_pages (
+        item_id      INTEGER PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
+        url          TEXT NOT NULL,
+        status       TEXT NOT NULL DEFAULT 'pending',
+        attempts     INTEGER NOT NULL DEFAULT 0,
+        not_before   INTEGER NOT NULL DEFAULT 0,
+        error        TEXT,
+        fetched_at   INTEGER,
+        title        TEXT,
+        description  TEXT,
+        image_url    TEXT,
+        site_name    TEXT,
+        text         TEXT,
+        html         TEXT
+    );
+    CREATE INDEX idx_item_pages_queue ON item_pages(status, not_before);
+    CREATE VIRTUAL TABLE items_fts USING fts5(title, body, tokenize = 'porter unicode61 remove_diacritics 2');
+    CREATE VIRTUAL TABLE articles_fts USING fts5(title, body, tokenize = 'porter unicode61 remove_diacritics 2');
+    CREATE TRIGGER items_fts_delete AFTER DELETE ON items BEGIN
+        DELETE FROM items_fts WHERE rowid = old.id;
+    END;
+    CREATE TRIGGER articles_fts_delete AFTER DELETE ON articles BEGIN
+        DELETE FROM articles_fts WHERE rowid = old.id;
+    END;
+    """,
 ]
 
 

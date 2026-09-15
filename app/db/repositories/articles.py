@@ -2,6 +2,7 @@ import sqlite3
 from collections.abc import Iterable, Sequence
 
 from app.db.models import Article, ArticlePage, ArticleSummary, NewArticle, Scope, SortOrder
+from app.db.repositories import search
 from app.errors import InvalidInput, NotFound
 
 MAX_PAGE_SIZE = 100
@@ -59,6 +60,7 @@ def page(
     cursor: str | None = None,
     max_id: int | None = None,
     limit: int = 40,
+    query: str | None = None,
 ) -> ArticlePage:
     """One page of a scope, keyset-paginated by (published_at, id).
 
@@ -70,6 +72,11 @@ def page(
     where, params = scope_where, list(scope_params)
     if unread_only and scope.kind != "starred":
         where += " AND a.read_at IS NULL"
+    if query:
+        match = search.match_query(query)
+        where += f" AND {search.ARTICLE_MATCH}" if match else " AND 0"  # only punctuation: nothing to find
+        if match:
+            params.append(match)
     if max_id is not None:
         where += " AND a.id <= ?"
         params.append(max_id)
@@ -173,14 +180,17 @@ def insert_new(conn: sqlite3.Connection, feed_id: int, articles: Iterable[NewArt
     were new."""
     added = 0
     for article in articles:
-        added += conn.execute(
+        cursor = conn.execute(
             """INSERT OR IGNORE INTO articles
                    (feed_id, guid, title, url, author, summary, content, image, published_at, fetched_at)
                SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                WHERE NOT EXISTS (SELECT 1 FROM purged_articles WHERE feed_id = ? AND guid = ?)""",
             (feed_id, article.guid, article.title, article.url, article.author, article.summary,
              article.content, article.image, article.published_at, fetched_at, feed_id, article.guid),
-        ).rowcount
+        )
+        if cursor.rowcount == 1:
+            search.index_article(conn, cursor.lastrowid, article.title, article.search_text or article.summary)
+            added += 1
     return added
 
 

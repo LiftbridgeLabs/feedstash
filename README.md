@@ -8,11 +8,14 @@ Everything you want to read, in one self-hosted app: the feeds you follow, and t
 - **Folders and feeds.** Follow a site or feed URL (the feed is found automatically). Rename, move, reorder by drag and drop, unfollow.
 - **Mark as read.** Everything, or only articles older than 12 hours, 1 day or 1 week, with Undo. Articles are also marked read as they scroll off the top of the list (can be turned off).
 - **Auto-refresh.** Feeds are fetched in the background; new articles appear on their own, or behind a "↑ N new articles" button while you're reading.
+- **Search.** The search box above the list searches the full text of the articles in the feed or folder you're viewing, read ones included.
 - **OPML import and export**, e.g. from Feedly.
 
 **Stash**
 - **Capture from anywhere.** The browser extension, forwarding an email, the share sheet on Android and iOS, or **+ Add → Save something** in the web app (you can paste an image straight into it). One note can hold several labeled links.
 - **Review.** New items land in the **Inbox**. Mark them reviewed, archive, edit, tag, search, or filter by type and tag.
+- **Link previews and saved copies.** When you save a link, FeedStash fetches the page in the background: the list shows its title, description and image, and opening the item shows a readable copy of the article that stays even if the site changes or goes away.
+- **Full-text search.** Stash search covers titles, notes, links, tags and the text of saved pages, and matches other forms of a word ("reefs" finds "reef").
 - **Save articles.** "Save to stash" on any feed article (or press `b`).
 - **Import saved links** from Feedly boards, browser bookmarks, Pocket or Raindrop, choosing for each file where its links go and how they're tagged.
 
@@ -98,6 +101,7 @@ All settings are environment variables (see `.env.example`).
 | `SESSION_DAYS` | `30` | How long you stay signed in. |
 | `REFRESH_INTERVAL_MINUTES` | `15` | How often feeds are fetched (5 or more). |
 | `RETENTION_DAYS` | `90` | Feed articles older than this are deleted, read or not; Read later and the newest 50 per feed are kept. Read articles can go sooner: each account sets its own limit in Settings (30 days after reading by default). Stash items are never deleted automatically. |
+| `PAGE_CAPTURE` | `true` | Fetch the web page behind each saved link for its preview, readable copy and search text. Turn it off if the server shouldn't reach out to the sites you save. |
 | `DEV_LOGIN` | `false` | Local testing only: skips sign-in entirely. |
 
 ## Deploying
@@ -186,11 +190,14 @@ The clients use these endpoints (camelCase fields, `{"error": "..."}` on failure
 
 - `POST /api/items` (JSON or multipart; `type`, `title`, `content`, `url`, `links`, `tags`, `image`, `source`)
 - `GET /api/items?type=&tag=&reviewed=&archived=&q=&limit=&offset=`, `GET/PATCH/DELETE /api/items/{id}`
+- `GET /api/items/{id}/page` (the saved readable copy: `{url, status, title, html, fetchedAt, error}`), `POST /api/items/{id}/page/refresh`
 - `GET /api/tags`, `GET /api/health`
 - `GET/POST /api/tokens`, `DELETE /api/tokens/{id}`
 - `GET /uploads/{name}`
 
 Every item has a `links` list of `{id, url, label}`, and `url` mirrors the first link, so clients that only know one URL keep working. `links` can be sent as a list of URLs or `{url, label}` objects, as a JSON string of either (for multipart), or one URL per line. `PATCH` with `links` replaces the whole list; `PATCH` with only `url` swaps the first link and keeps the rest.
+
+Items with a web address also have a `preview`: `{status, title, description, image, siteName, hasCopy, fetchedAt, error}`, where `status` is `pending` or `working` while the page is being saved, then `ready`, `skipped` (not a web page) or `failed`. It's `null` for items without an address.
 
 API tokens can't manage accounts; that needs a signed-in browser session.
 
@@ -223,15 +230,17 @@ app/
     database.py      connections; one transaction per unit of work
     migrations.py    versioned schema changes, tracked in PRAGMA user_version
     models.py        plain dataclasses returned by the repositories
-    repositories/    all SQL lives here: users, folders, feeds, articles, items, tokens
+    repositories/    all SQL lives here: users, folders, feeds, articles, items, pages, search (FTS5), tokens
 
   feeds/             parser (no I/O), fetcher (HTTP only), ingest (storage), scheduler (background refresh)
+  pages/             fetching a saved link's page and extracting its preview and readable copy (trafilatura)
 
   services/
     accounts.py      first-run setup, checking passwords, admin changes to accounts
     bookmarks.py     importing saved links in bulk
     subscriptions.py following a feed, importing OPML
     stash.py         capturing items, saving feed articles to the stash
+    pages.py         background worker that saves the pages behind stash items
 
   web/
     api/             JSON routers: tree, articles, folders, feeds, opml, imports, stash, tokens, accounts
@@ -246,7 +255,7 @@ deploy/unraid/       unRAID container template
 docker-entrypoint.sh fixes /data ownership, then runs the app as PUID:PGID
 ```
 
-The background refresher runs inside the web process, so run a single process (the Docker image does).
+The background refresher and page saver run inside the web process, so run a single process (the Docker image does).
 
 ## Tests
 

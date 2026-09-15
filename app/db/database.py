@@ -3,7 +3,9 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
+from app import clock
 from app.db import migrations
+from app.db.repositories import pages, search
 
 
 class Database:
@@ -36,5 +38,9 @@ class Database:
         try:
             conn.execute("PRAGMA journal_mode = WAL")
             migrations.apply(conn)
+            with conn:
+                # Search and saved pages arrived after data did: index and queue anything that predates them.
+                search.backfill(conn)
+                pages.queue_missing(conn, now=clock.now())
         finally:
             conn.close()

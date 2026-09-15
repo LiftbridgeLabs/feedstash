@@ -38,6 +38,10 @@ export async function loadMore() {
   if (id != null) params.set('id', id);
   if (list.cursor) params.set('cursor', list.cursor);
   if (list.maxId != null) params.set('max_id', list.maxId);
+  if (state.articleQuery) {
+    params.set('q', state.articleQuery);
+    params.set('unread_only', 'false'); // a search finds articles you've read too
+  }
   if (!list.articles.length) els.listEnd.innerHTML = '<div class="muted">Loading…</div>';
 
   let res;
@@ -80,7 +84,9 @@ export function renderListEnd() {
   const empty = !list.articles.length;
   let title;
   let sub = '';
-  if (scope === 'starred') {
+  if (state.articleQuery) {
+    title = empty ? 'Nothing matches your search' : "That's every match";
+  } else if (scope === 'starred') {
     title = empty ? 'Nothing saved for later' : "That's everything you saved";
     if (empty) sub = 'Star an article (or press s) to keep it here.';
   } else if (empty) {
@@ -92,7 +98,7 @@ export function renderListEnd() {
   const unread = scope === 'starred' ? 0 : unreadFor(scope, id);
   end.className = `list-end done${empty ? ' empty' : ''}`;
   end.innerHTML = `${icon('circle-check')}<div class="big">${esc(title)}</div><div>${esc(sub)}</div>
-    ${unread && !empty ? `<p><button class="btn btn-sm" data-action="mark-all">${icon('check')}Mark all as read</button></p>` : ''}`;
+    ${unread && !empty && !state.articleQuery ? `<p><button class="btn btn-sm" data-action="mark-all">${icon('check')}Mark all as read</button></p>` : ''}`;
 }
 
 function articleHTML(a) {
@@ -304,7 +310,7 @@ function checkScroll() {
     const el = items[list.scanIndex];
     if (el.getBoundingClientRect().bottom > top + 1) break;
     const a = list.byId.get(Number(el.dataset.id));
-    if (state.prefs.markOnScroll && a && !a.read && !a.keepUnread) setRead(a, true);
+    if (state.prefs.markOnScroll && !state.articleQuery && a && !a.read && !a.keepUnread) setRead(a, true);
     list.scanIndex++;
   }
   const c = els.content;
@@ -313,6 +319,18 @@ function checkScroll() {
 
 export function wireList() {
   els.content.addEventListener('scroll', onScroll, { passive: true });
+
+  // Searching lists matching articles, read ones included; "mark as read" acts on whole folders, so it's paused.
+  let searchTimer = null;
+  $('#article-search')?.addEventListener('input', (e) => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      state.articleQuery = e.target.value.trim();
+      const markButton = $('[data-dropdown="mark-menu"]');
+      if (markButton) markButton.disabled = Boolean(state.articleQuery);
+      resetList();
+    }, 300);
+  });
 
   els.articles.addEventListener('click', (e) => {
     const item = e.target.closest('.item');

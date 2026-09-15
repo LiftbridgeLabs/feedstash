@@ -6,7 +6,7 @@ from typing import TypeVar
 from pydantic import BaseModel, Field
 
 from app.clock import iso
-from app.db.models import ApiToken, ScopeKind, StashItem, User
+from app.db.models import ApiToken, PagePreview, ScopeKind, StashItem, User
 
 
 # ------------------------------------------------------------------ responses
@@ -72,6 +72,7 @@ class TreeOut(BaseModel):
     starred_count: int
     refresh_interval_minutes: int
     version: str  # the server's release, e.g. "0.1.4", or "dev"
+    page_capture: bool  # whether saved links get previews and readable copies
 
 
 class ArticleSummaryOut(BaseModel):
@@ -259,6 +260,34 @@ class LinkOut(BaseModel):
     label: str | None
 
 
+class PagePreviewOut(BaseModel):
+    status: str  # pending | working | ready | failed | skipped
+    title: str | None
+    description: str | None
+    image: str | None
+    siteName: str | None
+    hasCopy: bool  # a readable copy is saved (GET /api/items/{id}/page)
+    fetchedAt: str | None
+    error: str | None
+
+    @classmethod
+    def from_preview(cls, page: PagePreview) -> "PagePreviewOut":
+        return cls(
+            status=page.status, title=page.title, description=page.description, image=page.image_url,
+            siteName=page.site_name, hasCopy=page.has_copy, fetchedAt=iso(page.fetched_at) if page.fetched_at else None,
+            error=page.error,
+        )
+
+
+class PageCopyOut(BaseModel):
+    url: str
+    status: str
+    title: str | None
+    html: str | None
+    fetchedAt: str | None
+    error: str | None
+
+
 class StashItemOut(BaseModel):
     id: int
     type: str
@@ -273,6 +302,7 @@ class StashItemOut(BaseModel):
     updatedAt: str
     tags: list[str]
     links: list[LinkOut]
+    preview: PagePreviewOut | None = None  # the web page behind `url`, once FeedStash has looked at it
 
     @classmethod
     def from_item(cls, item: StashItem) -> "StashItemOut":
@@ -282,6 +312,7 @@ class StashItemOut(BaseModel):
             reviewed=item.reviewed, archived=item.archived, createdAt=iso(item.created_at),
             updatedAt=iso(item.updated_at), tags=item.tags,
             links=[LinkOut(id=link.id, url=link.url, label=link.label) for link in item.links],
+            preview=PagePreviewOut.from_preview(item.page) if item.page else None,
         )
 
 

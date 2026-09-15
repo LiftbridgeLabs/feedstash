@@ -5,6 +5,7 @@ import { modal, toast } from './dialogs.js';
 import { icon } from './icons.js';
 import { collectLinks, linkRowsHTML, wireLinkRows } from './links.js';
 import { navigate } from './router.js';
+import { sanitize } from './sanitize.js';
 import { renderHeader, renderNav } from './sidebar.js';
 import { els, ITEM_TYPES, STASH_VIEWS, state } from './state.js';
 import { $, $$, ago, esc, fullDate } from './util.js';
@@ -17,7 +18,8 @@ const timestamp = (iso) => Math.floor(Date.parse(iso) / 1000);
 const httpUrl = (url) => (/^https?:\/\//i.test(url || '') ? url : null);
 const firstLine = (text) => (text || '').trim().split('\n')[0].slice(0, 200);
 const itemTitle = (item) => item.title || (item.type === 'link' ? '' : firstLine(item.content))
-  || item.links[0]?.label || item.url || '(untitled)';
+  || item.links[0]?.label || item.preview?.title || item.url || '(untitled)';
+const isSaving = (item) => state.tree.page_capture && ['pending', 'working'].includes(item.preview?.status);
 
 function hostOf(url) {
   try {
@@ -56,7 +58,7 @@ export function showStash() {
   state.stash.openId = null;
   els.stash.innerHTML = `
     <div class="stash-head">
-      <input type="search" class="stash-search" placeholder="Search your stash…" value="${esc(state.stash.query)}"
+      <input type="search" class="stash-search" placeholder="Search your stash, including saved pages…" value="${esc(state.stash.query)}"
              data-stash-search aria-label="Search your stash">
       <div class="tag-chips" data-type-chips>${typeChips(view)}</div>
       <div class="tag-chips" data-tag-chips>${tagChips(view)}</div>
@@ -122,6 +124,7 @@ async function loadMoreItems() {
   }
   container.insertAdjacentHTML('beforeend', fresh.map(itemHTML).join(''));
   renderEnd();
+  watchPending();
 }
 
 function renderEnd() {
@@ -160,7 +163,7 @@ function itemHTML(item) {
   return `
     <article class="item stash-item ${item.reviewed ? 'read' : ''}" data-id="${item.id}">
       <div class="item-row" data-stash-action="open">
-        ${item.imagePath ? `<img class="thumb" src="${esc(item.imagePath)}" alt="" loading="lazy">` : ''}
+        ${item.imagePath || item.preview?.image ? `<img class="thumb" src="${esc(item.imagePath || item.preview.image)}" alt="" loading="lazy">` : ''}
         <div class="item-main">
           <h2 class="item-title">${esc(itemTitle(item))}</h2>
           <div class="item-meta">
@@ -171,7 +174,8 @@ function itemHTML(item) {
             <span class="dot">·</span><span class="source">via ${esc(item.source)}</span>
             ${item.tags.map((tag) => `<span class="tag">#${esc(tag)}</span>`).join('')}
           </div>
-          ${item.content && item.title ? `<p class="item-summary">${esc(item.content)}</p>` : ''}
+          ${item.content && item.title ? `<p class="item-summary">${esc(item.content)}</p>`
+    : item.preview?.description ? `<p class="item-summary">${esc(item.preview.description)}</p>` : ''}
         </div>
         <div class="item-tools">
           <button class="icon-btn" data-stash-action="review" title="${item.reviewed ? 'Back to Inbox' : 'Mark reviewed'}">${icon(item.reviewed ? 'inbox' : 'check')}</button>
@@ -218,7 +222,8 @@ function readerHTML(item) {
       ${item.content ? `<div class="stash-text">${esc(item.content)}</div>` : ''}
       ${linksHTML(item)}
     </div>
-    <div class="stash-tags">${tags}<button type="button" class="btn btn-sm" data-stash-action="edit">${icon('tag')}Edit tags</button></div>`;
+    <div class="stash-tags">${tags}<button type="button" class="btn btn-sm" data-stash-action="edit">${icon('tag')}Edit tags</button></div>
+    <div class="saved-page" data-saved-page></div>`;
 }
 
 const itemEl = (id) => $(`.item[data-id="${id}"]`, els.stash);
@@ -238,6 +243,71 @@ function openItem(id) {
   const box = els.content.getBoundingClientRect();
   const r = el.getBoundingClientRect();
   if (r.top < box.top) els.content.scrollTop += r.top - box.top;
+  loadSavedPage(item);
+}
+
+/** Shows what FeedStash saved of the item's web page: the readable copy, or why there isn't one (yet). */
+async function loadSavedPage(item) {
+  const box = $(`.item[data-id="${item.id}"] [data-saved-page]`, els.stash);
+  const page = item.preview;
+  if (!box || !page) return;
+  const again = (label) => `<button type="button" class="btn btn-sm" data-stash-action="refetch">${icon('refresh')}${label}</button>`;
+  if (isSaving(item)) {
+    box.innerHTML = `<p class="muted">${page.error ? `Couldn't save a copy of this page yet (${esc(page.error)}); trying again soon.` : 'Saving a copy of this page…'}</p>`;
+    return;
+  }
+  if (!page.hasCopy) {
+    if (page.status === 'failed') box.innerHTML = `<p class="muted">Couldn't save a copy of this page: ${esc(page.error || 'unknown error')}. ${again('Try again')}</p>`;
+    else if (page.status === 'skipped') box.innerHTML = `<p class="muted">No copy saved: ${esc(page.error || 'not a web page')}.</p>`;
+    else box.innerHTML = '';
+    return;
+  }
+  box.innerHTML = '<p class="muted">Loading the saved copy…</p>';
+  try {
+    const copy = await api('GET', `/api/items/${item.id}/page`);
+    if (state.stash.openId !== item.id || !box.isConnected) return;
+    box.innerHTML = `
+      <div class="saved-page-head"><span>Saved copy</span>
+        ${copy.fetchedAt ? `<span class="muted">${esc(fullDate(timestamp(copy.fetchedAt)))}</span>` : ''}
+        ${again('Save again')}</div>
+      <div class="reader-body saved-page-body"></div>`;
+    $('.saved-page-body', box).replaceChildren(sanitize(copy.html || ''));
+  } catch (err) {
+    box.innerHTML = `<p class="muted">${esc(err.message)}</p>`;
+  }
+}
+
+async function refetchPage(item) {
+  try {
+    await api('POST', `/api/items/${item.id}/page/refresh`);
+    applyUpdate({ ...item, preview: { ...item.preview, status: 'pending', hasCopy: false, error: null } });
+    toast('Saving the page again…');
+  } catch (err) {
+    toast(err.message, { error: true });
+  }
+}
+
+/* While pages are being saved, check back on the items shown so their previews appear without a reload.
+   Items waiting to retry after an error aren't polled. */
+let pendingTimer = null;
+function watchPending() {
+  clearTimeout(pendingTimer);
+  if (state.route.scope !== 'stash') return;
+  const waiting = (state.stash.items?.items || [])
+    .filter((item) => isSaving(item) && !item.preview.error)
+    .slice(0, 10);
+  if (!waiting.length) return;
+  pendingTimer = setTimeout(async () => {
+    for (const item of waiting) {
+      try {
+        const fresh = await api('GET', `/api/items/${item.id}`);
+        if (fresh.preview?.status !== item.preview?.status || fresh.title !== item.title) applyUpdate(fresh);
+      } catch {
+        /* deleted meanwhile */
+      }
+    }
+    watchPending();
+  }, 3000);
 }
 
 export function closeStashItem() {
@@ -272,6 +342,7 @@ function applyUpdate(updated) {
     state.stash.openId = null;
     openItem(updated.id);
   }
+  watchPending();
 }
 
 /** Reloads stash counts and tags for the sidebar, header and tag chips. */
@@ -495,6 +566,7 @@ export function wireStash() {
       case 'archive': toggleArchived(item); break;
       case 'edit': editItem(item); break;
       case 'delete': deleteItem(item); break;
+      case 'refetch': refetchPage(item); break;
     }
   });
 
