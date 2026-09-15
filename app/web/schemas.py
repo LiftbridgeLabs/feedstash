@@ -71,6 +71,7 @@ class TreeOut(BaseModel):
     feeds: list[FeedOut]
     starred_count: int
     refresh_interval_minutes: int
+    version: str  # the server's release, e.g. "0.1.4", or "dev"
 
 
 class ArticleSummaryOut(BaseModel):

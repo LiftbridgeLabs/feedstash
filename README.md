@@ -160,13 +160,13 @@ Other admin commands: `create-account`, `set-password`, `list-accounts` (`docker
 
 ## Moving from Feedly
 
-Download your data from Feedly and unzip it. The archive has:
+Download your data from Feedly, unzip it, then in FeedStash open **Settings → Import** and choose that whole folder:
 
-- **`subscriptions.opml`**: your feeds and folders. In FeedStash, open **Organize feeds** and import it.
-- **`my boards/`**: one HTML file per board. In FeedStash, open **Settings → Import saved links**, choose the files, and decide for each board whether it's imported, whether its links land in the Inbox, Everything saved or the Archive, and what they're tagged. Original save dates are kept, and links you already have are skipped.
-- **`my boards/board-Unsaved-bookmarks.html`** (links you removed from Feedly) and **`read/`** (every article you opened, titles only). The import leaves these unticked if you choose them; you rarely want them.
+- Your feeds and folders come in from `subscriptions.opml` straight away, and FeedStash starts fetching them.
+- Each board (`my boards/`) shows up as a row: tick whether to import it, pick the Inbox, Everything saved or the Archive, and set a tag. Original save dates are kept, and links you already have are skipped.
+- The **Unsaved** board (links you removed from Feedly) starts unticked, and the `read/` folder (every article you ever opened, titles only) is left out.
 
-The same import works for bookmarks exported from Chrome, Firefox, Edge or Safari, and for Pocket and Raindrop exports.
+If you only have the OPML, import it under **Organize feeds**. The bookmark-file import also takes bookmarks exported from Chrome, Firefox, Edge or Safari, and Pocket or Raindrop exports.
 
 ## Connecting the extension, email worker and phone apps
 

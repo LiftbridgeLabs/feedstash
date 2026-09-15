@@ -5,6 +5,7 @@
 import { api } from './api.js';
 import { toast } from './dialogs.js';
 import { icon } from './icons.js';
+import { importOpml } from './organize.js';
 import { refreshStashCounts } from './stash.js';
 import { $, esc } from './util.js';
 
@@ -12,20 +13,42 @@ const BATCH_SIZE = 500;
 const DESTINATIONS = { inbox: 'Inbox', saved: 'Everything saved', archive: 'Archive' };
 
 let groups = []; // one per file: { name, fileName, links, include, destination, tag, note }
+let skippedNote = ''; // what a folder import left out, shown above the plan
 
 export function importSectionHTML() {
   return `
-    <h3>Import saved links</h3>
+    <h3>Import</h3>
     <div class="org-head">
-      <p class="muted">Bring in bookmarks exported as HTML files: Feedly boards (the <b>my boards</b> folder of a Feedly
-        export), browser bookmarks, Pocket or Raindrop. You choose where each file's links go. Links you already have
-        are skipped. For feeds, import an OPML file under Organize feeds.</p>
+      <p class="muted"><b>From Feedly:</b> unzip the export you downloaded from Feedly and choose that whole folder.
+        Your feeds and folders come in from its OPML right away, and each board shows up below so you can decide
+        where its links go. <b>Saved links</b> also come in from bookmark HTML files: browser bookmarks, Pocket or
+        Raindrop exports. Links you already have are skipped.</p>
       <div class="org-actions">
-        <label class="btn btn-sm btn-primary">${icon('plus')}Choose files…
+        <label class="btn btn-sm btn-primary">${icon('plus')}Choose a Feedly export folder…
+          <input type="file" webkitdirectory hidden data-import-folder></label>
+        <label class="btn btn-sm">Choose bookmark files…
           <input type="file" accept=".html,.htm,text/html" multiple hidden data-import-files></label>
       </div>
     </div>
     <div data-import-plan></div>`;
+}
+
+/** Everything in a Feedly export folder (or any folder): OPML files become feeds, HTML files become plan rows.
+    Feedly's `read/` folder is one huge file per month of reading history, so it's left out. */
+async function readFolder(root, files) {
+  const pathOf = (file) => file.webkitRelativePath || file.name;
+  const history = files.filter((file) => /(^|\/)read\//i.test(pathOf(file)));
+  const opml = files.filter((file) => /\.opml$/i.test(file.name));
+  const bookmarks = files.filter((file) => /\.html?$/i.test(file.name) && !history.includes(file));
+  skippedNote = history.length
+    ? `Left out the "read" folder (${history.length} files of reading history, titles only).` : '';
+  if (!opml.length && !bookmarks.length) {
+    toast('No OPML or bookmark HTML files in that folder', { error: true });
+    return;
+  }
+  for (const file of opml) await importOpml(file);
+  if (bookmarks.length) await readFiles(root, bookmarks);
+  else renderImportPlan(root);
 }
 
 /* ---- reading bookmark files */
@@ -95,11 +118,12 @@ export function renderImportPlan(root) {
   const plan = $('[data-import-plan]', root);
   if (!plan) return;
   if (!groups.length) {
-    plan.innerHTML = '';
+    plan.innerHTML = skippedNote ? `<p class="muted">${esc(skippedNote)}</p>` : '';
     return;
   }
   const total = groups.filter((group) => group.include).reduce((n, group) => n + group.links.length, 0);
-  plan.innerHTML = `<div class="table-wrap"><table class="org-table import-plan">
+  plan.innerHTML = `${skippedNote ? `<p class="muted">${esc(skippedNote)}</p>` : ''}
+    <div class="table-wrap"><table class="org-table import-plan">
       <thead><tr><th>Import</th><th>File</th><th>Links</th><th>Saved</th><th>Put in</th><th>Tag</th></tr></thead>
       <tbody>${groups.map((group, index) => `<tr class="${group.include ? '' : 'excluded'}">
         <td><input type="checkbox" data-import-field="include" data-index="${index}" ${group.include ? 'checked' : ''} aria-label="Import ${esc(group.name)}"></td>
@@ -144,6 +168,7 @@ async function runImport(root) {
     return;
   }
   groups = [];
+  skippedNote = '';
   renderImportPlan(root);
   await refreshStashCounts();
   const notes = [
@@ -155,10 +180,11 @@ async function runImport(root) {
 
 export function wireImport(root) {
   root.addEventListener('change', (e) => {
-    if (e.target.matches('[data-import-files]')) {
+    if (e.target.matches('[data-import-files], [data-import-folder]')) {
       const files = [...e.target.files];
+      const folder = e.target.matches('[data-import-folder]');
       e.target.value = '';
-      if (files.length) readFiles(root, files);
+      if (files.length) (folder ? readFolder : readFiles)(root, files);
       return;
     }
     const group = groups[Number(e.target.dataset.index)];
@@ -178,6 +204,7 @@ export function wireImport(root) {
     if (action === 'run') runImport(root);
     if (action === 'clear') {
       groups = [];
+      skippedNote = '';
       renderImportPlan(root);
     }
   });

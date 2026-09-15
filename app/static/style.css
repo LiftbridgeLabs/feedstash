@@ -93,6 +93,7 @@ svg.i { width: 18px; height: 18px; flex: none; display: block; }
 .user { display: flex; align-items: center; gap: 8px; padding: 6px 8px 2px; }
 .avatar { width: 26px; height: 26px; border-radius: 50%; }
 .user-name { flex: 1; font-size: 13px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user .version { font-size: 11px; color: var(--text-read); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .toolbar {

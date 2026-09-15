@@ -7,7 +7,8 @@ LABEL org.opencontainers.image.title="FeedStash" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}"
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
+ENV FEEDSTASH_VERSION=${VERSION} \
+    PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \

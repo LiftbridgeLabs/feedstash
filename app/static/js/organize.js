@@ -50,7 +50,8 @@ export function renderOrganize() {
 
   els.organize.innerHTML = `
     <div class="org-head">
-      <p class="muted">Moving from Feedly? Download your OPML from <b>feedly.com/i/opml</b>, then import it here.
+      <p class="muted">Moving from Feedly? Import its OPML here, or pick your whole unzipped Feedly export under
+        <a href="#/settings">Settings → Import</a> to bring the boards along too.
         Names save when you leave the field. Reorder with the arrows, or drag folders and feeds in the sidebar.</p>
       <div class="org-actions">
         <button class="btn btn-sm" data-org="add-feed">${icon('plus')}Follow feed</button>
@@ -82,7 +83,7 @@ function applyOrgFilter() {
   });
 }
 
-async function importOpml(file) {
+export async function importOpml(file) {
   const fd = new FormData();
   fd.append('file', file);
   toast('Importing…', { duration: 30000 });

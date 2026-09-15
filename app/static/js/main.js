@@ -31,6 +31,8 @@ async function init() {
     const [me] = await Promise.all([api('GET', '/api/me'), loadTree()]);
     $('#user-name').textContent = me.name || me.email;
     $('#user-name').title = me.email;
+    const { version } = state.tree;
+    $('#app-version').textContent = version === 'dev' ? 'dev' : `v${version}`;
     if (me.picture) {
       $('#user-avatar').src = me.picture;
       $('#user-avatar').hidden = false;

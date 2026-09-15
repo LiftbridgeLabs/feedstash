@@ -58,6 +58,8 @@ class Settings(BaseSettings):
     keep_per_feed: int = Field(default=50, ge=1)
     # Run the background refresher in this process. Keep it on in exactly one process.
     scheduler_enabled: bool = True
+    # Set by the Docker image from the release tag; shown in the sidebar and /api/health.
+    feedstash_version: str = "dev"
 
     @field_validator("base_urls", mode="before")
     @classmethod

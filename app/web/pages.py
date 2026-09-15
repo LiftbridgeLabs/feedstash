@@ -86,6 +86,6 @@ def healthz(request: Request):
 
 
 @router.get("/api/health")
-def api_health():
+def api_health(request: Request):
     """The clients' "Test connection" check. No sign-in needed."""
-    return {"ok": True, "time": iso(now())}
+    return {"ok": True, "time": iso(now()), "version": request.app.state.settings.feedstash_version}

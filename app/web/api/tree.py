@@ -25,4 +25,5 @@ def tree(user: UserDep, db: DatabaseDep, settings: SettingsDep) -> TreeOut:
             feeds=[asdict(feed) for feed in feeds_repo.list_for_user(conn, user.id)],
             starred_count=articles_repo.starred_count(conn, user.id),
             refresh_interval_minutes=settings.refresh_interval_minutes,
+            version=settings.feedstash_version,
         )
