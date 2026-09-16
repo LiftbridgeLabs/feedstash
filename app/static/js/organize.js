@@ -57,9 +57,9 @@ export function renderOrganize() {
 
   els.organize.innerHTML = `
     <div class="org-head">
-      <p class="muted">Names save when you leave the field. Reorder with the arrows, or drag folders and feeds in the
-        sidebar. Tick <b>Auto-save</b> to send a feed's new articles straight to your stash. To bring feeds in from
-        Feedly or an OPML file, or export yours, use <a href="#/settings">Settings → Import &amp; export</a>.</p>
+      <p class="muted">Names save when you leave the field. Reorder with the arrows, or drag in the sidebar. Tick
+        <b>Auto-save</b> to send a feed's new articles straight to your stash. Importing and exporting lives in
+        <a href="#/settings">Settings</a>.</p>
       <div class="org-actions">
         <button class="btn btn-sm" data-org="add-feed">${icon('plus')}Follow feed</button>
         <button class="btn btn-sm" data-org="new-folder">${icon('folder')}New folder</button>

@@ -31,7 +31,9 @@ export const STASH_VIEWS = {
   archived: 'Archive',
 };
 
-const PREF_DEFAULTS = { layout: 'magazine', order: 'newest', unreadOnly: true, markOnScroll: true };
+const PREF_DEFAULTS = {
+  layout: 'magazine', density: 'standard', order: 'newest', unreadOnly: true, markOnScroll: true,
+};
 
 export const state = {
   tree: { folders: [], feeds: [], starred_count: 0 },

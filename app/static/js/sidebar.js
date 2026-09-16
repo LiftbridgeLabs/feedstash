@@ -1,9 +1,9 @@
 /* The sidebar: folders and feeds with unread counts, collapsing, and drag-and-drop ordering. */
 
-import { moveFeed, newFolder } from './actions.js';
+import { addFeedDialog, moveFeed, newFolder } from './actions.js';
 import { api } from './api.js';
 import { icon } from './icons.js';
-import { closeMenus, openContextMenu } from './menus.js';
+import { closeMenus, openContextMenu, openMenu } from './menus.js';
 import { reorderFeeds, reorderFolders } from './ordering.js';
 import { navigate } from './router.js';
 import { captureDialog, ITEM_DRAG, moveItemToFolder } from './stash.js';
@@ -71,7 +71,7 @@ export function renderNav() {
 
   let html = `
     <div class="nav-section"><span>Feeds</span>
-      <button class="icon-btn" data-action="new-folder" title="New folder">${icon('plus')}</button>
+      <button class="icon-btn" data-action="feeds-menu" title="Follow a feed or make a folder">${icon('plus')}</button>
     </div>
     <div class="nav-row ${active('all')}" role="link" tabindex="0" data-href="#/all">
       <span class="nav-icon">${icon('rss')}</span><span class="nav-label">All articles</span>${count(sumUnread(feeds))}
@@ -111,8 +111,7 @@ export function renderNav() {
     </div>`;
   html += `
     <div class="nav-section"><span>Stash</span>
-      <button class="icon-btn" data-action="new-stash-folder" title="New stash folder">${icon('folder')}</button>
-      <button class="icon-btn" data-action="capture" title="Save something (c)">${icon('plus')}</button>
+      <button class="icon-btn" data-action="stash-menu" title="Save something or make a folder">${icon('plus')}</button>
     </div>
     ${stashRow('inbox', 'inbox', stash.inbox)}
     ${stashRow('all', 'layers', stash.total)}
@@ -121,8 +120,7 @@ export function renderNav() {
     ${(stash.lists || []).map(smartListRow).join('')}`;
 
   els.nav.innerHTML = html;
-  $('[data-route="organize"]').classList.toggle('active', scope === 'organize');
-  $('[data-route="settings"]').classList.toggle('active', scope === 'settings');
+  $('[data-route="settings"]')?.classList.toggle('active', scope === 'settings' || scope === 'organize');
 }
 
 export function renderHeader() {
@@ -163,9 +161,20 @@ export function wireNav() {
     if (collapse) return toggleCollapse(collapse.dataset.collapse);
     const more = e.target.closest('[data-menu]');
     if (more) return openContextMenu(more.dataset.menu, Number(more.dataset.id), more);
-    if (e.target.closest('[data-action="new-folder"]')) return newFolder();
-    if (e.target.closest('[data-action="new-stash-folder"]')) return newStashFolder();
-    if (e.target.closest('[data-action="capture"]')) return captureDialog();
+    const feedsMenu = e.target.closest('[data-action="feeds-menu"]');
+    if (feedsMenu) {
+      return openMenu([
+        ['Follow a feed…', () => addFeedDialog()],
+        ['New folder…', () => newFolder()],
+      ], feedsMenu);
+    }
+    const stashMenu = e.target.closest('[data-action="stash-menu"]');
+    if (stashMenu) {
+      return openMenu([
+        ['Save something…', () => captureDialog()],
+        ['New stash folder…', () => newStashFolder()],
+      ], stashMenu);
+    }
     if (e.target.closest('a[href]')) return;
     const row = e.target.closest('[data-href]');
     if (row) navigate(row.dataset.href);

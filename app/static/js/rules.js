@@ -22,9 +22,8 @@ export function rulesSectionHTML() {
   return `
     <h3>Stash rules</h3>
     <div class="org-head">
-      <p class="muted">Rules run on everything new that reaches your stash — from this app, the browser extension,
-        email, your phone, or a feed that saves itself. Bulk imports skip them, since an import already says where
-        its links go.</p>
+      <p class="muted">Rules run on everything new that reaches your stash, wherever it came from. Bulk imports skip
+        them, since an import already says where its links go.</p>
       <div class="org-actions">
         <button class="btn btn-sm btn-primary" data-rules="new">${icon('plus')}New rule</button>
         <button class="btn btn-sm" data-rules="apply">Run on everything saved</button>

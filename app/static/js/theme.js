@@ -4,13 +4,17 @@
 import { loadJSON, saveJSON } from './util.js';
 
 export const MODES = [['auto', 'Match my system'], ['light', 'Light'], ['dark', 'Dark']];
+/** [id, name, the color shown on its button]. Each repaints the whole app, not just the accent. */
 export const SCHEMES = [
   ['feedstash', 'FeedStash', '#1f9d55'],
-  ['ocean', 'Ocean', '#2b7fd4'],
-  ['plum', 'Plum', '#7c4ddc'],
-  ['ember', 'Ember', '#cc5b22'],
-  ['sepia', 'Sepia', '#9a6b34'],
+  ['slate', 'Slate', '#3d6df0'],
   ['nord', 'Nord', '#5e81ac'],
+  ['solarized', 'Solarized', '#268bd2'],
+  ['gruvbox', 'Gruvbox', '#af3a03'],
+  ['dracula', 'Dracula', '#7b4bd8'],
+  ['rose', 'Rosé', '#b4436c'],
+  ['forest', 'Forest', '#2f7d4f'],
+  ['sepia', 'Sepia', '#9a6b34'],
 ];
 
 const KEY = 'reader.theme';

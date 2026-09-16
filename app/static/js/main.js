@@ -6,7 +6,7 @@ import { pollForNew, showNewBanner, startAutoRefresh } from './autorefresh.js';
 import { toast } from './dialogs.js';
 import { hydrateIcons } from './icons.js';
 import { wireKeyboard } from './keyboard.js';
-import { applyLayout, openContextMenu, setPref, wireToolbar } from './menus.js';
+import { applyDensity, applyLayout, openContextMenu, setPref, wireToolbar } from './menus.js';
 import { wireOrganize } from './organize.js';
 import { applyRoute } from './router.js';
 import { wireSearch } from './search.js';
@@ -22,6 +22,7 @@ async function init() {
   applyTheme();
   hydrateIcons();
   applyLayout();
+  applyDensity();
   wireNav();
   wireSidebarWidth();
   wireToolbar();

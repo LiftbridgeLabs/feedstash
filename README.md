@@ -5,7 +5,7 @@ Everything you want to read, in one self-hosted app: the feeds you follow, and t
 ## Features
 
 **Feeds**
-- **Folders and feeds.** Follow a site or feed URL (the feed is found automatically). Rename, move, reorder by drag and drop, unfollow.
+- **Folders and feeds.** Follow a site or feed URL (the feed is found automatically) from the **+** beside Feeds, which also makes folders. Rename, move, reorder by drag and drop, or unfollow — in the sidebar, or all at once under **Settings → Feeds → Organize feeds**.
 - **Mark as read.** Everything, or only articles older than 12 hours, 1 day or 1 week, with Undo. Articles are also marked read as they scroll off the top of the list (can be turned off).
 - **Auto-refresh.** Feeds are fetched in the background; new articles appear on their own, or behind a "↑ N new articles" button while you're reading.
 - **Search.** The search box in the toolbar (or press `/`) searches the full text of the articles in the feed or folder you're viewing, read ones included. In the stash, the same box searches what you've saved.
@@ -23,7 +23,7 @@ Everything you want to read, in one self-hosted app: the feeds you follow, and t
 - **Save articles.** "Save to stash" on any feed article (or press `b`).
 - **Import saved links** from Feedly boards, browser bookmarks, Pocket or Raindrop, choosing for each file where its links go and how they're tagged.
 
-**Appearance.** Light, dark, or following your system, in a choice of color schemes (FeedStash green, Ocean, Plum, Ember, Sepia or Nord) under **Settings → Appearance**. The choice is kept per browser, so each device can look however you like.
+**Appearance.** Light, dark or following your system, in nine full color schemes — FeedStash, Slate, Nord, Solarized, Gruvbox, Dracula, Rosé, Forest and Sepia — under **Settings → Appearance**. Each one repaints the whole app, not just the accent color. List rows come in **compact**, **standard** or **comfortable** spacing (the view options menu in the toolbar). All of it is kept per browser, so each device can look however you like.
 
 **Accounts.** Several people can share one server; each has their own feeds and stash. Admins add and remove accounts in **Settings → Accounts**. Each person also chooses how long their read articles are kept (**Settings → Your account**, 30 days by default; Read later is never deleted).
 

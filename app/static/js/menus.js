@@ -29,8 +29,12 @@ const MENUS = {
 };
 
 export function openContextMenu(kind, id, anchor) {
+  openMenu((MENUS[kind] || feedMenuItems)(id), anchor);
+}
+
+/** Shows a little menu under `anchor`. Items are [label, onChoose, className?]. */
+export function openMenu(items, anchor) {
   closeMenus();
-  const items = (MENUS[kind] || feedMenuItems)(id);
   const menu = els.contextMenu;
   menu.innerHTML = items.map(([label, , cls], i) => `<button data-i="${i}" class="${cls || ''}">${esc(label)}</button>`).join('');
   menu.onclick = (e) => {
@@ -127,7 +131,8 @@ export function wireToolbar() {
   });
 
   document.addEventListener('click', (e) => {
-    if (!e.target.closest('.menu, [data-dropdown], [data-menu]')) closeMenus();
+    // The buttons that open menus are exempt, or the click that opens one would close it again.
+    if (!e.target.closest('.menu, [data-dropdown], [data-menu], [data-action$="-menu"]')) closeMenus();
   });
   window.addEventListener('resize', closeMenus);
   els.nav.addEventListener('scroll', () => { els.contextMenu.hidden = true; }, { passive: true });
@@ -189,9 +194,15 @@ export function setPref(key, value) {
   state.prefs[key] = value;
   saveJSON('reader.prefs', state.prefs);
   if (key === 'layout') applyLayout();
+  if (key === 'density') applyDensity();
   if (key === 'order' || key === 'unreadOnly') resetList();
 }
 
 export function applyLayout() {
   els.articles.classList.toggle('layout-titles', state.prefs.layout === 'titles');
+}
+
+/** How much room each row in the lists gets: compact, standard or comfortable. */
+export function applyDensity() {
+  document.documentElement.dataset.density = state.prefs.density;
 }

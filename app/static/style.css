@@ -38,41 +38,94 @@
   color-scheme: dark;
 }
 
-:root[data-scheme="ocean"] { --bg-active: #e2eefb; --accent: #2b7fd4; --accent-hover: #1f68b0; }
-:root[data-scheme="ocean"][data-mode="dark"] {
-  --bg-active: #16304c; --accent: #4f9ae8; --accent-hover: #6fb0f0; --accent-text: #08151f;
+/* Each scheme repaints the whole app — backgrounds, sidebar, text and borders — not just the accent. */
+
+:root[data-scheme="slate"] {
+  --bg: #f7f8fa; --bg-sidebar: #1f2430; --bg-hover: #e8eaef; --bg-active: #dfe6f5; --bg-elev: #ffffff;
+  --text: #1a1e27; --text-muted: #5a6172; --text-read: #848b9b; --border: #dde0e7;
+  --accent: #3d6df0; --accent-hover: #2f59cc; --accent-text: #ffffff;
+}
+:root[data-scheme="slate"][data-mode="dark"] {
+  --bg: #171a21; --bg-sidebar: #12151b; --bg-hover: #242936; --bg-active: #22304f; --bg-elev: #1d212a;
+  --text: #e4e7ee; --text-muted: #98a0b3; --text-read: #727a8c; --border: #2b303c;
+  --accent: #6b93ff; --accent-hover: #86a8ff; --accent-text: #0a1020;
 }
 
-:root[data-scheme="plum"] { --bg-active: #efe8fd; --accent: #7c4ddc; --accent-hover: #6a3cc8; }
-:root[data-scheme="plum"][data-mode="dark"] {
-  --bg-active: #2c2247; --accent: #a78bfa; --accent-hover: #bda5ff; --accent-text: #150e26;
+:root[data-scheme="nord"] {
+  --bg: #f8fafc; --bg-sidebar: #e5e9f0; --bg-hover: #dee4ee; --bg-active: #d4e2f2; --bg-elev: #ffffff;
+  --text: #2e3440; --text-muted: #5f6b7d; --text-read: #7b869a; --border: #d6dce6;
+  --accent: #5e81ac; --accent-hover: #4c6a90; --accent-text: #ffffff; --danger: #bf616a;
+}
+:root[data-scheme="nord"][data-mode="dark"] {
+  --bg: #2e3440; --bg-sidebar: #272c36; --bg-hover: #3b4252; --bg-active: #3b4a5f; --bg-elev: #343b48;
+  --text: #e5e9f0; --text-muted: #a7b0c0; --text-read: #808b9e; --border: #3f4757;
+  --accent: #88c0d0; --accent-hover: #9fd2e0; --accent-text: #16202b; --danger: #bf616a;
 }
 
-:root[data-scheme="ember"] { --bg-active: #fdeade; --accent: #cc5b22; --accent-hover: #b04d1c; }
-:root[data-scheme="ember"][data-mode="dark"] {
-  --bg-active: #3a2317; --accent: #f0813f; --accent-hover: #ff9857; --accent-text: #1c0d04;
+:root[data-scheme="solarized"] {
+  --bg: #fdf6e3; --bg-sidebar: #eee8d5; --bg-hover: #e6dfc6; --bg-active: #dcefef; --bg-elev: #fffbf0;
+  --text: #073642; --text-muted: #657b83; --text-read: #93a1a1; --border: #e0d8bf;
+  --accent: #268bd2; --accent-hover: #1f72ad; --accent-text: #ffffff; --danger: #dc322f;
+}
+:root[data-scheme="solarized"][data-mode="dark"] {
+  --bg: #002b36; --bg-sidebar: #00242e; --bg-hover: #073642; --bg-active: #0b4553; --bg-elev: #04303c;
+  --text: #eee8d5; --text-muted: #93a1a1; --text-read: #708c8c; --border: #0e4653;
+  --accent: #2aa198; --accent-hover: #37bfb4; --accent-text: #00252e; --danger: #cb4b16;
+}
+
+:root[data-scheme="gruvbox"] {
+  --bg: #fbf1c7; --bg-sidebar: #ebdbb2; --bg-hover: #e4d5a8; --bg-active: #e8d3a0; --bg-elev: #fdf6da;
+  --text: #3c3836; --text-muted: #6f6355; --text-read: #928374; --border: #e0d0a4;
+  --accent: #af3a03; --accent-hover: #922f02; --accent-text: #ffffff; --danger: #9d0006;
+}
+:root[data-scheme="gruvbox"][data-mode="dark"] {
+  --bg: #282828; --bg-sidebar: #1d2021; --bg-hover: #3c3836; --bg-active: #45403a; --bg-elev: #32302f;
+  --text: #ebdbb2; --text-muted: #a89984; --text-read: #857c6d; --border: #423d38;
+  --accent: #fabd2f; --accent-hover: #ffd75f; --accent-text: #282010; --danger: #fb4934;
+}
+
+:root[data-scheme="dracula"] {
+  --bg: #f7f5fb; --bg-sidebar: #e9e4f5; --bg-hover: #e2dcf2; --bg-active: #e4dcfb; --bg-elev: #ffffff;
+  --text: #282a36; --text-muted: #635f7d; --text-read: #8b87a3; --border: #ddd6ef;
+  --accent: #7b4bd8; --accent-hover: #6837c4; --accent-text: #ffffff; --danger: #d63b6a;
+}
+:root[data-scheme="dracula"][data-mode="dark"] {
+  --bg: #282a36; --bg-sidebar: #21222c; --bg-hover: #343746; --bg-active: #3b3357; --bg-elev: #2e3040;
+  --text: #f8f8f2; --text-muted: #a9adc8; --text-read: #7c819c; --border: #3a3d4e;
+  --accent: #bd93f9; --accent-hover: #d0b0ff; --accent-text: #201432; --danger: #ff5555;
+}
+
+:root[data-scheme="rose"] {
+  --bg: #fdf7f8; --bg-sidebar: #f3e6e9; --bg-hover: #efdde1; --bg-active: #f6dde4; --bg-elev: #ffffff;
+  --text: #3b2b30; --text-muted: #7d6068; --text-read: #a08890; --border: #ecdadf;
+  --accent: #b4436c; --accent-hover: #99355a; --accent-text: #ffffff;
+}
+:root[data-scheme="rose"][data-mode="dark"] {
+  --bg: #211a1d; --bg-sidebar: #1a1416; --bg-hover: #2f2428; --bg-active: #422732; --bg-elev: #281f22;
+  --text: #f0e4e8; --text-muted: #b39aa2; --text-read: #8b757c; --border: #3a2c31;
+  --accent: #eb6f9b; --accent-hover: #ff8fb4; --accent-text: #2a0e18;
 }
 
 :root[data-scheme="sepia"] {
-  --bg: #fbf6ec; --bg-sidebar: #f3ebdd; --bg-hover: #eadfcc; --bg-active: #e7dcc2; --bg-elev: #fffaf1;
+  --bg: #fbf6ec; --bg-sidebar: #f0e6d5; --bg-hover: #eadfcc; --bg-active: #e7dcc2; --bg-elev: #fffaf1;
   --text: #33291d; --text-muted: #7a6a54; --text-read: #9c8d78; --border: #e0d3bd;
-  --accent: #9a6b34; --accent-hover: #82592a;
+  --accent: #9a6b34; --accent-hover: #82592a; --accent-text: #ffffff;
 }
 :root[data-scheme="sepia"][data-mode="dark"] {
-  --bg: #1d1a15; --bg-sidebar: #23201a; --bg-hover: #2f2b23; --bg-active: #3b3223; --bg-elev: #27231c;
+  --bg: #1d1a15; --bg-sidebar: #17140f; --bg-hover: #2f2b23; --bg-active: #3b3223; --bg-elev: #27231c;
   --text: #ece3d4; --text-muted: #a3947f; --text-read: #8d8171; --border: #3a342a;
   --accent: #d0a05e; --accent-hover: #e0b473; --accent-text: #201709;
 }
 
-:root[data-scheme="nord"] {
-  --bg: #f8fafc; --bg-sidebar: #eceff4; --bg-hover: #e0e6ee; --bg-active: #dbe6f2; --bg-elev: #ffffff;
-  --text: #2e3440; --text-muted: #5f6b7d; --text-read: #7b869a; --border: #dbe0e8;
-  --accent: #5e81ac; --accent-hover: #4c6a90;
+:root[data-scheme="forest"] {
+  --bg: #f5f8f4; --bg-sidebar: #e3ece1; --bg-hover: #d9e4d7; --bg-active: #d8ead5; --bg-elev: #ffffff;
+  --text: #1f2a22; --text-muted: #5b6b5e; --text-read: #869088; --border: #d7e0d5;
+  --accent: #2f7d4f; --accent-hover: #256640; --accent-text: #ffffff;
 }
-:root[data-scheme="nord"][data-mode="dark"] {
-  --bg: #2e3440; --bg-sidebar: #2b313c; --bg-hover: #3b4252; --bg-active: #3b4a5f; --bg-elev: #343b48;
-  --text: #e5e9f0; --text-muted: #a7b0c0; --text-read: #808b9e; --border: #3f4757;
-  --accent: #88c0d0; --accent-hover: #9fd2e0; --accent-text: #16202b; --danger: #bf616a;
+:root[data-scheme="forest"][data-mode="dark"] {
+  --bg: #141a16; --bg-sidebar: #0f1411; --bg-hover: #202a23; --bg-active: #1e3a29; --bg-elev: #19211b;
+  --text: #e2ebe4; --text-muted: #94a599; --text-read: #708077; --border: #27322a;
+  --accent: #58c98a; --accent-hover: #74dda2; --accent-text: #0a1a10;
 }
 
 * { box-sizing: border-box; }
@@ -123,8 +176,12 @@ svg.i { width: 18px; height: 18px; flex: none; display: block; }
   width: var(--sidebar-w); flex: none; display: flex; flex-direction: column;
   background: var(--bg-sidebar); border-right: 1px solid var(--border);
 }
-.sidebar-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 14px 10px 16px; }
-.brand { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 17px; text-decoration: none; }
+.sidebar-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 14px 10px 16px; }
+.brand { display: flex; align-items: center; gap: 9px; min-width: 0; font-weight: 700; font-size: 17px; text-decoration: none; }
+.brand span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-head .dropdown { flex: none; }
+/* The sidebar can be narrow, so its menus hang from the button's right edge instead of running off-screen. */
+.sidebar-head .menu, .nav-section .menu { left: auto; right: 0; }
 .nav { flex: 1; overflow-y: auto; padding: 4px 8px 16px; }
 .sidebar-foot { border-top: 1px solid var(--border); padding: 8px; }
 .user { display: flex; align-items: center; gap: 8px; padding: 6px 8px 2px; }
@@ -186,6 +243,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 
 /* ------------------------------------------------------------------ menus */
 .dropdown { position: relative; }
+.menu { max-width: min(320px, calc(100vw - 24px)); }
 .menu {
   position: absolute; right: 0; top: calc(100% + 4px); z-index: 50; min-width: 220px;
   background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius);
@@ -276,8 +334,9 @@ body.resizing { cursor: col-resize; user-select: none; }
 
 /* ------------------------------------------------------------------ organize */
 .organize { max-width: 980px; margin: 0 auto; padding: 24px; }
-.org-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; justify-content: space-between; margin-bottom: 8px; }
-.org-head p { margin: 0; flex: 1 1 320px; font-size: 14px; }
+/* Explanations run the width of the page; the buttons sit underneath them. */
+.org-head { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+.org-head p { margin: 0; max-width: 90ch; font-size: 14px; }
 .org-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .organize h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin: 28px 0 8px; }
 .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
@@ -348,6 +407,16 @@ body.resizing { cursor: col-resize; user-select: none; }
 .swatch span { width: 16px; height: 16px; border-radius: 50%; display: block; }
 .swatch:hover { background: var(--bg-hover); }
 .swatch.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+
+/* Spacing of the article and stash rows (View options → Spacing). */
+:root[data-density="compact"] .item-row { padding: 7px 4px; gap: 12px; }
+:root[data-density="compact"] .item-title { font-size: 15px; }
+:root[data-density="compact"] .item-summary { display: none; }
+:root[data-density="compact"] .thumb { width: 104px; height: 68px; }
+:root[data-density="comfortable"] .item-row { padding: 20px 4px; gap: 20px; }
+:root[data-density="comfortable"] .item-title { font-size: 19px; }
+:root[data-density="comfortable"] .item-meta { margin-top: 5px; }
+:root[data-density="comfortable"] .thumb { width: 180px; height: 116px; }
 .stash-links { list-style: none; margin: 16px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 15px; }
 .stash-links li { overflow-wrap: anywhere; }
 .link-host { margin-left: 8px; font-size: 13px; color: var(--text-muted); }

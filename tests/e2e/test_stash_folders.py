@@ -41,6 +41,28 @@ def test_searching_the_stash_from_the_toolbar(reader):
     assert page.wait_for("!!document.querySelector('[data-stash-action=\"save-list\"]')")
 
 
+def test_the_sidebar_plus_menus_and_row_spacing(reader):
+    page = reader
+    menu_labels = "[...document.querySelectorAll('#context-menu button')].map((b) => b.textContent).join('|')"
+
+    page.js("document.querySelector('[data-action=\"feeds-menu\"]').click()")
+    assert page.wait_for(f"{menu_labels} === 'Follow a feed…|New folder…'")
+    page.js("document.querySelector('#context-menu button:last-child').click()")
+    assert page.wait_for("!!document.querySelector('dialog[open]')")
+    page.js("document.querySelector('dialog[open] [data-cancel]').click()")
+
+    page.js("document.querySelector('[data-action=\"stash-menu\"]').click()")
+    assert page.wait_for(f"{menu_labels} === 'Save something…|New stash folder…'")
+    page.js("document.body.click()")
+
+    # Organize feeds moved out of the sidebar; it's reached from Settings now.
+    assert page.js("!document.querySelector('.sidebar-foot [href=\"#/organize\"]')")
+
+    page.js("reader.setPref('density', 'compact')")
+    assert page.wait_for("document.documentElement.dataset.density === 'compact'")
+    assert page.js("JSON.parse(localStorage.getItem('reader.prefs')).density") == "compact"
+
+
 def test_choosing_a_theme(reader):
     page = reader
     page.js("location.hash = '#/settings'")

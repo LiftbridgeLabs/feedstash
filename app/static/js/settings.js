@@ -35,19 +35,24 @@ export function showSettings() {
       <select id="theme-mode" data-settings-field="theme-mode">
         ${MODES.map(([value, label]) => `<option value="${value}" ${value === theme.mode ? 'selected' : ''}>${label}</option>`).join('')}
       </select>
-      <p class="muted">“Match my system” follows your device's light or dark setting. Appearance is kept in this
-        browser, so each device can look the way you like.</p>
+      <p class="muted">Kept in this browser, so each device can look the way you like.</p>
     </div>
     <div class="setting-row">
       <span class="field-label">Colors</span>
       <div class="swatches" data-schemes>${schemeButtons()}</div>
     </div>
 
+    <h3>Feeds</h3>
+    <div class="org-head">
+      <p class="muted">Rename, reorder and move feeds, fix a feed's address, or unfollow.</p>
+      <div class="org-actions"><a class="btn btn-sm" href="#/organize">${icon('sliders')}Organize feeds</a></div>
+    </div>
+
     <div data-accounts-section hidden>
       <h3>Accounts</h3>
       <div class="org-head">
-        <p class="muted">Everyone who can sign in. Accounts you add here sign in with a password. People who use
-          Google or single sign-on show up after their first sign-in.</p>
+        <p class="muted">Everyone who can sign in. Accounts added here use a password; Google and single sign-on
+          accounts appear after their first sign-in.</p>
         <div class="org-actions">
           <button class="btn btn-sm btn-primary" data-settings="new-account">${icon('plus')}Add account</button>
         </div>
@@ -61,8 +66,8 @@ export function showSettings() {
 
     <h3>Connected apps</h3>
     <div class="org-head">
-      <p class="muted">The browser extension, email worker and phone apps sign in with an API token. Create one for
-        each so you can revoke it on its own. A token is shown only once, right after you create it.</p>
+      <p class="muted">The extension, email worker and phone apps sign in with a token. Make one each, so you can
+        revoke them separately. A token is shown only once.</p>
       <div class="org-actions">
         <button class="btn btn-sm btn-primary" data-settings="new-token">${icon('plus')}New token</button>
       </div>
