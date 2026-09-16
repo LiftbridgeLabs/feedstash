@@ -1,8 +1,8 @@
 # FeedStash Email Worker
 
-Forward an email to an address on your own domain and it lands in your stash. Subject hashtags become tags, links in the message are saved as the item's links (so FeedStash fetches a preview and keeps a readable copy), and the first image attachment is attached.
+Forward an email to an address on your own domain and it lands in your stash. Subject hashtags become tags, `$Folder` files it, links in the message are saved as the item's links (so FeedStash fetches a preview and keeps a readable copy), and the first image attachment is attached.
 
-Example: emailing `stash@yourdomain.com` with the subject `Check this out #reading #ml` creates an item titled "Check this out", tagged `reading` and `ml`, with whatever the message linked to.
+Example: emailing `stash@yourdomain.com` with the subject `Check this out #reading #ml` creates an item titled "Check this out", tagged `reading` and `ml`, with whatever the message linked to. Add `$Reading` to file it in that folder, which FeedStash makes if it's new, or `$"Two words"` for a name with spaces.
 
 ## What you need
 

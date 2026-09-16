@@ -7,7 +7,7 @@ from app.db import Database
 from app.db.models import ItemFilter
 from app.db.repositories import items as items_repo
 from app.db.repositories import mail as mail_repo
-from app.db.repositories import users
+from app.db.repositories import stash_folders, users
 from app.images import ImageStore
 from app.mail.imap import MailError
 from app.mail.parse import parse_message, sender_allowed
@@ -63,8 +63,7 @@ def test_a_message_becomes_a_title_tags_a_body_and_links():
         image=PNG,
     )
     mail = parse_message(raw)
-    assert mail.title == "Reef guide"
-    assert mail.tags == ["diving", "reading"]
+    assert mail.subject == "Reef guide #diving #reading"  # markers are read when the item is saved
     assert mail.sender == "me@example.com"
     assert "Worth reading" in mail.body
     assert mail.links == ["https://example.com/reefs"]  # the unsubscribe link is left out
@@ -76,7 +75,7 @@ def test_a_message_with_only_html_and_no_subject():
     mail["From"] = "Someone <SOMEONE@Example.com>"
     mail.set_content("<h1>Title</h1><p>Body text</p>", subtype="html")
     parsed = parse_message(mail.as_bytes())
-    assert parsed.title == "(no subject)"
+    assert parsed.subject == "(no subject)"
     assert parsed.body == "Title Body text"
     assert parsed.sender == "someone@example.com"
 
@@ -116,7 +115,7 @@ def mailbox_setup(tmp_path):
 
 def test_checking_a_mailbox_saves_what_is_in_it_once(mailbox_setup):
     db, images, secrets, account = mailbox_setup
-    box = FakeMailbox([message(subject="Reef guide #diving", body="https://example.com/reefs")])
+    box = FakeMailbox([message(subject="Reef guide $Diving #diving", body="https://example.com/reefs")])
 
     assert check_account(db, images, secrets, account, open_mailbox=box) == 1
     assert box.seen == [b"0"]  # read, so it won't come back
@@ -127,6 +126,7 @@ def test_checking_a_mailbox_saves_what_is_in_it_once(mailbox_setup):
         assert (item.type, item.title, item.source) == ("email", "Reef guide", "email")
         assert item.tags == ["diving"]
         assert item.url == "https://example.com/reefs"
+        assert stash_folders.get(conn, account.user_id, item.folder_id).name == "Diving"  # made on the way in
         assert mail_repo.get(conn, account.user_id).saved_count == 1
 
     # The same message again (a mailbox that didn't keep the read flag) isn't saved twice.

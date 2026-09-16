@@ -36,6 +36,19 @@ def get(conn: sqlite3.Connection, user_id: int, folder_id: int) -> StashFolder:
     return _folder(row)
 
 
+def find_by_name(conn: sqlite3.Connection, user_id: int, name: str) -> StashFolder | None:
+    row = conn.execute(
+        f"{_SELECT} WHERE f.user_id = ? AND f.name = ? COLLATE NOCASE", (user_id, name)
+    ).fetchone()
+    return _folder(row) if row else None
+
+
+def get_or_create(conn: sqlite3.Connection, user_id: int, name: str) -> StashFolder:
+    """The folder of that name, made if it isn't there yet. Used by email, which has no folder list to pick from."""
+    name = clean_name(name, "Folder name")
+    return find_by_name(conn, user_id, name) or create(conn, user_id, name)
+
+
 def create(conn: sqlite3.Connection, user_id: int, name: str) -> StashFolder:
     """Appends a folder to the end of the list."""
     name = clean_name(name, "Folder name")

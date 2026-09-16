@@ -15,30 +15,26 @@ MAX_LINKS = 10
 BORING_LINK = re.compile(r"unsubscribe|list-manage|/preferences|/privacy|\.gif($|\?)", re.I)
 _HREF = re.compile(r"href\s*=\s*[\"']([^\"']+)[\"']", re.I)
 _BARE_URL = re.compile(r"https?://[^\s<>\"']+", re.I)
-_HASHTAG = re.compile(r"#([\w-]+)")
 
 
 @dataclass(frozen=True, slots=True)
 class ParsedMail:
     message_id: str
     sender: str  # lowercase address, "" when the message doesn't say
-    title: str
-    tags: list[str] = field(default_factory=list)
+    subject: str
     body: str = ""
     links: list[str] = field(default_factory=list)
     image: bytes | None = None
 
 
 def parse_message(raw: bytes) -> ParsedMail:
+    """The message as it stands. Markers in the subject (#tags, $Folder) are read when the item is saved."""
     message = message_from_bytes(raw, policy=policy.default)
-    subject = collapse_whitespace(str(message.get("Subject", ""))) or "(no subject)"
-    title, tags = _split_hashtags(subject)
     text, html = _bodies(message)
     return ParsedMail(
         message_id=str(message.get("Message-ID", "")).strip(),
         sender=parseaddr(str(message.get("From", "")))[1].lower(),
-        title=title[:MAX_TITLE],
-        tags=tags,
+        subject=(collapse_whitespace(str(message.get("Subject", ""))) or "(no subject)")[:MAX_TITLE],
         body=(text or html_to_text(html))[:MAX_BODY],
         links=_links(text, html),
         image=_first_image(message),
@@ -51,13 +47,6 @@ def sender_allowed(sender: str, allowed: list[str]) -> bool:
         return True
     domain = sender[sender.find("@"):] if "@" in sender else ""
     return sender in allowed or (bool(domain) and domain in allowed)
-
-
-def _split_hashtags(subject: str) -> tuple[str, list[str]]:
-    """"Reef guide #diving #reading" -> ("Reef guide", ["diving", "reading"])."""
-    tags = [tag.lower() for tag in _HASHTAG.findall(subject)]
-    title = collapse_whitespace(_HASHTAG.sub("", subject))
-    return (title or subject), tags
 
 
 def _bodies(message) -> tuple[str, str]:

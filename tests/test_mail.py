@@ -26,6 +26,37 @@ def test_connecting_changing_and_disconnecting_a_mailbox(api):
     assert api.post("/api/mail/test").status_code == 404
 
 
+def test_email_can_say_its_folder_and_tags(api):
+    """Both email paths post here, so the markers are read on the way in."""
+    saved = api.post("/api/items", json={
+        "type": "email", "source": "email", "title": "Deck plans $Backyard #diy",
+        "content": "non wood options\n\n#spring\n",
+    }).json()
+    assert saved["title"] == "Deck plans"
+    assert saved["tags"] == ["diy", "spring"]
+    assert saved["content"] == "non wood options"
+    folders = api.get("/api/stash/folders").json()
+    assert [f["name"] for f in folders] == ["Backyard"]
+    assert saved["folderId"] == folders[0]["id"]
+
+    # A second mail goes to the same folder rather than making another.
+    again = api.post("/api/items", json={"type": "email", "source": "email", "title": "Edging $backyard"}).json()
+    assert again["folderId"] == folders[0]["id"]
+    assert len(api.get("/api/stash/folders").json()) == 1
+
+    # Anything else keeps its text: only mail is read for markers.
+    web = api.post("/api/items", json={"type": "link", "url": "https://example.com/x", "title": "$5 off #deal"}).json()
+    assert web["title"] == "$5 off #deal" and web["folderId"] is None and web["tags"] == []
+
+
+def test_a_client_can_name_the_folder_it_wants(api):
+    saved = api.post("/api/items", json={
+        "type": "link", "url": "https://example.com/plan", "folder": "Reading list"
+    }).json()
+    assert [f["name"] for f in api.get("/api/stash/folders").json()] == ["Reading list"]
+    assert saved["folderId"] is not None
+
+
 def test_a_mailbox_needs_a_server_a_user_and_a_password(api):
     assert connect(api, host=" ").status_code == 400
     assert connect(api, username="").status_code == 400

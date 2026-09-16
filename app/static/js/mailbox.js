@@ -26,8 +26,8 @@ export function mailSectionHTML() {
     <h3>Email to your stash</h3>
     <div class="org-head">
       <p class="muted">Forward an email to a mailbox and FeedStash saves it: subject as the title, #hashtags as
-        tags, and any links saved with a preview. FeedStash reaches out to the mailbox, so this works even with
-        no ports open. A mailbox kept just for this is tidiest.</p>
+        tags, $Folder to file it (made if it's new), and any links saved with a preview. FeedStash reaches out to
+        the mailbox, so this works even with no ports open. A mailbox kept just for this is tidiest.</p>
     </div>
     <div data-mail><p class="muted">Loading…</p></div>`;
 }

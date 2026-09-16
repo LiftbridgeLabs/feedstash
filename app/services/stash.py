@@ -10,15 +10,17 @@ from app.db.models import ItemLink, PageJob, StashItem
 from app.db.repositories import articles as articles_repo
 from app.db.repositories import items as items_repo
 from app.db.repositories import pages as pages_repo
-from app.db.repositories import stash_rules
+from app.db.repositories import stash_folders, stash_rules
 from app.errors import InvalidInput
 from app.feeds import to_stash
 from app.images import ImageStore
+from app.markers import split_markers
 from app.pages.fetch import Page, extract
 from app.services.pages import store_page
 
 log = logging.getLogger("feedstash.stash")
 
+MAX_FOLDER_NAME = 200
 MAX_TITLE = 1000
 MAX_URL = 4000
 MAX_SOURCE = 50
@@ -109,6 +111,7 @@ class Capture:
     image: bytes | None = None
     links: list[ItemLink] = field(default_factory=list)
     folder_id: int | None = None
+    folder_name: str | None = None  # a folder by name, made if it doesn't exist yet
     # The page as the client saw it (the browser extension sends the open tab), for sites that block servers.
     page_html: str | None = None
 
@@ -116,6 +119,7 @@ class Capture:
     def from_fields(cls, fields: dict, *, image: bytes | None = None) -> "Capture":
         page_html = fields.get("pageHtml")
         return cls(
+            folder_name=_line(fields.get("folder"), MAX_FOLDER_NAME),
             type=str(fields.get("type") or "").strip(),
             title=_line(fields.get("title"), MAX_TITLE),
             content=_body(fields.get("content")),
@@ -156,15 +160,27 @@ def _sent_page(capture: Capture) -> Page | None:
 
 def capture(db: Database, images: ImageStore, user_id: int, item: Capture, *, default_source: str) -> StashItem:
     _check(item)
+    source = item.source or default_source
+    title, content, tags, folder_name = item.title, item.content, item.tags, item.folder_name
+    if source == "email":
+        # Mail has no interface to click, so the subject (and marker-only body lines) can say where it goes.
+        marked = split_markers(item.title or "", item.content or "")
+        title = marked.title or item.title
+        content = marked.body or None
+        tags = [*item.tags, *(tag for tag in marked.tags if tag not in item.tags)]
+        folder_name = folder_name or marked.folder
     page = _sent_page(item)  # before the transaction: extracting can take a moment
     image_name = images.save(item.image) if item.image else None
     try:
         with db.transaction() as conn:
             timestamp = now()
+            folder_id = item.folder_id
+            if folder_id is None and folder_name:
+                folder_id = stash_folders.get_or_create(conn, user_id, folder_name).id
             created = items_repo.create(
-                conn, user_id, type=item.type, title=item.title, content=item.content, url=item.url,
-                links=item.links, image_name=image_name, source=item.source or default_source, tags=item.tags,
-                now=timestamp, folder_id=item.folder_id,
+                conn, user_id, type=item.type, title=title, content=content, url=item.url,
+                links=item.links, image_name=image_name, source=source, tags=tags,
+                now=timestamp, folder_id=folder_id,
             )
             stash_rules.apply(conn, user_id, created.id, now=timestamp)
             if page is not None and pages_repo.is_web_url(created.url):
