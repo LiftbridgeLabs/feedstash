@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query
 
@@ -7,10 +7,13 @@ from app.db.models import Scope, ScopeKind, SortOrder
 from app.db.repositories import articles as articles_repo
 from app.web.deps import DatabaseDep, UserDep
 from app.web.schemas import (
+    ArticleIdsIn,
+    ArticleIdsOut,
     ArticleOut,
     ArticlePageOut,
     CountOut,
     MarkArticlesIn,
+    StarArticlesIn,
     MarkedOut,
     MarkScopeIn,
     RestoredOut,
@@ -25,6 +28,7 @@ router = APIRouter(prefix="/api")
 
 # The query parameter is called `id`; renamed here so it doesn't shadow the builtin.
 ScopeId = Annotated[int | None, Query(alias="id")]
+ArticleState = Literal["unread", "starred", "all"]
 
 
 @router.get("/articles", response_model=ArticlePageOut)
@@ -58,6 +62,44 @@ def count_new_articles(
     with db.transaction() as conn:
         count = articles_repo.count_new(conn, user.id, Scope(scope, scope_id), since_id=since_id, unread_only=unread_only)
     return CountOut(count=count)
+
+
+# Sync primitives: a client fetches the ids it should have, works out what it's missing, and asks for those.
+# Cheaper and more exact than paging a list that changes while you read it.
+
+
+@router.get("/articles/ids", response_model=ArticleIdsOut)
+def list_article_ids(
+    user: UserDep,
+    db: DatabaseDep,
+    scope: ScopeKind = "all",
+    scope_id: ScopeId = None,
+    state: ArticleState = "unread",
+    since_id: int | None = None,
+    limit: int = articles_repo.MAX_IDS,
+) -> ArticleIdsOut:
+    """The ids of a scope's articles by state. `since_id` limits it to what arrived after a previous sync."""
+    with db.transaction() as conn:
+        ids = articles_repo.state_ids(
+            conn, user.id, Scope(scope, scope_id), state=state, since_id=since_id, limit=limit
+        )
+        newest = articles_repo.max_id(conn, user.id, Scope(scope, scope_id))
+    return ArticleIdsOut(ids=ids, max_id=newest)
+
+
+@router.post("/articles/contents", response_model=list[ArticleOut])
+def article_contents(body: ArticleIdsIn, user: UserDep, db: DatabaseDep) -> list[ArticleOut]:
+    """The articles behind a list of ids, with their content. Ids you don't own are simply left out."""
+    with db.transaction() as conn:
+        return [to_schema(ArticleOut, article) for article in articles_repo.by_ids(conn, user.id, body.ids)]
+
+
+@router.post("/articles/star", response_model=UpdatedOut)
+def star_articles(body: StarArticlesIn, user: UserDep, db: DatabaseDep) -> UpdatedOut:
+    """Stars or unstars a batch, for a client sending up what it queued while offline."""
+    with db.transaction() as conn:
+        updated = articles_repo.set_starred_many(conn, user.id, body.ids, starred=body.starred, now=now())
+    return UpdatedOut(updated=updated)
 
 
 @router.get("/articles/{article_id}", response_model=ArticleOut)

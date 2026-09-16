@@ -105,6 +105,13 @@ class CountOut(BaseModel):
     count: int
 
 
+class ArticleIdsOut(BaseModel):
+    """Ids only: what a syncing client diffs against its own copy before asking for anything."""
+
+    ids: list[int]
+    max_id: int  # the newest id in this scope, to pass back as since_id next time
+
+
 class UpdatedOut(BaseModel):
     updated: int
 
@@ -200,6 +207,15 @@ class ImportLinksOut(BaseModel):
 class MarkArticlesIn(BaseModel):
     ids: list[int] = Field(max_length=2000)
     read: bool = True
+
+
+class StarArticlesIn(BaseModel):
+    ids: list[int] = Field(max_length=2000)
+    starred: bool = True
+
+
+class ArticleIdsIn(BaseModel):
+    ids: list[int] = Field(max_length=1000)  # one bulk fetch; clients page through in chunks this size
 
 
 class StarIn(BaseModel):

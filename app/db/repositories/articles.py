@@ -6,6 +6,8 @@ from app.db.repositories import search
 from app.errors import InvalidInput, NotFound
 
 MAX_PAGE_SIZE = 100
+MAX_IDS = 10_000  # what a client may ask for in one ids call; the Google Reader clients expect this ceiling
+MAX_CONTENTS = 1_000  # and this one for fetching the articles behind those ids
 
 _SUMMARY_COLUMNS = """a.id, a.feed_id, a.title, a.url, a.author, a.summary, a.image, a.published_at,
     a.read_at IS NOT NULL AS read, a.starred_at IS NOT NULL AS starred, f.title AS feed_title, f.site_url"""
@@ -123,6 +125,52 @@ def starred_count(conn: sqlite3.Connection, user_id: int) -> int:
     ).fetchone()[0]
 
 
+def state_ids(
+    conn: sqlite3.Connection, user_id: int, scope: Scope, *, state: str = "unread", since_id: int | None = None,
+    limit: int = MAX_IDS,
+) -> list[int]:
+    """Just the ids of a scope's articles, newest first, by state ("unread", "starred" or "all").
+
+    This is what a syncing client diffs against its own copy: ids are small enough to fetch in bulk, so the client
+    can work out exactly what it's missing and what it should forget, then ask for only those.
+    """
+    where, params = _scope_condition(user_id, scope)
+    if state == "unread":
+        where += " AND a.read_at IS NULL"
+    elif state == "starred":
+        where += " AND a.starred_at IS NOT NULL"
+    elif state != "all":
+        raise InvalidInput('state must be "unread", "starred" or "all"')
+    if since_id is not None:
+        where += " AND a.id > ?"
+        params.append(since_id)
+    rows = conn.execute(
+        f"SELECT a.id {_FROM} WHERE {where} ORDER BY a.published_at DESC, a.id DESC LIMIT ?",
+        [*params, max(1, min(limit, MAX_IDS))],
+    )
+    return [row[0] for row in rows]
+
+
+def max_id(conn: sqlite3.Connection, user_id: int, scope: Scope) -> int:
+    """The newest article id in a scope, so a client can say "everything after this" next time."""
+    where, params = _scope_condition(user_id, scope)
+    return conn.execute(f"SELECT MAX(a.id) {_FROM} WHERE {where}", params).fetchone()[0] or 0
+
+
+def by_ids(conn: sqlite3.Connection, user_id: int, ids: Sequence[int]) -> list[Article]:
+    """The articles a client asked for by id, newest first. Ids it doesn't own are simply absent."""
+    ids = list(ids)[:MAX_CONTENTS]
+    if not ids:
+        return []
+    rows = conn.execute(
+        f"""SELECT {_SUMMARY_COLUMNS}, a.content {_FROM}
+            WHERE a.id IN ({','.join('?' * len(ids))}) AND f.user_id = ?
+            ORDER BY a.published_at DESC, a.id DESC""",
+        [*ids, user_id],
+    ).fetchall()
+    return [Article(**_summary_fields(row), content=row["content"]) for row in rows]
+
+
 # ------------------------------------------------------------------ read & starred state
 
 
@@ -144,6 +192,17 @@ def set_starred(conn: sqlite3.Connection, user_id: int, article_id: int, *, star
     ).rowcount
     if not updated:
         raise NotFound("Article not found")
+
+
+def set_starred_many(conn: sqlite3.Connection, user_id: int, ids: Sequence[int], *, starred: bool, now: int) -> int:
+    """Stars or unstars a batch. Clients queue state changes while offline and send them together."""
+    ids = list(ids)
+    if not ids:
+        return 0
+    return conn.execute(
+        f"UPDATE articles SET starred_at = ? WHERE id IN ({','.join('?' * len(ids))}) AND {_OWNED_BY}",
+        [now if starred else None, *ids, user_id],
+    ).rowcount
 
 
 def mark_scope_read(

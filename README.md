@@ -203,6 +203,14 @@ The clients use these endpoints (camelCase fields, `{"error": "..."}` on failure
 - `GET/POST /api/stash/lists`, `PATCH/DELETE /api/stash/lists/{id}` (smart lists)
 - `GET/POST /api/stash/rules`, `DELETE /api/stash/rules/{id}`, `POST /api/stash/rules/apply`
 - `GET/PUT/DELETE /api/mail` (the connected mailbox; the password is write-only), `POST /api/mail/test`, `POST /api/mail/check`
+
+**Syncing feeds.** A client that keeps its own copy shouldn't page through a list that changes while someone reads it. Ask for ids, work out the difference, then fetch only what's missing:
+
+- `GET /api/articles/ids?scope=&id=&state=unread|starred|all&since_id=&limit=` → `{ids, max_id}`. Ids are small enough to fetch the whole unread set at once (10,000 max). `max_id` is what to send back as `since_id` next time.
+- `POST /api/articles/contents` with `{ids}` (1,000 max) → the articles behind those ids, with content.
+- `POST /api/articles/mark` with `{ids, read}` and `POST /api/articles/star` with `{ids, starred}` send up changes in one go, which is what a client queues while it's offline.
+
+Read state lives on the server, so every device sees the same thing; there's no peer-to-peer syncing. Two things worth doing in a client: keep read/starred state in its own table (it can learn a state for an article it hasn't downloaded, and the state should outlive the article), and keep unsent changes in a bounded, chunked queue that wins over the server's version when they disagree.
 - `GET /api/tags`, `GET /api/health`
 - `GET/POST /api/tokens`, `DELETE /api/tokens/{id}`
 - `GET /uploads/{name}`
