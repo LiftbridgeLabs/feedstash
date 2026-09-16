@@ -42,6 +42,7 @@ Example: emailing `stash@yourdomain.com` with the subject `Check this out #readi
 
 `npx wrangler tail` streams the worker's logs — run it, send a test, and watch. The worker bounces mail it couldn't save, so a failure comes back to you as a delivery error rather than disappearing:
 
+- **"behind a sign-in page"** — a reverse proxy with its own authentication (Authentik, Authelia, Pangolin, Cloudflare Access, tinyauth…) is intercepting the request before FeedStash sees it. Let `/api/` through that proxy without its sign-in; FeedStash still checks the API token itself. The same applies to the browser extension and phone apps from outside your network.
 - **HTTP 401** — the token is wrong or was revoked. Make a new one and `wrangler secret put` it again.
 - **A network or 5xx error** — the worker can't reach `FEEDSTASH_API_BASE` from the internet.
 - **"only accepts mail from its owner"** — the sender isn't in `ALLOWED_SENDERS`.

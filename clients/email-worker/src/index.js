@@ -46,13 +46,25 @@ export default {
       method: 'POST',
       headers: { Authorization: `Bearer ${env.FEEDSTASH_API_TOKEN}` },
       body: fd,
+      // Don't follow redirects: a sign-in page in front of FeedStash would answer 200 and look like success.
+      redirect: 'manual',
     });
 
+    if (res.status >= 300 && res.status < 400) {
+      console.error('Redirected to', res.headers.get('location'), '— something in front of FeedStash wants a sign-in.');
+      message.setReject('FeedStash is behind a sign-in page; let /api/ through so mail can be saved.');
+      return;
+    }
     if (!res.ok) {
       const body = await res.text().catch(() => '');
       console.error(`FeedStash API returned ${res.status}:`, body);
       // Bounce it, so the mail stays in your outbox rather than vanishing.
       message.setReject(`FeedStash did not save this message (HTTP ${res.status}).`);
+      return;
+    }
+    if (!(res.headers.get('content-type') || '').includes('application/json')) {
+      console.error('Expected JSON from FeedStash, got', res.headers.get('content-type'));
+      message.setReject('FeedStash answered with a page, not an item; check what sits in front of it.');
     }
   },
 };
