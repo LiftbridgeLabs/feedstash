@@ -4,6 +4,7 @@ import { api } from './api.js';
 import { flushMarks, resetList } from './articles.js';
 import { renderOrganize } from './organize.js';
 import { loadTree } from './sidebar.js';
+import { pollStashForNew, reloadItems as reloadStashItems } from './stash.js';
 import { els, state } from './state.js';
 import { plural } from './util.js';
 
@@ -22,6 +23,10 @@ export async function pollForNew() {
       if (!els.organize.contains(document.activeElement)) renderOrganize();
       return;
     }
+    if (scope === 'stash') {
+      await pollStashForNew();
+      return;
+    }
     if (scope === 'starred' || list.maxId == null || list.loading) return;
     const params = new URLSearchParams({ scope, since_id: list.maxId, unread_only: state.prefs.unreadOnly });
     if (id != null) params.set('id', id);
@@ -38,8 +43,8 @@ export async function pollForNew() {
   }
 }
 
-export function showNewBanner(count) {
-  els.newBanner.textContent = `↑ ${plural(count, 'new article')}`;
+export function showNewBanner(count, noun = 'new article') {
+  els.newBanner.textContent = `↑ ${plural(count, noun)}`;
   els.newBanner.hidden = false;
 }
 
@@ -49,6 +54,9 @@ export function startAutoRefresh() {
     if (document.visibilityState === 'hidden') flushMarks(true);
     else pollForNew();
   });
-  els.newBanner.addEventListener('click', () => resetList());
+  els.newBanner.addEventListener('click', () => {
+    if (state.route.scope === 'stash') reloadStashItems();
+    else resetList();
+  });
   setInterval(pollForNew, POLL_MS);
 }

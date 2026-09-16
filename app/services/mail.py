@@ -93,8 +93,12 @@ class MailWorker:
         self._task: asyncio.Task | None = None
 
     def start(self) -> None:
+        """Starts checking, if it isn't already. Called at startup and whenever a mailbox is connected."""
         if self._task is None:
             self._task = asyncio.create_task(self._run(), name="mail-check")
+
+    def has_mailboxes(self) -> bool:
+        return bool(self._accounts())
 
     async def stop(self) -> None:
         if self._task is None:
@@ -124,12 +128,26 @@ class MailWorker:
             return mail_repo.enabled_accounts(conn)
 
     async def _run(self) -> None:
-        await asyncio.sleep(FIRST_CHECK_SECONDS)
-        while True:
-            try:
-                await self.run_once()
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                log.exception("Checking mailboxes failed")
-            await asyncio.sleep(self._seconds)
+        """Checks on a timer, and stops when nobody has a mailbox connected: connecting one starts it again."""
+        try:
+            await asyncio.sleep(FIRST_CHECK_SECONDS)
+            while True:
+                accounts = await asyncio.to_thread(self._accounts)
+                if not accounts:
+                    log.info("No mailbox connected: not checking for mail until one is")
+                    return
+                for account in accounts:
+                    try:
+                        await asyncio.to_thread(check_account, self._db, self._images, self._secrets, account)
+                    except MailError as exc:
+                        log.warning("Mailbox %s: %s", account.username, exc)
+                    except Exception:
+                        log.exception("Unexpected error checking %s", account.username)
+                await asyncio.sleep(self._seconds)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.exception("Checking mailboxes failed")
+        finally:
+            if self._task is asyncio.current_task():
+                self._task = None

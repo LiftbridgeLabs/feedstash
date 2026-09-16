@@ -50,7 +50,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         _warn_about_sign_in(settings)
         if settings.scheduler_enabled:
             scheduler.start()
-            mail_worker.start()
+            if mail_worker.has_mailboxes():  # nothing to check until someone connects one
+                mail_worker.start()
             if settings.page_capture:
                 page_worker.start()
         yield
@@ -65,6 +66,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.db = db
     app.state.images = images
     app.state.secrets = secrets
+    app.state.mail_worker = mail_worker
     app.state.oauth = auth.build_oauth(settings)
     app.state.login_limiter = LoginLimiter()
     app.state.background_tasks = set()

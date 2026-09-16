@@ -1,6 +1,6 @@
 """The mailbox an account connects, so forwarding an email saves it to the stash."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from starlette.concurrency import run_in_threadpool
 
 from app.clock import now
@@ -24,23 +24,32 @@ def get_mailbox(user: UserDep, db: DatabaseDep, settings: SettingsDep) -> MailOu
 
 
 @router.put("", response_model=MailOut)
-def connect_mailbox(body: MailIn, user: UserDep, db: DatabaseDep, secrets: SecretsDep, settings: SettingsDep) -> MailOut:
+async def connect_mailbox(
+    body: MailIn, request: Request, user: UserDep, db: DatabaseDep, secrets: SecretsDep, settings: SettingsDep
+) -> MailOut:
     """Connects a mailbox, or changes the one already connected. Send no password to keep the saved one."""
     host = body.host.strip()
     username = body.username.strip()
     if not host or not username:
         raise InvalidInput("A mailbox needs a server and a username")
-    with db.transaction() as conn:
-        current = mail_repo.for_user(conn, user.id)
-        password = secrets.encrypt(body.password) if body.password else (current.password if current else "")
-        if not password:
-            raise InvalidInput("Enter the mailbox password (most providers want an app password)")
-        account = mail_repo.save(
-            conn, user.id, host=host, port=body.port or DEFAULT_PORT, username=username, password=password,
-            folder=(body.folder or "INBOX").strip() or "INBOX",
-            allowed_senders=[s.strip().lower() for s in body.allowedSenders if s.strip()],
-            enabled=body.enabled, now=now(),
-        )
+
+    def save():
+        with db.transaction() as conn:
+            current = mail_repo.for_user(conn, user.id)
+            password = secrets.encrypt(body.password) if body.password else (current.password if current else "")
+            if not password:
+                raise InvalidInput("Enter the mailbox password (most providers want an app password)")
+            return mail_repo.save(
+                conn, user.id, host=host, port=body.port or DEFAULT_PORT, username=username, password=password,
+                folder=(body.folder or "INBOX").strip() or "INBOX",
+                allowed_senders=[s.strip().lower() for s in body.allowedSenders if s.strip()],
+                enabled=body.enabled, now=now(),
+            )
+
+    account = await run_in_threadpool(save)
+    # Starting it here (on the event loop) is why this endpoint is async: the checker stops itself when the last
+    # mailbox goes, so connecting one has to wake it again.
+    request.app.state.mail_worker.start()
     return MailOut.from_account(account, poll_minutes=settings.mail_poll_minutes)
 
 

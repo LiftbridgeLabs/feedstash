@@ -108,7 +108,7 @@ All settings are environment variables (see `.env.example`).
 | `SESSION_DAYS` | `30` | How long you stay signed in. |
 | `REFRESH_INTERVAL_MINUTES` | `15` | How often feeds are fetched (5 or more). |
 | `RETENTION_DAYS` | `90` | Feed articles older than this are deleted, read or not; Read later and the newest 50 per feed are kept. Read articles can go sooner: each account sets its own limit in Settings (30 days after reading by default). Stash items are never deleted automatically. |
-| `MAIL_POLL_MINUTES` | `5` | How often a mailbox connected under Settings → Email is checked. |
+| `MAIL_POLL_MINUTES` | `5` | How often a mailbox connected under Settings → Email is checked. Nothing runs at all until someone connects one, and it stops again when the last one is disconnected. |
 | `PAGE_CAPTURE` | `true` | Fetch the web page behind each saved link for its preview, readable copy and search text. Turn it off if the server shouldn't reach out to the sites you save. |
 | `DEV_LOGIN` | `false` | Local testing only: skips sign-in entirely. |
 

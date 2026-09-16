@@ -1,6 +1,7 @@
 /* The stash: links, snippets, screenshots and emails saved from anywhere. New items wait in the Inbox. */
 
 import { api } from './api.js';
+import { showNewBanner } from './autorefresh.js';
 import { modal, toast } from './dialogs.js';
 import { icon } from './icons.js';
 import { collectLinks, linkRowsHTML, wireLinkRows } from './links.js';
@@ -121,7 +122,7 @@ export function searchStash() {
   reloadItems();
 }
 
-function reloadItems() {
+export function reloadItems() {
   state.stash.items = { items: [], byId: new Map(), done: false, loading: false };
   state.stash.openId = null;
   const container = $('[data-stash-items]', els.stash);
@@ -405,6 +406,24 @@ function applyUpdate(updated) {
     openItem(updated.id);
   }
   watchPending();
+}
+
+/** Anything saved since this list was drawn — by email, a client, or another device — brought in without a reload. */
+export async function pollStashForNew() {
+  const list = state.stash.items;
+  if (state.route.scope !== 'stash' || !list || list.loading) return;
+  let fresh;
+  try {
+    fresh = await api('GET', `/api/items?${viewQuery(state.route.id)}`);
+  } catch {
+    return; // offline or restarting; the next tick tries again
+  }
+  if (list !== state.stash.items) return; // the view changed while loading
+  const added = fresh.filter((item) => !list.byId.has(item.id));
+  if (!added.length) return;
+  // Don't shuffle the list under someone who's reading; offer a button instead.
+  if (els.content.scrollTop < 40 && state.stash.openId == null) reloadItems();
+  else showNewBanner(added.length, 'new item');
 }
 
 /** Reloads stash counts and tags for the sidebar, header and tag chips. */

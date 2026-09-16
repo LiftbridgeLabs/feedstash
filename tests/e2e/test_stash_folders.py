@@ -63,6 +63,23 @@ def test_the_sidebar_plus_menus_and_row_spacing(reader):
     assert page.js("JSON.parse(localStorage.getItem('reader.prefs')).density") == "compact"
 
 
+def test_something_saved_elsewhere_shows_up_without_a_reload(reader):
+    """What arrives by email or from a client while the stash is open, e.g. the sidebar count says 1 but the list
+    shows nothing."""
+    page = reader
+    page.js("location.hash = '#/stash/all'")
+    assert page.wait_for("!!document.querySelector('[data-stash-end]')", timeout=10)
+
+    page.js("reader.api('POST', '/api/items', { type: 'snippet', content: 'Arrived while open', source: 'email' })")
+    page.js("reader.pollForNew()")
+    assert page.wait_for(
+        "[...document.querySelectorAll('#stash .item-title')].some((e) => e.textContent === 'Arrived while open')",
+        timeout=10,
+    )
+    # The sidebar count and the list agree.
+    assert page.js("document.querySelectorAll('#stash .item').length") == page.js("reader.state.stash.summary.total")
+
+
 def test_choosing_a_theme(reader):
     page = reader
     page.js("location.hash = '#/settings'")

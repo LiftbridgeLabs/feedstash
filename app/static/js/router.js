@@ -53,8 +53,8 @@ function showPanel(name) {
   els.settings.hidden = name !== 'settings';
   $('#list-actions').hidden = name !== 'articles';
   $('#stash-actions').hidden = name !== 'stash';
+  els.newBanner.hidden = true; // whatever it was announcing belongs to the view being left
   if (name !== 'articles') {
-    els.newBanner.hidden = true;
     state.list = newList(); // cancels in-flight article loads
     state.openId = null;
   }
