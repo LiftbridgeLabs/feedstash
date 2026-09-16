@@ -16,7 +16,12 @@ import {
 import { els, feedById, feedIdsIn, smartListById, stashFolderById, state } from './state.js';
 import { $, $$, esc, saveJSON } from './util.js';
 
+// The button a menu was opened from: the same click bubbles on to the close-on-click-away handler below, which
+// would otherwise shut the menu the instant it opened.
+let menuAnchor = null;
+
 export function closeMenus() {
+  menuAnchor = null;
   els.contextMenu.hidden = true;
   $$('.dropdown .menu').forEach((m) => { m.hidden = true; });
 }
@@ -35,6 +40,7 @@ export function openContextMenu(kind, id, anchor) {
 /** Shows a little menu under `anchor`. Items are [label, onChoose, className?]. */
 export function openMenu(items, anchor) {
   closeMenus();
+  menuAnchor = anchor;
   const menu = els.contextMenu;
   menu.innerHTML = items.map(([label, , cls], i) => `<button data-i="${i}" class="${cls || ''}">${esc(label)}</button>`).join('');
   menu.onclick = (e) => {
@@ -131,8 +137,8 @@ export function wireToolbar() {
   });
 
   document.addEventListener('click', (e) => {
-    // The buttons that open menus are exempt, or the click that opens one would close it again.
-    if (!e.target.closest('.menu, [data-dropdown], [data-menu], [data-action$="-menu"]')) closeMenus();
+    if (menuAnchor?.contains(e.target)) return; // the click that just opened this menu
+    if (!e.target.closest('.menu, [data-dropdown], [data-menu]')) closeMenus();
   });
   window.addEventListener('resize', closeMenus);
   els.nav.addEventListener('scroll', () => { els.contextMenu.hidden = true; }, { passive: true });

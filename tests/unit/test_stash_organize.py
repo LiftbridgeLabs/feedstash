@@ -64,6 +64,20 @@ def test_rules_only_add_and_never_undo(conn, user_id):
     assert not stash_rules.apply(conn, user_id, elsewhere.id, now=300)
 
 
+def test_new_folders_slot_in_alphabetically_without_disturbing_an_arranged_list(conn, user_id):
+    for name in ("Zebra", "Apple", "Mango"):
+        stash_folders.create(conn, user_id, name)
+    assert [folder.name for folder in stash_folders.list_for_user(conn, user_id)] == ["Apple", "Mango", "Zebra"]
+
+    # Once they're dragged into an order of someone's choosing, a new folder joins without rearranging the rest.
+    by_name = {folder.name: folder.id for folder in stash_folders.list_for_user(conn, user_id)}
+    stash_folders.reorder(conn, user_id, [by_name["Zebra"], by_name["Apple"], by_name["Mango"]])
+    stash_folders.create(conn, user_id, "Banana")
+    assert [folder.name for folder in stash_folders.list_for_user(conn, user_id)] == [
+        "Banana", "Zebra", "Apple", "Mango"
+    ]
+
+
 def test_smart_lists_need_a_filter_and_a_free_name(conn, user_id):
     folder = stash_folders.create(conn, user_id, "Reading")
     saved = smart_lists.create(conn, user_id, name="Reefs", query="reef", folder_id=folder.id)

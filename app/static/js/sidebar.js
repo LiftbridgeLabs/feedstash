@@ -7,7 +7,7 @@ import { closeMenus, openContextMenu, openMenu } from './menus.js';
 import { reorderFeeds, reorderFolders } from './ordering.js';
 import { navigate } from './router.js';
 import { captureDialog, ITEM_DRAG, moveItemToFolder } from './stash.js';
-import { newStashFolder } from './stashlists.js';
+import { newStashFolder, reorderStashFolders } from './stashlists.js';
 import {
   els, feedById, feedIdsIn, scopeTitle, stashFolderById, STASH_VIEWS, state, stashViewRef, sumUnread, unreadFor,
 } from './state.js';
@@ -100,7 +100,7 @@ export function renderNav() {
     </div>`;
   const stashFolderRow = (folder) => `
     <div class="nav-row ${stashActive(`folder:${folder.id}`)} ${folder.count ? '' : 'zero'}" role="link" tabindex="0"
-         data-href="#/stash/folder/${folder.id}" data-stash-folder="${folder.id}">
+         data-href="#/stash/folder/${folder.id}" data-stash-folder="${folder.id}" draggable="true">
       <span class="nav-icon">${icon('folder')}</span><span class="nav-label">${esc(folder.name)}</span>${count(folder.count)}
       <button class="icon-btn more" data-menu="stash-folder" data-id="${folder.id}" title="Folder options">${icon('more')}</button>
     </div>`;
@@ -114,10 +114,10 @@ export function renderNav() {
       <button class="icon-btn" data-action="stash-menu" title="Save something or make a folder">${icon('plus')}</button>
     </div>
     ${stashRow('inbox', 'inbox', stash.inbox)}
-    ${stashRow('all', 'layers', stash.total)}
-    ${stashRow('archived', 'archive', stash.archived)}
     ${(stash.folders || []).map(stashFolderRow).join('')}
-    ${(stash.lists || []).map(smartListRow).join('')}`;
+    ${(stash.lists || []).map(smartListRow).join('')}
+    ${stashRow('all', 'layers', stash.total)}
+    ${stashRow('archived', 'archive', stash.archived)}`;
 
   els.nav.innerHTML = html;
   $('[data-route="settings"]')?.classList.toggle('active', scope === 'settings' || scope === 'organize');
@@ -222,6 +222,11 @@ function wireDragAndDrop() {
   };
   const dropSpot = (e) => {
     if (!drag) return null;
+    if (drag.kind === 'stash-folder') {
+      const row = e.target.closest('[data-stash-folder]');
+      if (!row || Number(row.dataset.stashFolder) === drag.id) return null;
+      return { el: row, mode: half(row, e), stashFolderId: Number(row.dataset.stashFolder) };
+    }
     if (drag.kind === 'folder') {
       const block = e.target.closest('.folder[data-folder-id]');
       if (!block || Number(block.dataset.folderId) === drag.id) return null;
@@ -240,8 +245,10 @@ function wireDragAndDrop() {
   els.nav.addEventListener('dragstart', (e) => {
     const feedRow = e.target.closest('[data-feed]');
     const folderRow = e.target.closest('[data-folder-drag]');
+    const stashFolderRow = e.target.closest('[data-stash-folder]');
     if (feedRow) drag = { kind: 'feed', id: Number(feedRow.dataset.feed) };
     else if (folderRow) drag = { kind: 'folder', id: Number(folderRow.dataset.folderDrag) };
+    else if (stashFolderRow) drag = { kind: 'stash-folder', id: Number(stashFolderRow.dataset.stashFolder) };
     else return;
     closeMenus();
     e.dataTransfer.effectAllowed = 'move';
@@ -269,7 +276,11 @@ function wireDragAndDrop() {
     e.preventDefault();
     const { kind, id } = drag;
     drag = null;
-    if (kind === 'folder') {
+    if (kind === 'stash-folder') {
+      const ids = (state.stash.summary.folders || []).map((f) => f.id).filter((x) => x !== id);
+      ids.splice(ids.indexOf(spot.stashFolderId) + (spot.mode === 'after' ? 1 : 0), 0, id);
+      reorderStashFolders(ids);
+    } else if (kind === 'folder') {
       const ids = state.tree.folders.map((f) => f.id).filter((x) => x !== id);
       ids.splice(ids.indexOf(spot.folderId) + (spot.mode === 'after' ? 1 : 0), 0, id);
       reorderFolders(ids);

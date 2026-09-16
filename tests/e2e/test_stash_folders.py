@@ -41,6 +41,36 @@ def test_searching_the_stash_from_the_toolbar(reader):
     assert page.wait_for("!!document.querySelector('[data-stash-action=\"save-list\"]')")
 
 
+def test_making_a_folder_while_editing_an_item(reader):
+    page = reader
+    page.js("reader.api('POST', '/api/items', { type: 'snippet', content: 'Needs filing' })")
+    page.js("location.hash = '#/stash/all'")
+    assert page.wait_for("!!document.querySelector('#stash .item')", timeout=10)
+
+    page.js("document.querySelector('#stash [data-stash-action=\"menu\"]').click()")
+    assert page.wait_for("!!document.querySelector('#context-menu:not([hidden])')")
+    page.js("""(() => {
+      const edit = [...document.querySelectorAll('#context-menu button')].find((b) => b.textContent.startsWith('Edit'));
+      edit.click();
+    })()""")
+    assert page.wait_for("!!document.querySelector('dialog[open] select[name=folder]')")
+
+    # "+ New folder…" reveals a name field, and saving files the item in the folder it makes.
+    page.js("""(() => {
+      const select = document.querySelector('dialog[open] select[name=folder]');
+      select.value = '__new';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      document.querySelector('dialog[open] input[name=folder_name]').value = 'Filed from edit';
+    })()""")
+    assert page.js("!document.querySelector('dialog[open] [data-new-stash-folder]').hidden")
+    page.js("document.querySelector('dialog[open] [type=submit]').click()")
+
+    assert page.wait_for(
+        "[...document.querySelectorAll('#nav [data-stash-folder] .nav-label')].some((e) => e.textContent === 'Filed from edit')",
+        timeout=10,
+    )
+
+
 def test_the_sidebar_plus_menus_and_row_spacing(reader):
     page = reader
     menu_labels = "[...document.querySelectorAll('#context-menu button')].map((b) => b.textContent).join('|')"

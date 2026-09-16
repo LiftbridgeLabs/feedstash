@@ -50,13 +50,20 @@ def get_or_create(conn: sqlite3.Connection, user_id: int, name: str) -> StashFol
 
 
 def create(conn: sqlite3.Connection, user_id: int, name: str) -> StashFolder:
-    """Appends a folder to the end of the list."""
+    """Adds a folder where its name belongs alphabetically, leaving the others in the order they're already in:
+    an untouched list stays A–Z, and a list someone has dragged into shape keeps that shape."""
     name = clean_name(name, "Folder name")
     _check_unique(conn, user_id, name)
-    position = next_position(conn, "stash_folders", "user_id = ?", [user_id])
+    existing = [(row["id"], row["name"]) for row in conn.execute(
+        "SELECT id, name FROM stash_folders WHERE user_id = ? ORDER BY position, name COLLATE NOCASE", (user_id,)
+    )]
     folder_id = conn.execute(
-        "INSERT INTO stash_folders (user_id, name, position) VALUES (?, ?, ?)", (user_id, name, position)
+        "INSERT INTO stash_folders (user_id, name, position) VALUES (?, ?, ?)", (user_id, name, len(existing))
     ).lastrowid
+    at = next((index for index, (_, other) in enumerate(existing) if other.lower() > name.lower()), len(existing))
+    order = [other_id for other_id, _ in existing]
+    order.insert(at, folder_id)
+    conn.executemany("UPDATE stash_folders SET position = ? WHERE id = ?", list(enumerate(order)))
     return get(conn, user_id, folder_id)
 
 

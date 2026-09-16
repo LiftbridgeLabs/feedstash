@@ -243,7 +243,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 
 /* ------------------------------------------------------------------ menus */
 .dropdown { position: relative; }
-.menu { max-width: min(320px, calc(100vw - 24px)); }
+.menu { max-width: min(320px, calc(100vw - 24px)); max-height: 70vh; overflow-y: auto; }
 .menu {
   position: absolute; right: 0; top: calc(100% + 4px); z-index: 50; min-width: 220px;
   background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius);

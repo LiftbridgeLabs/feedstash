@@ -4,7 +4,7 @@ import { api } from './api.js';
 import { modal, promptDialog, toast } from './dialogs.js';
 import { navigate } from './router.js';
 import { loadTree } from './sidebar.js';
-import { folderOptionsHTML, TYPE_LABELS } from './stash.js';
+import { folderOptionsHTML, moveItemToFolder, TYPE_LABELS } from './stash.js';
 import { ITEM_TYPES, smartListById, stashFolderById, state, stashViewRef } from './state.js';
 import { esc, plural } from './util.js';
 
@@ -59,12 +59,31 @@ export async function moveStashFolderBy(id, delta) {
   const to = at + delta;
   if (at < 0 || to < 0 || to >= ids.length) return;
   ids.splice(to, 0, ...ids.splice(at, 1));
+  reorderStashFolders(ids);
+}
+
+/** Saves a new order for the stash folders (dragging in the sidebar, or the move up/down menu items). */
+export async function reorderStashFolders(ids) {
   try {
     await api('POST', '/api/stash/folders/reorder', { ids });
     await loadTree();
   } catch (err) {
     toast(err.message, { error: true });
   }
+}
+
+/** Makes a folder and files an item in it, straight from the item's menu. */
+export async function fileItemInNewFolder(itemId) {
+  const name = await promptDialog({
+    title: 'New stash folder',
+    label: 'Folder name',
+    confirmText: 'Create',
+    onSubmit: (value) => api('POST', '/api/stash/folders', { name: value }),
+  });
+  if (!name) return;
+  await loadTree();
+  const folder = (state.stash.summary.folders || []).find((f) => f.name.toLowerCase() === name.toLowerCase());
+  if (folder) await moveItemToFolder(itemId, folder.id);
 }
 
 /* ---- smart lists */

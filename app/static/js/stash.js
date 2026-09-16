@@ -5,10 +5,11 @@ import { showNewBanner } from './autorefresh.js';
 import { modal, toast } from './dialogs.js';
 import { icon } from './icons.js';
 import { collectLinks, linkRowsHTML, wireLinkRows } from './links.js';
+import { openMenu } from './menus.js';
 import { navigate } from './router.js';
 import { sanitize } from './sanitize.js';
 import { renderHeader, renderNav } from './sidebar.js';
-import { editSmartList, saveCurrentAsSmartList } from './stashlists.js';
+import { editSmartList, fileItemInNewFolder, saveCurrentAsSmartList } from './stashlists.js';
 import { els, ITEM_TYPES, smartListById, stashFolderById, STASH_VIEWS, state, stashViewRef } from './state.js';
 import { $, $$, ago, esc, fullDate } from './util.js';
 
@@ -56,11 +57,39 @@ function viewQuery(view) {
 }
 
 /** The folders to choose from, for the pickers in the dialogs and the open item. */
-export function folderOptionsHTML(selected) {
+export function folderOptionsHTML(selected, { allowNew = false } = {}) {
   const options = (state.stash.summary.folders || [])
     .map((f) => `<option value="${f.id}" ${f.id === selected ? 'selected' : ''}>${esc(f.name)}</option>`)
     .join('');
-  return `<option value="" ${selected ? '' : 'selected'}>No folder</option>${options}`;
+  return `<option value="" ${selected ? '' : 'selected'}>No folder</option>${options}`
+    + (allowNew ? '<option value="__new">+ New folder…</option>' : '');
+}
+
+/** A folder picker that can also make one, so you don't have to leave what you're writing. */
+function folderFieldHTML(selected) {
+  return `
+    <label>Folder<select name="folder">${folderOptionsHTML(selected, { allowNew: true })}</select></label>
+    <label data-new-stash-folder hidden>New folder name
+      <input type="text" name="folder_name" maxlength="200" autocomplete="off"></label>`;
+}
+
+function wireFolderField(dialog) {
+  const select = $('select[name=folder]', dialog);
+  const field = $('[data-new-stash-folder]', dialog);
+  select?.addEventListener('change', () => {
+    field.hidden = select.value !== '__new';
+    if (!field.hidden) $('input', field).focus();
+  });
+}
+
+/** The folder the dialog ended on, making it first if "+ New folder…" was chosen. */
+async function chosenFolderId(fd) {
+  const value = fd.get('folder');
+  if (value !== '__new') return value ? Number(value) : null;
+  const name = (fd.get('folder_name') || '').trim();
+  if (!name) throw new Error('Enter a name for the new folder');
+  const existing = (state.stash.summary.folders || []).find((f) => f.name.toLowerCase() === name.toLowerCase());
+  return existing ? existing.id : (await api('POST', '/api/stash/folders', { name })).id;
 }
 
 /** Whether an item still belongs in the view after a change (reviewing removes it from the Inbox, etc.). */
@@ -236,6 +265,7 @@ function itemHTML(item) {
         <div class="item-tools">
           <button class="icon-btn" data-stash-action="review" title="${item.reviewed ? 'Back to Inbox' : 'Mark reviewed'}">${icon(item.reviewed ? 'inbox' : 'check')}</button>
           <button class="icon-btn" data-stash-action="archive" title="${item.archived ? 'Unarchive' : 'Archive'}">${icon('archive')}</button>
+          <button class="icon-btn" data-stash-action="menu" title="More">${icon('more')}</button>
         </div>
       </div>
     </article>`;
@@ -472,6 +502,22 @@ const toggleArchived = (item) => changeItem(item, { archived: !item.archived }, 
   undo: { archived: item.archived },
 });
 
+/** Everything you can do to a saved item without opening it. */
+function itemMenuItems(item) {
+  const items = [
+    [item.reviewed ? 'Back to Inbox' : 'Mark reviewed', () => toggleReviewed(item)],
+    ['Edit…', () => editItem(item)],
+  ];
+  for (const folder of state.stash.summary.folders || []) {
+    if (folder.id !== item.folderId) items.push([`Move to ${folder.name}`, () => moveItemToFolder(item.id, folder.id)]);
+  }
+  if (item.folderId) items.push(['Take out of its folder', () => moveItemToFolder(item.id, null)]);
+  items.push(['Move to a new folder…', () => fileItemInNewFolder(item.id)]);
+  items.push([item.archived ? 'Unarchive' : 'Archive', () => toggleArchived(item)]);
+  items.push(['Delete', () => deleteItem(item), 'danger']);
+  return items;
+}
+
 /** Files an item in a stash folder, or takes it out of one (folderId null). */
 export function moveItemToFolder(itemId, folderId) {
   const item = state.stash.items?.byId.get(itemId);
@@ -493,17 +539,18 @@ async function editItem(item) {
       <label>Notes<textarea name="content" rows="4">${esc(item.content || '')}</textarea></label>
       <div class="field-group"><span class="field-label">Links <small>(the first is the primary link)</small></span>${linkRowsHTML(item.links)}</div>
       <label><span>Tags <small>(separate with commas)</small></span><input type="text" name="tags" value="${esc(item.tags.join(', '))}" placeholder="reading, later" autocomplete="off"></label>
-      <label>Folder<select name="folder">${folderOptionsHTML(item.folderId)}</select></label>`,
+      ${folderFieldHTML(item.folderId)}`,
     onOpen: (dialog) => {
       dialogEl = dialog;
       wireLinkRows(dialog);
+      wireFolderField(dialog);
     },
-    onSubmit: (fd) => api('PATCH', `/api/items/${item.id}`, {
+    onSubmit: async (fd) => api('PATCH', `/api/items/${item.id}`, {
       title: (fd.get('title') || '').trim() || null,
       content: fd.get('content') || null,
       links: collectLinks(dialogEl),
       tags: fd.get('tags') || '',
-      folderId: fd.get('folder') ? Number(fd.get('folder')) : null,
+      folderId: await chosenFolderId(fd),
     }),
   });
   if (!updated || updated === true) return;
@@ -553,10 +600,11 @@ export async function captureDialog({ type = 'link' } = {}) {
       </div>
       <label>Title (optional)<input type="text" name="title" maxlength="1000" autocomplete="off"></label>
       <label>Tags (optional)<input type="text" name="tags" placeholder="reading, later" autocomplete="off"></label>
-      <label>Folder<select name="folder">${folderOptionsHTML(stashViewRef(state.route.id).kind === 'folder' ? stashViewRef(state.route.id).id : null)}</select></label>`,
+      ${folderFieldHTML(stashViewRef(state.route.id).kind === 'folder' ? stashViewRef(state.route.id).id : null)}`,
     onOpen: (dialog) => {
       dialogEl = dialog;
       wireLinkRows(dialog);
+      wireFolderField(dialog);
       const preview = $('.capture-preview', dialog);
       const showPreview = (file) => {
         preview.src = URL.createObjectURL(file);
@@ -595,7 +643,8 @@ export async function captureDialog({ type = 'link' } = {}) {
         const value = (fd.get(key) || '').trim();
         if (value) body.set(key, value);
       }
-      if (fd.get('folder')) body.set('folderId', fd.get('folder'));
+      const folderId = await chosenFolderId(fd);
+      if (folderId) body.set('folderId', folderId);
       const links = collectLinks(dialogEl);
       if (kind === 'link') {
         if (!links.length) throw new Error('Enter a URL');
@@ -650,7 +699,8 @@ export function wireStash() {
       navigate(state.route.id === `tag:${tag}` ? '#/stash/all' : `#/stash/tag/${encodeURIComponent(tag)}`);
       return;
     }
-    const action = e.target.closest('[data-stash-action]')?.dataset.stashAction;
+    const control = e.target.closest('[data-stash-action]');
+    const action = control?.dataset.stashAction;
     if (!action) return;
     if (action === 'more') return loadMoreItems();
     if (action === 'capture') return captureDialog();
@@ -665,6 +715,7 @@ export function wireStash() {
       case 'archive': toggleArchived(item); break;
       case 'edit': editItem(item); break;
       case 'delete': deleteItem(item); break;
+      case 'menu': openMenu(itemMenuItems(item), control); break;
       case 'refetch': refetchPage(item); break;
     }
   });
