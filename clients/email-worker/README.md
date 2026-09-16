@@ -13,7 +13,9 @@ Example: emailing `stash@yourdomain.com` with the subject `Check this out #readi
 ## Set it up
 
 1. **Make a token:** in FeedStash, **Settings → Connected apps → New token**, name it `email-worker`, and copy it. It's shown only once.
-2. **Point the worker at your server:** edit `wrangler.toml` and set `FEEDSTASH_API_BASE` to your FeedStash address and `ALLOWED_SENDERS` to the address(es) you'll send from. Anyone not on that list is bounced, so leaving it empty means anyone who learns the address can write into your stash.
+2. **Point the worker at your server:** edit `wrangler.toml` and set `FEEDSTASH_API_BASE` to your FeedStash address and `ALLOWED_SENDERS` to who may write to it. Anyone else is bounced, and an empty list lets in anyone who learns the address.
+
+   `ALLOWED_SENDERS` is a comma-separated list of whole addresses (`you@example.com`), whole domains (`@example.com`), or `*` for anyone. It matches **who sent the mail**: if you auto-forward newsletters to this address, they arrive as the newsletter's address, not yours, so allow those senders (or their domains) too.
 3. **Install and deploy:**
    ```bash
    cd clients/email-worker

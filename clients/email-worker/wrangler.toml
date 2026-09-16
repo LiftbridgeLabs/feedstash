@@ -7,9 +7,11 @@ compatibility_flags = ["nodejs_compat"]
 # Your FeedStash server's address, as reachable from the internet (no trailing slash).
 FEEDSTASH_API_BASE = "https://stash.yourdomain.com"
 
-# Who may send to this address, comma separated. Leave empty and anyone who learns the address can
-# post into your stash, so set it.
-ALLOWED_SENDERS = "you@example.com"
+# Who may send to this address, comma separated: whole addresses (you@example.com), whole domains
+# (@example.com), or * for anyone. Leave it empty and anyone who learns the address can post into your
+# stash, so set it. Note this matches who sent the mail, so auto-forwarded newsletters arrive as the
+# newsletter's address, not yours.
+ALLOWED_SENDERS = "you@example.com, @yourdomain.com"
 
 # FEEDSTASH_API_TOKEN is a secret, NOT set here.
 # After deploying the worker, run:

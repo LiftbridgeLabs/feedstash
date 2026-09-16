@@ -57,13 +57,18 @@ export default {
   },
 };
 
-/** ALLOWED_SENDERS is a comma-separated list of addresses; empty means anyone who finds the address can post. */
+/**
+ * ALLOWED_SENDERS is a comma-separated list. Each entry is a whole address (`you@example.com`), a whole domain
+ * (`@example.com`), or `*` for anyone. Empty means anyone who learns the address can post into your stash.
+ */
 function senderAllowed(from, env) {
   const allowed = (env.ALLOWED_SENDERS || '')
     .split(',')
-    .map((address) => address.trim().toLowerCase())
+    .map((entry) => entry.trim().toLowerCase())
     .filter(Boolean);
-  return allowed.length === 0 || allowed.includes(from);
+  if (allowed.length === 0 || allowed.includes('*')) return true;
+  const domain = from.slice(from.indexOf('@'));
+  return allowed.includes(from) || allowed.includes(domain);
 }
 
 // "Cool React library #dev #tocheck" -> { title: "Cool React library", tags: ["dev","tocheck"] }
