@@ -6,7 +6,7 @@ from typing import TypeVar
 from pydantic import BaseModel, Field
 
 from app.clock import iso
-from app.db.models import ApiToken, PagePreview, ScopeKind, SmartList, StashItem, StashRule, User
+from app.db.models import ApiToken, MailAccount, PagePreview, ScopeKind, SmartList, StashItem, StashRule, User
 
 
 # ------------------------------------------------------------------ responses
@@ -406,6 +406,53 @@ class StashSummaryOut(BaseModel):
 class StashArticleOut(BaseModel):
     item: StashItemOut
     created: bool
+
+
+class MailOut(BaseModel):
+    """The connected mailbox. The password is never sent back."""
+
+    connected: bool
+    host: str = ""
+    port: int = 993
+    username: str = ""
+    folder: str = "INBOX"
+    allowedSenders: list[str] = Field(default_factory=list)
+    enabled: bool = True
+    lastCheckedAt: str | None = None
+    lastError: str | None = None
+    savedCount: int = 0
+    pollMinutes: int = 5
+
+    @classmethod
+    def from_account(cls, account: MailAccount | None, *, poll_minutes: int) -> "MailOut":
+        if account is None:
+            return cls(connected=False, pollMinutes=poll_minutes)
+        return cls(
+            connected=True, host=account.host, port=account.port, username=account.username, folder=account.folder,
+            allowedSenders=account.allowed_senders, enabled=account.enabled,
+            lastCheckedAt=iso(account.last_checked_at) if account.last_checked_at else None,
+            lastError=account.last_error, savedCount=account.saved_count, pollMinutes=poll_minutes,
+        )
+
+
+class MailIn(BaseModel):
+    host: str = Field(max_length=255)
+    username: str = Field(max_length=320)
+    password: str = Field(default="", max_length=1024)  # empty keeps the saved one
+    port: int = Field(default=993, ge=1, le=65535)
+    folder: str = Field(default="INBOX", max_length=255)
+    allowedSenders: list[str] = Field(default_factory=list, max_length=50)
+    enabled: bool = True
+
+
+class MailTestOut(BaseModel):
+    ok: bool
+    error: str | None
+
+
+class MailCheckOut(BaseModel):
+    saved: int
+    error: str | None
 
 
 class TokenOut(BaseModel):

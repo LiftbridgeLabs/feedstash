@@ -8,9 +8,11 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 from starlette.middleware.sessions import SessionMiddleware
 
+from app.crypto import SecretBox
 from app.db import Database
 from app.feeds.scheduler import RefreshScheduler
 from app.images import ImageStore
+from app.services.mail import MailWorker
 from app.services.pages import PageWorker
 from app.settings import Settings, resolve_secret_key
 from app.web import auth, errors, pages, security
@@ -19,6 +21,7 @@ from app.web.api import articles as articles_api
 from app.web.api import feeds as feeds_api
 from app.web.api import folders as folders_api
 from app.web.api import imports as imports_api
+from app.web.api import mail as mail_api
 from app.web.api import opml as opml_api
 from app.web.api import stash as stash_api
 from app.web.api import stash_organize as stash_organize_api
@@ -35,8 +38,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     _configure_logging()
     settings = settings or load_settings()
     db = Database(settings.database_path)
+    secrets = SecretBox(resolve_secret_key(settings))
+    images = ImageStore(settings.uploads_dir)
     scheduler = RefreshScheduler(db, settings)
     page_worker = PageWorker(db)
+    mail_worker = MailWorker(db, images, secrets, settings.mail_poll_minutes)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -44,10 +50,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         _warn_about_sign_in(settings)
         if settings.scheduler_enabled:
             scheduler.start()
+            mail_worker.start()
             if settings.page_capture:
                 page_worker.start()
         yield
         await scheduler.stop()
+        await mail_worker.stop()
         await page_worker.stop()
         for task in list(app.state.background_tasks):
             task.cancel()
@@ -55,7 +63,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.settings = settings
     app.state.db = db
-    app.state.images = ImageStore(settings.uploads_dir)
+    app.state.images = images
+    app.state.secrets = secrets
     app.state.oauth = auth.build_oauth(settings)
     app.state.login_limiter = LoginLimiter()
     app.state.background_tasks = set()
@@ -74,8 +83,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.add_middleware(security.SecureCookieOverHttps, cookie_name=SESSION_COOKIE)
     for router in (
         pages.router, auth.router, tree_api.router, articles_api.router, folders_api.router, feeds_api.router,
-        opml_api.router, imports_api.router, stash_api.router, stash_api.uploads_router, stash_organize_api.router, tokens_api.router,
-        accounts_api.router,
+        opml_api.router, imports_api.router, stash_api.router, stash_api.uploads_router, stash_organize_api.router,
+        mail_api.router, tokens_api.router, accounts_api.router,
     ):
         app.include_router(router)
     app.mount("/static", RevalidatedStaticFiles(directory=pages.STATIC_DIR), name="static")

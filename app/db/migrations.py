@@ -210,6 +210,32 @@ MIGRATIONS: list[str] = [
     );
     ALTER TABLE feeds ADD COLUMN auto_stash INTEGER NOT NULL DEFAULT 0;
     """,
+    # 9: a mailbox FeedStash checks for you, so forwarding an email saves it. The password is encrypted with the
+    #    server's secret key; message ids are remembered so nothing is saved twice.
+    """
+    CREATE TABLE mail_accounts (
+        id               INTEGER PRIMARY KEY,
+        user_id          INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+        host             TEXT NOT NULL,
+        port             INTEGER NOT NULL DEFAULT 993,
+        username         TEXT NOT NULL,
+        password         TEXT NOT NULL,
+        folder           TEXT NOT NULL DEFAULT 'INBOX',
+        allowed_senders  TEXT NOT NULL DEFAULT '',
+        enabled          INTEGER NOT NULL DEFAULT 1,
+        last_checked_at  INTEGER,
+        last_error       TEXT,
+        saved_count      INTEGER NOT NULL DEFAULT 0,
+        created_at       INTEGER NOT NULL,
+        updated_at       INTEGER NOT NULL
+    );
+    CREATE TABLE mail_messages (
+        account_id  INTEGER NOT NULL REFERENCES mail_accounts(id) ON DELETE CASCADE,
+        message_id  TEXT NOT NULL,
+        seen_at     INTEGER NOT NULL,
+        PRIMARY KEY (account_id, message_id)
+    );
+    """,
 ]
 
 

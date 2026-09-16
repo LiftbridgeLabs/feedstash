@@ -14,6 +14,7 @@ Everything you want to read, in one self-hosted app: the feeds you follow, and t
 
 **Stash**
 - **Capture from anywhere.** The browser extension, forwarding an email, the share sheet on Android and iOS, or **+ Add → Save something** in the web app (you can paste an image straight into it). One note can hold several labeled links.
+- **Email to your stash.** Connect a mailbox under **Settings → Email** (Gmail, iCloud, Fastmail, Yahoo, Zoho or any IMAP server, with an app password) and anything you forward there is saved: subject as the title, `#hashtags` as tags, links saved with previews, and the first image attached. FeedStash checks the mailbox itself, so this needs no open ports and works behind a proxy that asks for its own sign-in. For instant delivery on your own domain, `clients/email-worker/` is the Cloudflare alternative.
 - **Review.** New items land in the **Inbox**. Mark them reviewed, archive, edit, tag, search, or filter by type and tag.
 - **Link previews and saved copies.** When you save a link, FeedStash fetches the page in the background: the list shows its title, description and image, and opening the item shows a readable copy of the article that stays even if the site changes or goes away.
 - **Full-text search.** Stash search covers titles, notes, links, tags and the text of saved pages, and matches other forms of a word ("reefs" finds "reef").
@@ -107,6 +108,7 @@ All settings are environment variables (see `.env.example`).
 | `SESSION_DAYS` | `30` | How long you stay signed in. |
 | `REFRESH_INTERVAL_MINUTES` | `15` | How often feeds are fetched (5 or more). |
 | `RETENTION_DAYS` | `90` | Feed articles older than this are deleted, read or not; Read later and the newest 50 per feed are kept. Read articles can go sooner: each account sets its own limit in Settings (30 days after reading by default). Stash items are never deleted automatically. |
+| `MAIL_POLL_MINUTES` | `5` | How often a mailbox connected under Settings → Email is checked. |
 | `PAGE_CAPTURE` | `true` | Fetch the web page behind each saved link for its preview, readable copy and search text. Turn it off if the server shouldn't reach out to the sites you save. |
 | `DEV_LOGIN` | `false` | Local testing only: skips sign-in entirely. |
 
@@ -200,6 +202,7 @@ The clients use these endpoints (camelCase fields, `{"error": "..."}` on failure
 - `GET/POST /api/stash/folders`, `PATCH/DELETE /api/stash/folders/{id}`, `POST /api/stash/folders/reorder`
 - `GET/POST /api/stash/lists`, `PATCH/DELETE /api/stash/lists/{id}` (smart lists)
 - `GET/POST /api/stash/rules`, `DELETE /api/stash/rules/{id}`, `POST /api/stash/rules/apply`
+- `GET/PUT/DELETE /api/mail` (the connected mailbox; the password is write-only), `POST /api/mail/test`, `POST /api/mail/check`
 - `GET /api/tags`, `GET /api/health`
 - `GET/POST /api/tokens`, `DELETE /api/tokens/{id}`
 - `GET /uploads/{name}`

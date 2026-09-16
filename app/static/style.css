@@ -408,6 +408,19 @@ body.resizing { cursor: col-resize; user-select: none; }
 .swatch:hover { background: var(--bg-hover); }
 .swatch.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 
+/* Settings → Email */
+.mail-form { display: grid; gap: 12px; max-width: 520px; margin-top: 12px; }
+.mail-form label { display: grid; gap: 4px; font-size: 14px; }
+.mail-form input, .mail-form select {
+  padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text);
+}
+.mail-form input:focus, .mail-form select:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+.mail-form p { margin: 0; font-size: 13px; }
+.mail-form details { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
+.mail-form details[open] { padding-bottom: 12px; }
+.mail-form summary { cursor: pointer; font-size: 14px; color: var(--text-muted); }
+.mail-form details label { margin-top: 10px; }
+
 /* Spacing of the article and stash rows (View options → Spacing). */
 :root[data-density="compact"] .item-row { padding: 7px 4px; gap: 12px; }
 :root[data-density="compact"] .item-title { font-size: 15px; }

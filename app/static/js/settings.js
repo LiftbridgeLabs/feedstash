@@ -4,6 +4,7 @@ import { api } from './api.js';
 import { modal, toast } from './dialogs.js';
 import { icon } from './icons.js';
 import { importSectionHTML, renderImportPlan, wireImport } from './importlinks.js';
+import { loadMail, mailSectionHTML, wireMail } from './mailbox.js';
 import { loadRules, rulesSectionHTML, wireRules } from './rules.js';
 import { els } from './state.js';
 import { MODES, SCHEMES, setTheme, theme } from './theme.js';
@@ -62,6 +63,8 @@ export function showSettings() {
 
     ${importSectionHTML()}
 
+    ${mailSectionHTML()}
+
     ${rulesSectionHTML()}
 
     <h3>Connected apps</h3>
@@ -89,6 +92,7 @@ export function showSettings() {
     </div>`;
   renderImportPlan(els.settings); // files chosen before leaving Settings are still listed
   loadAccount();
+  loadMail(els.settings);
   loadRules(els.settings);
   loadTokens();
 }
@@ -318,6 +322,7 @@ async function saveReadRetention(select) {
 
 export function wireSettings() {
   wireImport(els.settings);
+  wireMail(els.settings);
   wireRules(els.settings);
   els.settings.addEventListener('change', (e) => {
     if (e.target.matches('[data-settings-field=read-retention]')) saveReadRetention(e.target);

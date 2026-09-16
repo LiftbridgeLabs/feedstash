@@ -60,6 +60,8 @@ class Settings(BaseSettings):
     scheduler_enabled: bool = True
     # Fetch the web page behind each saved link: its preview, a readable copy, and its text for search.
     page_capture: bool = True
+    # How often a connected mailbox is checked for mail to save (Settings -> Email).
+    mail_poll_minutes: int = Field(default=5, ge=1, le=24 * 60)
     # Set by the Docker image from the release tag; shown in the sidebar and /api/health.
     feedstash_version: str = "dev"
 

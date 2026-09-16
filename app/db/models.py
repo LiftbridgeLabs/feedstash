@@ -225,6 +225,24 @@ class StashRule:
 
 
 @dataclass(frozen=True, slots=True)
+class MailAccount:
+    """A mailbox FeedStash checks: anything forwarded there becomes a stash item."""
+
+    id: int
+    user_id: int
+    host: str
+    port: int
+    username: str
+    password: str  # encrypted; the service decrypts it with the server's secret key
+    folder: str
+    allowed_senders: list[str]  # empty means anything in the mailbox is saved
+    enabled: bool
+    last_checked_at: int | None
+    last_error: str | None
+    saved_count: int
+
+
+@dataclass(frozen=True, slots=True)
 class ApiToken:
     id: int
     client_name: str

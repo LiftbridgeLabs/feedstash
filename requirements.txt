@@ -8,3 +8,4 @@ itsdangerous==2.2.0
 python-multipart==0.0.32
 defusedxml==0.7.1
 trafilatura==2.0.0
+cryptography==50.0.1

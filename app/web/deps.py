@@ -6,6 +6,7 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request
 
+from app.crypto import SecretBox
 from app.db import Database
 from app.db.models import User
 from app.images import ImageStore
@@ -25,6 +26,10 @@ def get_images(request: Request) -> ImageStore:
     return request.app.state.images
 
 
+def get_secrets(request: Request) -> SecretBox:
+    return request.app.state.secrets
+
+
 def get_user(request: Request) -> User:
     """The web session's user, or the owner of the API token the request carries."""
     token = bearer_token(request)
@@ -42,6 +47,7 @@ def get_user(request: Request) -> User:
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 DatabaseDep = Annotated[Database, Depends(get_db)]
 ImagesDep = Annotated[ImageStore, Depends(get_images)]
+SecretsDep = Annotated[SecretBox, Depends(get_secrets)]
 UserDep = Annotated[User, Depends(get_user)]
 
 
