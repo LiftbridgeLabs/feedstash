@@ -190,7 +190,21 @@ Each client signs in with its own API token, so you can revoke one without affec
    - **Email worker** (`clients/email-worker/`): set `FEEDSTASH_API_BASE` and `FEEDSTASH_API_TOKEN` for the Cloudflare Worker.
    - **Android / iOS apps**: enter the server URL and token in the app's Settings tab.
 
-See the extension's and email worker's READMEs for install steps. None of the clients has been built and tried against FeedStash yet.
+See the extension's and email worker's READMEs for install steps.
+
+### Other feed reader apps
+
+FeedStash speaks the **Google Reader API**, the protocol most reader apps use to sync with a server of your own, so apps like NetNewsWire, Reeder Classic, lire, Capy Reader and Read You can read your feeds from it. In the app, add a **FreshRSS** or **Google Reader** account and enter:
+
+| Field | Value |
+|---|---|
+| Server | your FeedStash address, e.g. `https://feedstash.example.com`. If the app rejects it, try `https://feedstash.example.com/api/greader.php` |
+| Username | your FeedStash email |
+| Password | an API token from **Settings → Connected apps** — make one per app, so you can revoke it on its own |
+
+These apps see your feeds, folders, read state and Read later; marking something read in one shows up everywhere, since the state lives on your server. They can also follow, rename, move and unfollow feeds. They don't see the stash — the protocol has no idea it exists.
+
+If a reverse proxy in front of FeedStash asks for its own sign-in, let `/reader/*`, `/accounts/ClientLogin` and `/api/greader.php/*` through, as you would for `/api/*`. None of the clients has been built and tried against FeedStash yet.
 
 ## Client API
 

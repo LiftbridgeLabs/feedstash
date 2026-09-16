@@ -43,19 +43,27 @@ class SecureCookieOverHttps:
         await self.app(scope, receive, send_with_secure_cookie)
 
 
-def _sends_bearer_token(request: Request) -> bool:
-    return request.headers.get("authorization", "").lower().startswith("bearer ")
+def _sends_api_credentials(request: Request) -> bool:
+    """A bearer token, or the Google Reader API's `GoogleLogin auth=` header."""
+    return request.headers.get("authorization", "").lower().startswith(("bearer ", "googlelogin "))
+
+
+def _is_client_login(request: Request) -> bool:
+    """The Google Reader API's sign-in. It reads no cookie and changes nothing, so there's no session to forge."""
+    return request.url.path.endswith("/accounts/ClientLogin")
 
 
 def install(app: FastAPI) -> None:
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
         # State-changing requests must come from the app's own JavaScript: cross-site forms can't send a
-        # custom header, and the session cookie is SameSite=Lax. Requests with a bearer token are exempt:
-        # browsers never attach those on their own, so they can't be forged from another site.
+        # custom header, and the session cookie is SameSite=Lax. Requests carrying an API credential in the
+        # Authorization header are exempt: browsers never attach those on their own, so they can't be forged
+        # from another site.
         if (
             request.method not in SAFE_METHODS
-            and not _sends_bearer_token(request)
+            and not _sends_api_credentials(request)
+            and not _is_client_login(request)
             and request.headers.get(CSRF_HEADER) != CSRF_VALUE
         ):
             message = "Missing CSRF header"

@@ -88,6 +88,10 @@ export function showSettings() {
           the server URL and <code>FEEDSTASH_API_TOKEN</code> to a token. Hashtags in the subject become tags.</li>
         <li><b>Android and iOS</b>: enter the server URL and a token on the FeedStash app's Settings tab. Sharing to
           FeedStash saves links, text and images.</li>
+        <li><b>Other reader apps</b> (NetNewsWire, Reeder Classic, lire, Capy Reader): add a <b>FreshRSS</b> or
+          <b>Google Reader</b> account with the server URL above (some apps want
+          <code>${esc(origin)}/api/greader.php</code> instead), your email as the username, and a token as the
+          password. They show your feeds; the stash stays here.</li>
       </ul>
     </div>`;
   renderImportPlan(els.settings); // files chosen before leaving Settings are still listed

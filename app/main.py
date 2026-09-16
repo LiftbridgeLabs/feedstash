@@ -20,6 +20,7 @@ from app.web.api import accounts as accounts_api
 from app.web.api import articles as articles_api
 from app.web.api import feeds as feeds_api
 from app.web.api import folders as folders_api
+from app.web.api import greader as greader_api
 from app.web.api import imports as imports_api
 from app.web.api import mail as mail_api
 from app.web.api import opml as opml_api
@@ -89,6 +90,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         mail_api.router, tokens_api.router, accounts_api.router,
     ):
         app.include_router(router)
+    # The Google Reader API, for other reader apps. Clients disagree about the address: some take the server's
+    # own and add /reader/api/0 themselves (as with Miniflux), others take FreshRSS's /api/greader.php. Both work.
+    for prefix in ("", "/api/greader.php"):
+        app.include_router(greader_api.router, prefix=prefix)
     app.mount("/static", RevalidatedStaticFiles(directory=pages.STATIC_DIR), name="static")
     return app
 

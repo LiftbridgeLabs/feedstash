@@ -151,6 +151,59 @@ def state_ids(
     return [row[0] for row in rows]
 
 
+def stream_page(
+    conn: sqlite3.Connection,
+    user_id: int,
+    scope: Scope,
+    *,
+    read: bool | None = None,
+    starred: bool | None = None,
+    newer_than: int | None = None,
+    older_than: int | None = None,
+    oldest_first: bool = False,
+    limit: int = MAX_IDS,
+    cursor: str | None = None,
+) -> tuple[list[tuple[int, int]], str | None]:
+    """(id, published_at) pairs for the Google Reader API, filtered the ways its clients ask, with a cursor to the
+    next page. `read`/`starred` of None means either; `newer_than`/`older_than` are Unix seconds, inclusive."""
+    where, params = _scope_condition(user_id, scope)
+    for column, wanted in (("a.read_at", read), ("a.starred_at", starred)):
+        if wanted is not None:
+            where += f" AND {column} IS {'NOT ' if wanted else ''}NULL"
+    if newer_than is not None:
+        where += " AND a.published_at >= ?"
+        params.append(newer_than)
+    if older_than is not None:
+        where += " AND a.published_at <= ?"
+        params.append(older_than)
+    if cursor:
+        published_at, last_id = _parse_cursor(cursor)
+        op = ">" if oldest_first else "<"
+        where += f" AND (a.published_at {op} ? OR (a.published_at = ? AND a.id {op} ?))"
+        params += [published_at, published_at, last_id]
+    direction = "ASC" if oldest_first else "DESC"
+    limit = max(1, min(limit, MAX_IDS))
+    rows = conn.execute(
+        f"SELECT a.id, a.published_at {_FROM} WHERE {where} "
+        f"ORDER BY a.published_at {direction}, a.id {direction} LIMIT ?",
+        [*params, limit + 1],
+    ).fetchall()
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+    next_cursor = f"{rows[-1]['published_at']}:{rows[-1]['id']}" if has_more else None
+    return [(row["id"], row["published_at"]) for row in rows], next_cursor
+
+
+def newest_unread_by_feed(conn: sqlite3.Connection, user_id: int) -> dict[int, int]:
+    """When each feed's newest unread article was published, for the Reader API's unread counts."""
+    rows = conn.execute(
+        f"SELECT a.feed_id, MAX(a.published_at) AS newest {_FROM} "
+        "WHERE f.user_id = ? AND a.read_at IS NULL GROUP BY a.feed_id",
+        (user_id,),
+    )
+    return {row["feed_id"]: row["newest"] for row in rows}
+
+
 def max_id(conn: sqlite3.Connection, user_id: int, scope: Scope) -> int:
     """The newest article id in a scope, so a client can say "everything after this" next time."""
     where, params = _scope_condition(user_id, scope)
