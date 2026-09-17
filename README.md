@@ -261,6 +261,9 @@ app/
   errors.py          domain errors (InvalidInput, NotFound, Conflict); the web layer maps them to 400/404/409
   images.py          uploaded images: validated by content, random names
   opml.py            OPML parse/build, pure functions
+  greader.py         Google Reader API names and ids, pure functions
+  markers.py         $Folder and #tag markers in email, pure functions
+  crypto.py          encrypting the few secrets FeedStash must reuse (a mailbox password)
 
   db/
     database.py      connections; one transaction per unit of work
@@ -272,6 +275,7 @@ app/
   feeds/             parser (no I/O), fetcher (HTTP only), ingest (storage), scheduler (background refresh),
                      to_stash (saving an article to the stash, by hand or automatically)
   pages/             fetching a saved link's page and extracting its preview and readable copy (trafilatura)
+  mail/              the IMAP client and turning a message into a stash item's parts
 
   services/
     accounts.py      first-run setup, checking passwords, admin changes to accounts
@@ -279,10 +283,11 @@ app/
     subscriptions.py following a feed, importing OPML
     stash.py         capturing items, saving feed articles to the stash
     pages.py         background worker that saves the pages behind stash items
+    mail.py          background worker that checks connected mailboxes
 
   web/
-    api/             JSON routers: tree, articles, folders, feeds, opml, imports, stash, stash_organize, tokens,
-                     accounts
+    api/             JSON routers: tree, articles, folders, feeds, opml, imports, stash, stash_organize, mail,
+                     tokens, accounts, and greader (the Google Reader API)
     auth.py          sign-in (passwords, Google, OIDC), API tokens, allowlist
     ratelimit.py     pauses password guessing
     ...
@@ -294,7 +299,7 @@ deploy/unraid/       unRAID container template
 docker-entrypoint.sh fixes /data ownership, then runs the app as PUID:PGID
 ```
 
-The background refresher and page saver run inside the web process, so run a single process (the Docker image does).
+The background refresher, page saver and mail checker run inside the web process, so run a single process (the Docker image does).
 
 ## Tests
 
