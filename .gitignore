@@ -9,3 +9,6 @@ __pycache__/
 # Email worker
 clients/email-worker/node_modules/
 clients/email-worker/.wrangler/
+
+# Personal Claude Code notes (never committed)
+CLAUDE.local.md
