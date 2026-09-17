@@ -31,8 +31,8 @@ export const STASH_VIEWS = {
   archived: 'Archive',
 };
 
-const PREF_DEFAULTS = {
-  layout: 'magazine', density: 'standard', order: 'newest', unreadOnly: true, markOnScroll: true,
+export const PREF_DEFAULTS = {
+  layout: 'magazine', density: 'standard', order: 'newest', unreadOnly: true, markOnScroll: false,
 };
 
 export const state = {

@@ -13,7 +13,7 @@ import { captureDialog } from './stash.js';
 import {
   deleteSmartList, deleteStashFolder, editSmartList, moveStashFolderBy, renameStashFolder,
 } from './stashlists.js';
-import { els, feedById, feedIdsIn, smartListById, stashFolderById, state } from './state.js';
+import { PREF_DEFAULTS, els, feedById, feedIdsIn, smartListById, stashFolderById, state } from './state.js';
 import { $, $$, esc, saveJSON } from './util.js';
 
 // The button a menu was opened from: the same click bubbles on to the close-on-click-away handler below, which
@@ -198,7 +198,8 @@ function renderViewMenu() {
 export function setPref(key, value) {
   if (state.prefs[key] === value) return;
   state.prefs[key] = value;
-  saveJSON('reader.prefs', state.prefs);
+  // Only what was changed is kept, so a browser that never chose picks up a new default.
+  saveJSON('reader.prefs', Object.fromEntries(Object.entries(state.prefs).filter(([k, v]) => PREF_DEFAULTS[k] !== v)));
   if (key === 'layout') applyLayout();
   if (key === 'density') applyDensity();
   if (key === 'order' || key === 'unreadOnly') resetList();

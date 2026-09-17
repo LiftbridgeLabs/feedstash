@@ -6,7 +6,7 @@ Everything you want to read, in one self-hosted app: the feeds you follow, and t
 
 **Feeds**
 - **Folders and feeds.** Follow a site or feed URL (the feed is found automatically) from the **+** beside Feeds, which also makes folders. Rename, move, reorder by drag and drop, or unfollow — in the sidebar, or all at once under **Settings → Feeds → Organize feeds**.
-- **Mark as read.** Everything, or only articles older than 12 hours, 1 day or 1 week, with Undo. Articles are also marked read as they scroll off the top of the list (can be turned off).
+- **Mark as read.** Everything, or only articles older than 12 hours, 1 day or 1 week, with Undo. Articles can also be marked read as they scroll off the top of the list (off by default).
 - **Auto-refresh.** Feeds are fetched in the background; new articles appear on their own, or behind a "↑ N new articles" button while you're reading.
 - **Search.** The search box in the toolbar (or press `/`) searches the full text of the articles in the feed or folder you're viewing, read ones included. In the stash, the same box searches what you've saved.
 - **Auto-save to the stash.** Tick **Auto-save** for a feed (in Organize feeds, or its ⋯ menu) and its new articles go straight to your stash instead of waiting to be read.

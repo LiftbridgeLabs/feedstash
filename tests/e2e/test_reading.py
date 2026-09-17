@@ -12,8 +12,17 @@ EVERY_ITEM_IN_OR_BELOW_VIEW_IS_UNREAD = """(() => {
 })()"""
 
 
+def test_scrolling_leaves_articles_unread_by_default(reader):
+    assert reader.js("reader.state.prefs.markOnScroll") is False
+    reader.js("document.getElementById('content').scrollTop = 1500")
+    reader.pump(1.5)
+    assert reader.js("document.querySelectorAll('.item.read').length") == 0
+    assert reader.js(SERVER_UNREAD) == 75
+
+
 def test_scrolling_marks_articles_read_and_loads_more(reader):
     assert reader.js(TOTAL_UNREAD) == 75
+    reader.js("reader.setPref('markOnScroll', true)")
     assert reader.js("document.getElementById('view-count').textContent") == "75 unread"
 
     reader.js("document.getElementById('content').scrollTop = 1500")
