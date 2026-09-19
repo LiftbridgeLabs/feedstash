@@ -2,6 +2,8 @@
 
 Everything you want to read, in one self-hosted app: the feeds you follow, and the links, snippets, screenshots and emails you save from anywhere. It runs as one Docker container and keeps everything in SQLite. Sign in with a password, Google, or any OpenID Connect provider. The browser extension and email worker live in `clients/`; the Android and iOS apps are a separate project.
 
+**[liftbridgelabs.app/products/feedstash](https://liftbridgelabs.app/products/feedstash)** · questions and bug reports: [GitHub issues](https://github.com/LiftbridgeLabs/feedstash/issues) or support@liftbridgelabs.app · [privacy](https://liftbridgelabs.app/products/feedstash/privacy)
+
 ## Features
 
 **Feeds**
@@ -40,7 +42,7 @@ docker run -d --name feedstash --restart unless-stopped \
   liftbridgelabs/feedstash:latest
 ```
 
-Open http://localhost:8672 and create the first account; it becomes the admin. Until the image is published on Docker Hub, build it first from this folder with `docker build -t liftbridgelabs/feedstash .`
+Open http://localhost:8672 and create the first account; it becomes the admin.
 
 With Docker Compose instead:
 
