@@ -8,6 +8,7 @@ from urllib.parse import urljoin, urlparse
 import httpx
 
 from app.feeds.parser import ParsedFeed, find_feed_links, parse_feed
+from app.netguard import BlockedAddress, GuardedTransport
 
 USER_AGENT = "Mozilla/5.0 (compatible; SelfHostedReader/1.0)"
 ACCEPT = "application/rss+xml, application/atom+xml, application/xml;q=0.9, text/xml;q=0.9, */*;q=0.8"
@@ -50,7 +51,7 @@ def create_client(max_connections: int = 16) -> httpx.AsyncClient:
         timeout=httpx.Timeout(20.0, connect=10.0),
         follow_redirects=True,
         headers={"User-Agent": USER_AGENT, "Accept": ACCEPT},
-        limits=httpx.Limits(max_connections=max_connections),
+        transport=GuardedTransport(limits=httpx.Limits(max_connections=max_connections)),
     )
 
 
@@ -86,6 +87,8 @@ class Fetcher:
         host = urlparse(url).netloc
         try:
             response, body = await self._get(url)
+        except BlockedAddress as exc:
+            raise FetchError(str(exc)) from exc
         except httpx.HTTPError as exc:
             raise FetchError(f"Couldn't reach {host}: {exc.__class__.__name__}") from exc
         if response.status_code >= 400:

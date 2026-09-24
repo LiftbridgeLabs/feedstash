@@ -9,6 +9,8 @@ import trafilatura
 from lxml import html as lxml_html
 from trafilatura.metadata import extract_metadata
 
+from app.netguard import BlockedAddress, GuardedTransport
+
 # Plenty of sites turn away requests that don't look like they come from a browser, so ask like one.
 HEADERS = {
     "User-Agent": (
@@ -52,7 +54,7 @@ def create_client() -> httpx.AsyncClient:
         timeout=httpx.Timeout(20.0, connect=10.0),
         follow_redirects=True,
         headers=HEADERS,
-        limits=httpx.Limits(max_connections=8),
+        transport=GuardedTransport(limits=httpx.Limits(max_connections=8)),
     )
 
 
@@ -73,6 +75,8 @@ async def fetch_page(client: httpx.AsyncClient, url: str) -> Page:
                     raise NotAWebPage("The page is too large to save")
                 chunks.append(chunk)
             final_url = str(response.url)
+    except BlockedAddress as exc:
+        raise PageBlocked(str(exc)) from exc
     except httpx.HTTPError as exc:
         raise PageError(f"Couldn't reach the page ({exc.__class__.__name__})") from exc
     return await asyncio.to_thread(extract, b"".join(chunks), final_url)

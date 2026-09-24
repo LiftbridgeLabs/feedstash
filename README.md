@@ -173,6 +173,15 @@ To update, pull the new image and recreate the container (`docker compose pull &
 
 Other admin commands: `create-account`, `set-password`, `list-accounts` (`docker exec feedstash python -m app.cli --help`).
 
+### What FeedStash fetches, and for whom
+
+FeedStash fetches web addresses on your behalf: feeds you follow, and the pages behind links you save. It will fetch
+anything on your own network, because people follow feeds there. That means **anyone with an account can make it
+fetch an address inside your network and read the reply** (a saved link's copy shows what came back). For one
+person, or a household that trusts each other, that's fine. Don't hand out accounts to people you wouldn't let onto
+your network. The one thing it never fetches, for anyone, is a link-local address (169.254.x.x, fe80::), where cloud
+metadata services hand out credentials.
+
 ## Moving from Feedly
 
 Download your data from Feedly, unzip it, then in FeedStash open **Settings → Import & export** and choose that whole folder:
