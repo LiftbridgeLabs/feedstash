@@ -150,3 +150,16 @@ def test_each_user_only_sees_their_own_stash(api, server):
     assert theirs.delete(f"/api/items/{mine['id']}").status_code == 404
     assert theirs.post("/api/items", json={"type": "snippet", "content": "private"}).status_code == 201
     assert [i["id"] for i in api.get("/api/items").json()] == [mine["id"]]
+
+
+def test_links_that_could_run_code_are_refused(api):
+    for url in ("javascript:alert(1)", " JavaScript:alert(1)", "java\tscript:alert(1)", "data:text/html,<b>x</b>",
+                "vbscript:x", "file:///etc/passwd"):
+        response = api.post("/api/items", json={"type": "link", "url": url})
+        assert response.status_code == 400, url
+        response = api.post("/api/items", json={"type": "snippet", "content": "x", "links": [url]})
+        assert response.status_code == 400, url
+    item = api.post("/api/items", json={"type": "snippet", "content": "x", "links": ["mailto:me@example.com"]}).json()
+    assert api.patch(f"/api/items/{item['id']}", json={"url": "javascript:alert(1)"}).status_code == 400
+    # Web addresses and app links are kept.
+    assert [link["url"] for link in item["links"]] == ["mailto:me@example.com"]

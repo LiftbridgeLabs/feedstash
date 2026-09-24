@@ -64,7 +64,7 @@ def parse_links(value) -> list[ItemLink] | None:
     links = []
     for entry in value:
         url, label = (entry.get("url"), entry.get("label")) if isinstance(entry, dict) else (entry, None)
-        if url := _line(url, MAX_URL):
+        if url := _link(url, MAX_URL):
             links.append(ItemLink(url=url, label=_line(label, MAX_TITLE)))
     if len(links) > MAX_LINKS:
         raise InvalidInput(f"An item can have at most {MAX_LINKS} links")
@@ -84,6 +84,20 @@ def parse_folder_id(value) -> int | None:
     if folder_id <= 0:
         raise InvalidInput("folderId must be a folder's id")
     return folder_id
+
+
+# Link schemes that run code or pass off inline content as a page. Anything else is kept: people save app links
+# (mailto:, obsidian:, things:) as well as web pages.
+UNSAFE_SCHEMES = ("javascript:", "vbscript:", "data:", "file:")
+
+
+def _link(value, limit: int) -> str | None:
+    """A link: trimmed and clipped like any line, and refused if its scheme could run code where it's shown."""
+    url = _line(value, limit)
+    # Browsers ignore whitespace and control characters inside a scheme ("java\tscript:"), so compare without them.
+    if url and "".join(ch for ch in url if ch > " ").lower().startswith(UNSAFE_SCHEMES):
+        raise InvalidInput("Links must be web addresses (or app links), not javascript:, data: or file: addresses")
+    return url
 
 
 def _line(value, limit: int) -> str | None:
@@ -123,7 +137,7 @@ class Capture:
             type=str(fields.get("type") or "").strip(),
             title=_line(fields.get("title"), MAX_TITLE),
             content=_body(fields.get("content")),
-            url=_line(fields.get("url"), MAX_URL),
+            url=_link(fields.get("url"), MAX_URL),
             links=parse_links(fields.get("links")) or [],
             source=_line(fields.get("source"), MAX_SOURCE),
             tags=parse_tags(fields.get("tags")),
@@ -197,7 +211,7 @@ def update(db: Database, user_id: int, item_id: int, fields: dict) -> StashItem:
     if "title" in fields:
         changes["title"] = _line(fields["title"], MAX_TITLE)
     if "url" in fields:
-        changes["url"] = _line(fields["url"], MAX_URL)
+        changes["url"] = _link(fields["url"], MAX_URL)
     if "content" in fields:
         changes["content"] = _body(fields["content"])
     for flag in ("reviewed", "archived"):
