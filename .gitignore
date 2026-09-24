@@ -12,3 +12,15 @@ clients/email-worker/.wrangler/
 
 # Personal Claude Code notes (never committed)
 CLAUDE.local.md
+
+# A database or key kept outside data/ must never reach this public repo
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+secret.key
+
+# Local assistant settings: machine paths and private repo names
+.claude/
+.qwen/
