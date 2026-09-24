@@ -5,7 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 # Your FeedStash server's address, as reachable from the internet (no trailing slash).
-FEEDSTASH_API_BASE = "https://stash.yourdomain.com"
+FEEDSTASH_API_BASE = "https://feedstash.invalid"  # replace: .invalid never resolves, so a missed edit fails safely
 
 # Who may send to this address, comma separated: whole addresses (you@example.com), whole domains
 # (@example.com), or * for anyone. Leave it empty and anyone who learns the address can post into your
