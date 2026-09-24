@@ -106,7 +106,7 @@ All settings are environment variables (see `.env.example`).
 | `ALLOWED_EMAILS`, `ALLOWED_DOMAINS` | | Comma-separated. Who may sign in with Google or OIDC. |
 | `PUID`, `PGID` | `1000`, `1000` | The user and group the app runs as. The container makes `/data` theirs on start. |
 | `PORT` | `8672` | Port inside the container. |
-| `FORWARDED_ALLOW_IPS` | `*` | Addresses whose `X-Forwarded-*` headers are trusted. Set it to your proxy's IP if the port is also reachable directly. |
+| `FORWARDED_ALLOW_IPS` | `*` in the Docker image, `127.0.0.1` otherwise | Addresses whose `X-Forwarded-*` headers are trusted. If the port can be reached without going through your proxy, set it to the proxy's IP: otherwise anyone reaching the port can claim any address and get past the sign-in rate limit. |
 | `SECRET_KEY` | generated | Signs session cookies. Generated once into `/data/secret.key` when empty. |
 | `SESSION_DAYS` | `30` | How long you stay signed in. |
 | `REFRESH_INTERVAL_MINUTES` | `15` | How often feeds are fetched (5 or more). |
