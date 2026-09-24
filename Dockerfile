@@ -1,4 +1,5 @@
-FROM python:3.13-slim
+# Pinned to an exact image, like requirements.txt; Dependabot proposes updates.
+FROM python:3.13-slim@sha256:8d9d0b8bcf6506481eae4907c18f5e3e7902e629f5f6d684f9e7c32e85e3ddf0
 
 ARG VERSION=dev
 ARG REVISION=unknown
@@ -30,7 +31,7 @@ RUN chmod 755 /usr/local/bin/docker-entrypoint.sh && mkdir -p /data
 
 VOLUME ["/data"]
 EXPOSE 8672
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
     CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/healthz' % os.environ.get('PORT', '8672'), timeout=4)"
 
 # The entrypoint starts as root only to fix the data folder's owner, then runs the app as PUID:PGID.
