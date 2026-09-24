@@ -12,10 +12,17 @@ for (const form of document.querySelectorAll('form[data-login]')) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'reader' },
         body: JSON.stringify(Object.fromEntries(new FormData(form))),
+        // A proxy's own sign-in page would otherwise look like success and send you round in a loop.
+        redirect: 'manual',
       });
-      if (response.ok) {
+      const isJson = (response.headers.get('content-type') || '').includes('json');
+      if (response.ok && isJson) {
         location.href = '/';
         return;
+      }
+      if (response.type === 'opaqueredirect' || (response.ok && !isJson)) {
+        throw new Error('Something in front of FeedStash answered instead of it, probably a sign-in page. '
+          + 'Sign in there first, then reload this page.');
       }
       const body = await response.json().catch(() => ({}));
       throw new Error(body.detail || `Sign-in failed (${response.status})`);

@@ -21,6 +21,29 @@ async function pageHtml(tabId) {
   }
 }
 
+const PROXY_IN_THE_WAY = 'Something in front of FeedStash answered instead of it, probably a sign-in page. '
+  + 'Let /api/ through your proxy (see the FeedStash README).';
+
+/**
+ * A FeedStash API call that only counts a JSON answer from FeedStash itself as success. A reverse proxy with its own
+ * sign-in answers with a redirect to its login page; followed, that would look like a 200.
+ */
+async function feedstashFetch(url, options = {}) {
+  let res;
+  try {
+    res = await fetch(url, { ...options, redirect: 'manual' });
+  } catch {
+    throw new Error('Couldn\u2019t reach FeedStash at that address.');
+  }
+  if (res.type === 'opaqueredirect' || (res.status >= 300 && res.status < 400)) throw new Error(PROXY_IN_THE_WAY);
+  const isJson = (res.headers.get('content-type') || '').includes('json');
+  if (res.ok && !isJson) throw new Error(PROXY_IN_THE_WAY);
+  const body = isJson ? await res.json().catch(() => ({})) : {};
+  if (res.status === 401) throw new Error('FeedStash didn\u2019t accept the token. Make a new one in its Settings \u2192 Connected apps.');
+  if (!res.ok) throw new Error(body.error || body.detail || `FeedStash answered with an error (${res.status})`);
+  return body;
+}
+
 async function saveItem(fields) {
   const { apiBaseUrl, apiToken } = await getSettings();
   if (!apiBaseUrl || !apiToken) {
@@ -38,15 +61,9 @@ async function saveItem(fields) {
   }
   fd.set('source', 'extension');
 
-  const res = await fetch(`${apiBaseUrl.replace(/\/$/, '')}/api/items`, {
+  return feedstashFetch(`${apiBaseUrl.replace(/\/$/, '')}/api/items`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiToken}` },
     body: fd
   });
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `Save failed (${res.status})`);
-  }
-  return res.json();
 }
