@@ -22,20 +22,22 @@ DAY_SECONDS = 86400
 
 
 def save_entries(
-    conn: sqlite3.Connection, feed_id: int, feed: ParsedFeed, *, first_fetch: bool, retention_days: int, now: int
+    conn: sqlite3.Connection, feed_id: int, feed: ParsedFeed, *, first_fetch: bool, retention_days: int, now: int,
+    keep_old: bool | None = None,
 ) -> int:
     """Stores a feed's new entries. Returns how many were new.
 
-    Entries older than the retention window are only accepted on a feed's first fetch; afterwards
-    they would just bring back articles the cleanup already removed. Undated entries count as `now`.
-    On a feed set to auto-save, new articles also go to the stash, except on a first fetch (a whole
-    backlog arriving at once).
+    Entries older than the retention window are only accepted on a feed's first fetch (`keep_old` defaults to
+    `first_fetch`); afterwards they would just bring back articles the cleanup already removed. Undated entries
+    count as `now`. On a feed set to auto-save, new articles also go to the stash, except on a first fetch (a
+    whole backlog arriving at once).
     """
+    keep_old = first_fetch if keep_old is None else keep_old
     cutoff = now - retention_days * DAY_SECONDS
     fresh = []
     for entry in feed.entries:
         published_at = entry.published_at or now
-        if published_at < cutoff and not first_fetch:
+        if published_at < cutoff and not keep_old:
             continue
         fresh.append(NewArticle(
             guid=entry.guid, title=entry.title, url=entry.url, author=entry.author, summary=entry.summary,

@@ -30,6 +30,18 @@ def test_first_fetch_keeps_old_entries_but_later_fetches_skip_them(conn, user_id
     assert ingest.save_entries(conn, feed_id, later, first_fetch=False, retention_days=90, now=now) == 1
 
 
+def test_a_changed_address_skips_old_entries_so_purged_articles_stay_gone(conn, user_id):
+    now = 100 * 365 * DAY
+    feed_id = feeds.create(conn, user_id, url="https://a.example.com/feed", title="A")
+    ingest.save_entries(conn, feed_id, parsed(entry("old", now - 200 * DAY)), first_fetch=True, retention_days=90, now=now)
+    conn.execute("DELETE FROM articles WHERE guid = 'old'")  # what the retention cleanup does
+
+    # The site moved: the new address lists the same old entry. It mustn't come back as unread.
+    moved = parsed(entry("old", now - 200 * DAY), entry("new", now))
+    assert ingest.save_entries(conn, feed_id, moved, first_fetch=True, keep_old=False, retention_days=90, now=now) == 1
+    assert [row[0] for row in conn.execute("SELECT guid FROM articles")] == ["new"]
+
+
 def test_store_result_records_feed_status(tmp_path):
     db = Database(tmp_path / "reader.db")
     db.initialize()

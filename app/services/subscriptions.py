@@ -85,7 +85,12 @@ async def change_url(db: Database, settings: Settings, user_id: int, feed_id: in
                 conn, user_id, feed_id, url=result.url, site_url=result.feed.site_url, etag=result.etag,
                 last_modified=result.last_modified, fetched_at=now,
             )
-            ingest.save_entries(conn, feed_id, result.feed, first_fetch=True, retention_days=settings.retention_days, now=now)
+            # Like a first fetch, the new address's backlog isn't auto-saved to the stash; unlike one, entries older
+            # than retention aren't taken, or articles the cleanup already removed would come back unread.
+            ingest.save_entries(
+                conn, feed_id, result.feed, first_fetch=True, keep_old=False, retention_days=settings.retention_days,
+                now=now,
+            )
             return feeds_repo.get(conn, user_id, feed_id)
 
     return await asyncio.to_thread(save)
