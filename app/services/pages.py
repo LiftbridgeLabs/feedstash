@@ -1,4 +1,5 @@
-"""Saves the web pages behind stash items in the background: link previews, readable copies and search text.
+"""Saves the web pages behind stash items in the background: link previews, readable copies and search text. It
+also fetches full text for feeds that ask for it (see services/full_text).
 
 Items queue their page when they're saved or their address changes (see the items repository); this worker
 fetches what's due. Run it in one process only, like the feed refresher.
@@ -11,11 +12,13 @@ import sqlite3
 
 from app.clock import now
 from app.db import Database
-from app.db.models import PageJob
+from app.db.models import FullTextJob, PageJob
+from app.db.repositories import articles as articles_repo
 from app.db.repositories import items as items_repo
 from app.db.repositories import pages as pages_repo
 from app.db.repositories import search
 from app.pages.fetch import NotAWebPage, Page, PageBlocked, PageError, create_client, fetch_page
+from app.services import full_text
 
 log = logging.getLogger("feedstash.pages")
 
@@ -55,15 +58,25 @@ class PageWorker:
 
     async def run_once(self) -> int:
         """Fetches the pages that are due. Returns how many were handled."""
-        jobs = await asyncio.to_thread(self._claim)
-        if jobs:
+        jobs, articles = await asyncio.to_thread(self._claim)
+        if jobs or articles:
             async with create_client() as client:
-                await asyncio.gather(*(self._handle(client, job) for job in jobs))
-        return len(jobs)
+                await asyncio.gather(
+                    *(self._handle(client, job) for job in jobs),
+                    *(self._handle_article(client, job) for job in articles),
+                )
+        return len(jobs) + len(articles)
 
-    def _claim(self) -> list[PageJob]:
+    def _claim(self) -> tuple[list[PageJob], list[FullTextJob]]:
         with self._db.transaction() as conn:
-            return pages_repo.claim(conn, now=now(), limit=BATCH_SIZE)
+            return (pages_repo.claim(conn, now=now(), limit=BATCH_SIZE),
+                    articles_repo.claim_full_text(conn, now=now(), limit=BATCH_SIZE))
+
+    async def _handle_article(self, client, job: FullTextJob) -> None:
+        try:
+            await full_text.fetch(self._db, client, job)
+        except Exception:
+            log.exception("Unexpected error fetching the full text of %s", job.url)
 
     async def _handle(self, client, job: PageJob) -> None:
         try:

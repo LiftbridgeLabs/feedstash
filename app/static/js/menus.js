@@ -87,6 +87,10 @@ function feedMenuItems(id) {
     feed?.auto_stash ? 'Stop saving new articles to the stash' : 'Save new articles to the stash',
     () => toggleAutoStash(id),
   ]);
+  items.push([
+    feed?.full_text ? 'Stop loading full articles' : 'Load full articles',
+    () => toggleFullText(id),
+  ]);
   if (feed?.site_url) items.push(['Open website', () => window.open(feed.site_url, '_blank', 'noopener')]);
   items.push(['Unfollow', () => unfollowFeed(id), 'danger']);
   return items;
@@ -102,6 +106,21 @@ export async function toggleAutoStash(id) {
     toast(feed.auto_stash
       ? `New articles from ${feed.title} stay in the feed`
       : `New articles from ${feed.title} will go straight to your stash`);
+  } catch (err) {
+    toast(err.message, { error: true });
+  }
+}
+
+/** A feed that only sends summaries can have each new article's own page fetched in the background. */
+export async function toggleFullText(id) {
+  const feed = feedById(id);
+  if (!feed) return;
+  try {
+    await api('PATCH', `/api/feeds/${id}`, { full_text: !feed.full_text });
+    await loadTree();
+    toast(feed.full_text
+      ? `${feed.title} shows what the feed sends again`
+      : `New articles from ${feed.title} will open as the full article`);
   } catch (err) {
     toast(err.message, { error: true });
   }

@@ -74,6 +74,26 @@ protects the reefs around the whole island.</p>
 </body></html>""",
         encoding="utf-8",
     )
+    # A feed that only sends a one-line summary; its articles' pages have the whole story.
+    (root / "longreads.xml").write_text(
+        f'''<?xml version="1.0"?><rss version="2.0"><channel><title>Long Reads</title><link>{base_url}/</link>
+<item><title>Reef guide</title><link>{base_url}/article.html</link><guid>reef</guid>
+<pubDate>{formatdate(now - 3600)}</pubDate><description>Where to dive first.</description></item>
+<item><title>Tide tables</title><link>{base_url}/tides.html</link><guid>tides</guid>
+<pubDate>{formatdate(now - 7200)}</pubDate><description>Reading the tides.</description></item>
+<item><title>Missing page</title><link>{base_url}/gone.html</link><guid>gone</guid>
+<pubDate>{formatdate(now - 10800)}</pubDate><description>This one has no page.</description></item>
+</channel></rss>''',
+        encoding="utf-8",
+    )
+    (root / "tides.html").write_text(
+        """<!doctype html><html><head><title>Tide tables</title></head><body><nav>Menu</nav><article>
+<h1>Reading tide tables</h1>
+<p>Slack water at the reef entrance lasts about forty minutes, which is when the current stops pulling divers along.</p>
+<p>Spring tides bring the strongest currents twice a month, around the new and full moon.</p>
+</article><footer>Footer</footer></body></html>""",
+        encoding="utf-8",
+    )
     (root / "img").mkdir(exist_ok=True)
     (root / "img" / "reef.png").write_bytes(PNG)  # decodable, so the browser keeps the thumbnail
     (root / "img" / "turtle.png").write_bytes(PNG)

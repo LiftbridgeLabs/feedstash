@@ -134,6 +134,7 @@ function readerBar(a) {
     <button class="btn btn-sm" data-action="star">${icon('star', a.starred)}${a.starred ? 'Saved' : 'Read later'}</button>
     <button class="btn btn-sm" data-action="stash" title="Save to stash (b)">${icon('inbox')}Save to stash</button>
     <button class="btn btn-sm" data-action="toggle-read">${icon(a.read ? 'circle' : 'check')}${a.read ? 'Keep unread' : 'Mark as read'}</button>
+    ${a.url && state.tree.page_capture ? `<button class="btn btn-sm" data-action="full-text" title="Switch between the feed's text and the article's own page">${icon('article')}${showingFull(a) ? 'Feed version' : 'Full article'}</button>` : ''}
     ${a.url ? `<a class="btn btn-sm" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">${icon('external')}Visit website</a>` : ''}
     <button class="btn btn-sm" data-action="close">${icon('x')}Close</button>`;
 }
@@ -204,13 +205,52 @@ export async function openArticle(id) {
 
   const body = $('.reader-body', reader);
   try {
-    if (a.content === undefined) a.content = (await api('GET', `/api/articles/${id}`)).content || '';
+    if (a.content === undefined) {
+      const full = await api('GET', `/api/articles/${id}`);
+      a.content = full.content || '';
+      a.full_content = full.full_content || null;
+    }
     if (state.openId !== id) return;
-    const html = a.content || `<p>${esc(a.summary || 'This article has no content in the feed.')}</p>`;
-    body.replaceChildren(sanitize(html));
+    showBody(a);
   } catch (err) {
     body.innerHTML = `<p class="muted">${esc(err.message)}</p>`;
   }
+}
+
+/** The full text shows when there is one, unless the reader switched back to the feed's version. */
+const showingFull = (a) => Boolean(a.full_content) && a.feedVersion !== true;
+
+function showBody(a) {
+  const body = $(`.item[data-id="${a.id}"] .reader-body`, els.articles);
+  if (!body) return;
+  const html = showingFull(a)
+    ? a.full_content
+    : a.content || `<p>${esc(a.summary || 'This article has no content in the feed.')}</p>`;
+  body.replaceChildren(sanitize(html));
+  updateItem(a);
+}
+
+/** Switches between the feed's text and the article's own page, fetching the page the first time. */
+async function toggleFullText(a) {
+  if (a.full_content) {
+    a.feedVersion = showingFull(a);
+    showBody(a);
+    return;
+  }
+  const body = $(`.item[data-id="${a.id}"] .reader-body`, els.articles);
+  body?.replaceChildren(Object.assign(document.createElement('div'), { className: 'reader-loading', textContent: 'Fetching the full article…' }));
+  try {
+    const full = await api('POST', `/api/articles/${a.id}/full-text`);
+    if (full.status === 'ready') {
+      a.full_content = full.content;
+      a.feedVersion = false;
+    } else {
+      toast(`Couldn't get the full article: ${full.error}`, { error: true });
+    }
+  } catch (err) {
+    toast(err.message, { error: true });
+  }
+  showBody(a);
 }
 
 export function closeArticle(scrollBack = true) {
@@ -347,6 +387,7 @@ export function wireList() {
       case 'star': toggleStar(a); break;
       case 'toggle-read': toggleRead(a); break;
       case 'stash': stashArticle(a); break;
+      case 'full-text': toggleFullText(a); break;
     }
   });
 

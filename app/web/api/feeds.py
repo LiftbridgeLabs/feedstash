@@ -49,6 +49,8 @@ async def update_feed(feed_id: int, body: FeedUpdateIn, user: UserDep, db: Datab
                 feeds_repo.move(conn, user.id, feed_id, body.folder_id)
             if body.auto_stash is not None:
                 feeds_repo.set_auto_stash(conn, user.id, feed_id, body.auto_stash)
+            if body.full_text is not None:
+                feeds_repo.set_full_text(conn, user.id, feed_id, body.full_text)
             return to_schema(FeedOut, feeds_repo.get(conn, user.id, feed_id))
 
     return await run_in_threadpool(apply_rest)

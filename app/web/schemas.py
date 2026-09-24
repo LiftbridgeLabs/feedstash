@@ -1,7 +1,7 @@
 """Request and response shapes of the JSON API."""
 
 from dataclasses import asdict, is_dataclass
-from typing import TypeVar
+from typing import Literal, TypeVar
 
 from pydantic import BaseModel, Field
 
@@ -65,6 +65,7 @@ class FeedOut(BaseModel):
     last_error: str | None
     unread: int
     auto_stash: bool = False  # new articles go straight to the stash
+    full_text: bool = False  # new articles get their full page fetched
 
 
 class TreeOut(BaseModel):
@@ -93,6 +94,15 @@ class ArticleSummaryOut(BaseModel):
 
 class ArticleOut(ArticleSummaryOut):
     content: str | None
+    full_content: str | None = None  # the article's own page, extracted, once fetched (see /full-text)
+
+
+class FullTextOut(BaseModel):
+    """An article's full text: status is ready (with content) or failed (with an error written for the reader)."""
+
+    status: Literal["ready", "failed"]
+    content: str | None
+    error: str | None
 
 
 class ArticlePageOut(BaseModel):
@@ -261,6 +271,7 @@ class FeedUpdateIn(BaseModel):
     folder_id: int | None = None
     url: str | None = Field(default=None, max_length=4000)  # the feed's new address; fetched before it's accepted
     auto_stash: bool | None = None  # send new articles straight to the stash
+    full_text: bool | None = None  # fetch each new article's full page
 
 
 class RefreshIn(BaseModel):

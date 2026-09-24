@@ -1,7 +1,7 @@
 import sqlite3
 from collections.abc import Iterable, Sequence
 
-from app.db.models import Article, ArticlePage, ArticleSummary, NewArticle, Scope, SortOrder
+from app.db.models import Article, ArticlePage, ArticleSummary, FullTextJob, NewArticle, Scope, SortOrder
 from app.db.repositories import search
 from app.errors import InvalidInput, NotFound
 
@@ -104,11 +104,12 @@ def page(
 
 def get(conn: sqlite3.Connection, user_id: int, article_id: int) -> Article:
     row = conn.execute(
-        f"SELECT {_SUMMARY_COLUMNS}, a.content {_FROM} WHERE a.id = ? AND f.user_id = ?", (article_id, user_id)
+        f"SELECT {_SUMMARY_COLUMNS}, a.content, a.full_content {_FROM} WHERE a.id = ? AND f.user_id = ?",
+        (article_id, user_id),
     ).fetchone()
     if row is None:
         raise NotFound("Article not found")
-    return Article(**_summary_fields(row), content=row["content"])
+    return Article(**_summary_fields(row), content=row["content"], full_content=row["full_content"])
 
 
 def count_new(conn: sqlite3.Connection, user_id: int, scope: Scope, *, since_id: int, unread_only: bool) -> int:
@@ -216,12 +217,72 @@ def by_ids(conn: sqlite3.Connection, user_id: int, ids: Sequence[int]) -> list[A
     if not ids:
         return []
     rows = conn.execute(
-        f"""SELECT {_SUMMARY_COLUMNS}, a.content {_FROM}
+        f"""SELECT {_SUMMARY_COLUMNS}, a.content, a.full_content {_FROM}
             WHERE a.id IN ({','.join('?' * len(ids))}) AND f.user_id = ?
             ORDER BY a.published_at DESC, a.id DESC""",
         [*ids, user_id],
     ).fetchall()
-    return [Article(**_summary_fields(row), content=row["content"]) for row in rows]
+    return [Article(**_summary_fields(row), content=row["content"], full_content=row["full_content"]) for row in rows]
+
+
+# ------------------------------------------------------------------ full text
+
+FULL_TEXT_RETRY_SECONDS = 600  # a fetch that never reported back (the server stopped) is tried again after this
+FULL_TEXT_MAX_AGE_SECONDS = 14 * 86400  # background fetching only looks at articles that arrived recently
+
+
+def claim_full_text(conn: sqlite3.Connection, *, now: int, limit: int) -> list[FullTextJob]:
+    """Unread, recent articles in feeds that ask for full text and haven't been tried, marked as being worked on."""
+    rows = conn.execute(
+        """SELECT a.id, a.url FROM articles a JOIN feeds f ON f.id = a.feed_id
+           WHERE f.full_text = 1 AND a.read_at IS NULL AND a.url IS NOT NULL AND a.fetched_at >= ?
+             AND (a.full_status IS NULL OR (a.full_status = 'working' AND a.full_attempted_at < ?))
+           ORDER BY a.id DESC LIMIT ?""",
+        (now - FULL_TEXT_MAX_AGE_SECONDS, now - FULL_TEXT_RETRY_SECONDS, limit),
+    ).fetchall()
+    jobs = [FullTextJob(row["id"], row["url"]) for row in rows]
+    for job in jobs:
+        conn.execute(
+            "UPDATE articles SET full_status = 'working', full_attempted_at = ? WHERE id = ?", (now, job.article_id)
+        )
+    return jobs
+
+
+def full_text_job(conn: sqlite3.Connection, user_id: int, article_id: int) -> FullTextJob:
+    """What fetching one article's full text on request needs; its address, or a message when it has none."""
+    row = conn.execute(f"SELECT a.id, a.url {_FROM} WHERE a.id = ? AND f.user_id = ?", (article_id, user_id)).fetchone()
+    if row is None:
+        raise NotFound("Article not found")
+    if not row["url"]:
+        raise InvalidInput("This article has no web page to fetch")
+    return FullTextJob(row["id"], row["url"])
+
+
+def full_text_state(conn: sqlite3.Connection, user_id: int, article_id: int) -> tuple[str | None, str | None, str | None]:
+    """(status, content, error) of an article's full text."""
+    row = conn.execute(
+        f"SELECT a.full_status, a.full_content, a.full_error {_FROM} WHERE a.id = ? AND f.user_id = ?",
+        (article_id, user_id),
+    ).fetchone()
+    if row is None:
+        raise NotFound("Article not found")
+    return row["full_status"], row["full_content"], row["full_error"]
+
+
+def save_full_text(conn: sqlite3.Connection, article_id: int, html: str, *, now: int) -> None:
+    conn.execute(
+        """UPDATE articles SET full_status = 'ready', full_content = ?, full_error = NULL, full_attempted_at = ?
+           WHERE id = ?""",
+        (html, now, article_id),
+    )
+
+
+def save_full_text_failure(conn: sqlite3.Connection, article_id: int, error: str, *, now: int) -> None:
+    """Failures aren't retried in the background (the page is usually blocked or gone); asking again tries again."""
+    conn.execute(
+        "UPDATE articles SET full_status = 'failed', full_error = ?, full_attempted_at = ? WHERE id = ?",
+        (error, now, article_id),
+    )
 
 
 # ------------------------------------------------------------------ read & starred state

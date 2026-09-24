@@ -8,13 +8,13 @@ from app.db.repositories._common import clean_name, next_position, ordered_ids
 from app.errors import Conflict, NotFound
 
 _FEED_SELECT = """SELECT f.id, f.folder_id, f.title, f.position, f.url, f.site_url, f.last_fetched_at, f.last_error,
-    f.auto_stash, (SELECT COUNT(*) FROM articles a WHERE a.feed_id = f.id AND a.read_at IS NULL) AS unread
+    f.auto_stash, f.full_text, (SELECT COUNT(*) FROM articles a WHERE a.feed_id = f.id AND a.read_at IS NULL) AS unread
     FROM feeds f"""
 _STATE_SELECT = "SELECT id, url, etag, last_modified, last_fetched_at FROM feeds"
 
 
 def _feed(row: sqlite3.Row) -> Feed:
-    return Feed(**{**dict(row), "auto_stash": bool(row["auto_stash"])})
+    return Feed(**{**dict(row), "auto_stash": bool(row["auto_stash"]), "full_text": bool(row["full_text"])})
 
 
 def _states(rows) -> list[FeedFetchState]:
@@ -112,6 +112,12 @@ def set_auto_stash(conn: sqlite3.Connection, user_id: int, feed_id: int, enabled
     """Whether the feed's new articles go straight to the stash (and are marked read)."""
     get(conn, user_id, feed_id)
     conn.execute("UPDATE feeds SET auto_stash = ? WHERE id = ?", (int(enabled), feed_id))
+
+
+def set_full_text(conn: sqlite3.Connection, user_id: int, feed_id: int, enabled: bool) -> None:
+    """Whether the feed's unread articles get their full page fetched in the background."""
+    get(conn, user_id, feed_id)
+    conn.execute("UPDATE feeds SET full_text = ? WHERE id = ?", (int(enabled), feed_id))
 
 
 def auto_stash_owner(conn: sqlite3.Connection, feed_id: int) -> int | None:

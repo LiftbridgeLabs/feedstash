@@ -236,6 +236,16 @@ MIGRATIONS: list[str] = [
         PRIMARY KEY (account_id, message_id)
     );
     """,
+    # 10: full text for feed articles. A feed can ask for every new article's page to be fetched; any article can
+    # be fetched on request. full_status: NULL (not tried), working, ready, failed.
+    """
+    ALTER TABLE feeds ADD COLUMN full_text INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE articles ADD COLUMN full_content TEXT;
+    ALTER TABLE articles ADD COLUMN full_status TEXT;
+    ALTER TABLE articles ADD COLUMN full_error TEXT;
+    ALTER TABLE articles ADD COLUMN full_attempted_at INTEGER;
+    CREATE INDEX idx_articles_full_text_due ON articles(feed_id) WHERE full_status IS NULL AND read_at IS NULL;
+    """,
 ]
 
 

@@ -1,17 +1,22 @@
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query
+from starlette.concurrency import run_in_threadpool
 
 from app.clock import now
 from app.db.models import Scope, ScopeKind, SortOrder
 from app.db.repositories import articles as articles_repo
-from app.web.deps import DatabaseDep, UserDep
+from app.errors import Conflict
+from app.pages.fetch import create_client
+from app.services import full_text
+from app.web.deps import DatabaseDep, SettingsDep, UserDep
 from app.web.schemas import (
     ArticleIdsIn,
     ArticleIdsOut,
     ArticleOut,
     ArticlePageOut,
     CountOut,
+    FullTextOut,
     MarkArticlesIn,
     StarArticlesIn,
     MarkedOut,
@@ -106,6 +111,27 @@ def star_articles(body: StarArticlesIn, user: UserDep, db: DatabaseDep) -> Updat
 def get_article(article_id: int, user: UserDep, db: DatabaseDep) -> ArticleOut:
     with db.transaction() as conn:
         return to_schema(ArticleOut, articles_repo.get(conn, user.id, article_id))
+
+
+@router.post("/articles/{article_id}/full-text", response_model=FullTextOut)
+async def fetch_full_text(
+    article_id: int, user: UserDep, db: DatabaseDep, settings: SettingsDep, refresh: bool = False
+) -> FullTextOut:
+    """The article's full text, fetched from its page now unless it already has it (`refresh` fetches again)."""
+
+    def lookup():
+        with db.transaction() as conn:
+            job = articles_repo.full_text_job(conn, user.id, article_id)
+            return job, articles_repo.full_text_state(conn, user.id, article_id)
+
+    job, (status, content, error) = await run_in_threadpool(lookup)
+    if status == "ready" and content and not refresh:
+        return FullTextOut(status="ready", content=content, error=None)
+    if not settings.page_capture:
+        raise Conflict("This server doesn't fetch web pages (PAGE_CAPTURE is off)")
+    async with create_client() as client:
+        content, error = await full_text.fetch(db, client, job)
+    return FullTextOut(status="ready" if content else "failed", content=content, error=error)
 
 
 @router.post("/articles/mark", response_model=UpdatedOut)

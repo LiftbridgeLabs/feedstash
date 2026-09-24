@@ -47,6 +47,7 @@ class Feed:
     last_error: str | None
     unread: int
     auto_stash: bool = False  # new articles go straight to the stash
+    full_text: bool = False  # new articles get the full page fetched, for feeds that only send a summary
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +93,15 @@ class ArticleSummary:
 @dataclass(frozen=True, slots=True)
 class Article(ArticleSummary):
     content: str | None
+    full_content: str | None = None  # the article's page, extracted, once fetched
+
+
+@dataclass(frozen=True, slots=True)
+class FullTextJob:
+    """An article whose page should be fetched for its full text."""
+
+    article_id: int
+    url: str
 
 
 @dataclass(frozen=True, slots=True)
