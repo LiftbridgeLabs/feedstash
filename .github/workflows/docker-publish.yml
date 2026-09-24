@@ -67,6 +67,8 @@ jobs:
           curl -fsS http://127.0.0.1:8672/ | grep -q 'data-login="setup"'
           test "$(docker exec smoke sh -c 'stat -c %u /proc/1')" = "1234"
           test "$(stat -c %u data/feedstash.db)" = "1234"
+          docker exec smoke python -m app.cli backup /data/backups/smoke.db
+          test "$(stat -c %u data/backups/smoke.db)" = "1234"  # the README's backup command, run as root
 
       - name: Container logs
         if: always()
