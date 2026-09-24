@@ -1,3 +1,4 @@
+import sqlite3
 from email.message import EmailMessage
 
 import pytest
@@ -11,6 +12,7 @@ from app.db.repositories import stash_folders, users
 from app.images import ImageStore
 from app.mail.imap import MailError
 from app.mail.parse import parse_message, sender_allowed
+from app.services import mail as mail_service
 from app.services.mail import check_account
 from support.images import PNG
 
@@ -160,3 +162,24 @@ def test_a_password_this_server_cannot_read_asks_to_be_entered_again(mailbox_set
         check_account(db, images, SecretBox("some-other-key"), account, open_mailbox=FakeMailbox([]))
     with db.transaction() as conn:
         assert "Enter it again" in mail_repo.get(conn, account.user_id).last_error
+
+
+def test_a_message_that_fails_for_a_passing_reason_stays_unread_and_is_saved_next_time(mailbox_setup, monkeypatch):
+    db, images, secrets, account = mailbox_setup
+    box = FakeMailbox([message(subject="Keep me", message_id="<keep@x>")])
+    real_save = mail_service.save_message
+
+    def busy(*args, **kwargs):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(mail_service, "save_message", busy)
+    assert check_account(db, images, secrets, account, open_mailbox=box) == 0
+    assert box.seen == []  # not marked read, so it isn't lost
+    with db.transaction() as conn:
+        assert "tried again" in mail_repo.get(conn, account.user_id).last_error
+
+    monkeypatch.setattr(mail_service, "save_message", real_save)
+    assert check_account(db, images, secrets, account, open_mailbox=box) == 1
+    assert box.seen == [b"0"]
+    with db.transaction() as conn:
+        assert mail_repo.get(conn, account.user_id).last_error is None

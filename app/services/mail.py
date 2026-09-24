@@ -58,10 +58,12 @@ def check_account(
 ) -> int:
     """Checks one mailbox and saves what's unread in it. Returns how many messages were saved.
 
-    Every message is marked read afterwards, including ones that were skipped, so a message nobody wants
-    doesn't get looked at forever.
+    A message is marked read once it's dealt with: saved, skipped, or unusable (it would never work). One that
+    failed for another reason (the database was busy, say) is left unread, so the next check tries it again, and the
+    account shows the error meanwhile.
     """
     saved = 0
+    failure = None
     try:
         with open_mailbox(mailbox_config(account, secrets)) as box:
             for uid, raw in box.unseen():
@@ -70,15 +72,17 @@ def check_account(
                         saved += 1
                 except InvalidInput as exc:
                     log.warning("Couldn't save a message from %s: %s", account.username, exc)
-                except Exception:
+                except Exception as exc:
                     log.exception("Unexpected error saving a message from %s", account.username)
+                    failure = f"A message couldn't be saved and will be tried again ({exc.__class__.__name__})"
+                    continue
                 box.mark_seen(uid)
     except MailError as exc:
         with db.transaction() as conn:
-            mail_repo.record_check(conn, account.id, now=now(), error=str(exc))
+            mail_repo.record_check(conn, account.id, now=now(), error=str(exc), saved=saved)
         raise
     with db.transaction() as conn:
-        mail_repo.record_check(conn, account.id, now=now(), error=None, saved=saved)
+        mail_repo.record_check(conn, account.id, now=now(), error=failure, saved=saved)
     return saved
 
 
