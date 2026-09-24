@@ -38,9 +38,13 @@ def _read_password(args: argparse.Namespace) -> str:
 
 
 def _backup(source: Path, destination: Path) -> None:
-    """Copies the database with SQLite's backup API, which is safe while the server is writing to it."""
+    """Copies the database with SQLite's backup API, which is safe while the server is writing to it.
+
+    `docker exec` runs this as root, so the copy (and any folder made for it) is handed to whoever owns the data
+    folder; otherwise the server and the NAS user (PUID) couldn't read or clean up their own backups."""
     if destination.exists():
         raise ReaderError(f"{destination} already exists")
+    made = [parent for parent in reversed(destination.parents) if not parent.exists()]
     destination.parent.mkdir(parents=True, exist_ok=True)
     src, dst = sqlite3.connect(source), sqlite3.connect(destination)
     try:
@@ -48,6 +52,10 @@ def _backup(source: Path, destination: Path) -> None:
     finally:
         dst.close()
         src.close()
+    if hasattr(os, "geteuid") and os.geteuid() == 0:
+        owner = source.resolve().parent.stat()
+        for path in [*made, destination]:
+            os.chown(path, owner.st_uid, owner.st_gid)
 
 
 def main(argv: list[str] | None = None) -> int:
