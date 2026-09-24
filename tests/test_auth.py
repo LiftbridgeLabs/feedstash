@@ -25,6 +25,11 @@ def test_anonymous_visitors_get_the_login_page_with_security_headers(server):
     csp = response.headers["content-security-policy"]
     assert "script-src 'self'" in csp
     assert "frame-ancestors 'none'" in csp
+    assert "camera=()" in response.headers["permissions-policy"]
+    # HSTS only when the request came over HTTPS (here, through a proxy the server trusts), never on plain http.
+    assert "strict-transport-security" not in response.headers
+    proxied = httpx.get(server.base_url + "/", headers={"X-Forwarded-Proto": "https"})
+    assert proxied.headers["strict-transport-security"] == "max-age=31536000"
 
 
 def test_api_requires_sign_in(server):

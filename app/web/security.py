@@ -53,6 +53,10 @@ def _is_client_login(request: Request) -> bool:
     return request.url.path.endswith("/accounts/ClientLogin")
 
 
+# The app uses none of these; saying so means nothing it shows can ask for them.
+PERMISSIONS_POLICY = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+
+
 def install(app: FastAPI) -> None:
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
@@ -72,4 +76,9 @@ def install(app: FastAPI) -> None:
         response.headers.setdefault("Content-Security-Policy", CONTENT_SECURITY_POLICY)
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault("Permissions-Policy", PERMISSIONS_POLICY)
+        # Only over HTTPS (usually a trusted proxy's X-Forwarded-Proto): a LAN address on plain http keeps working.
+        # Not includeSubDomains, which would reach other sites on the same domain.
+        if request.url.scheme == "https":
+            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
         return response
