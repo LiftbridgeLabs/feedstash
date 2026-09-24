@@ -242,7 +242,7 @@ Every item has a `links` list of `{id, url, label}`, and `url` mirrors the first
 
 Items with a web address also have a `preview`: `{status, title, description, image, siteName, hasCopy, fetchedAt, error}`, where `status` is `pending` or `working` while the page is being saved, then `ready`, `skipped` (not a web page) or `failed`. It's `null` for items without an address.
 
-API tokens can't manage accounts; that needs a signed-in browser session.
+API tokens can't manage accounts or tokens (list, create or revoke them); that needs a signed-in browser session, so a token that leaks can't give itself new credentials.
 
 ## Publishing the image
 

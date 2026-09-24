@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from app.db.models import User
 from app.db.repositories import users as users_repo
 from app.services import accounts
-from app.web.deps import DatabaseDep, ImagesDep, UserDep
+from app.web.deps import DatabaseDep, ImagesDep, SessionUserDep, UserDep
 from app.web.schemas import (
     AccountOut, AccountPrefsIn, AccountUpdateIn, NewAccountIn, OkOut, PasswordChangeIn, UserOut, to_schema,
 )
@@ -15,14 +15,6 @@ from app.web.schemas import (
 router = APIRouter(prefix="/api")
 
 
-def session_only_user(request: Request, user: UserDep) -> User:
-    """Account changes need the web app: a leaked API token must not be enough to take over accounts."""
-    if getattr(request.state, "api_token", None) is not None:
-        raise HTTPException(status_code=403, detail="Manage accounts from the web app, not with an API token")
-    return user
-
-
-SessionUserDep = Annotated[User, Depends(session_only_user)]
 
 
 def admin_user(user: SessionUserDep) -> User:

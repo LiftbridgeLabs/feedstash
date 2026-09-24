@@ -51,6 +51,17 @@ SecretsDep = Annotated[SecretBox, Depends(get_secrets)]
 UserDep = Annotated[User, Depends(get_user)]
 
 
+def session_only_user(request: Request, user: UserDep) -> User:
+    """Accounts and API tokens are managed from the web app: a leaked API token must not be enough to take over an
+    account or mint itself new credentials."""
+    if getattr(request.state, "api_token", None) is not None:
+        raise HTTPException(status_code=403, detail="Manage this from the web app, not with an API token")
+    return user
+
+
+SessionUserDep = Annotated[User, Depends(session_only_user)]
+
+
 def api_client_name(request: Request) -> str | None:
     """The client name of the API token used for this request, if any (e.g. "extension")."""
     match = getattr(request.state, "api_token", None)

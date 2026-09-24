@@ -10,14 +10,8 @@ Manifest V3 extension for Chrome/Edge/Brave (Chromium-based). Right-click a link
 4. Click the new toolbar icon → "Settings" (or right-click the icon → Options)
 5. Enter your server URL (e.g. `https://notes.yourdomain.com`) and an API token
 
-Mint a dedicated token for the extension rather than reusing your web UI token, so you can revoke it independently later:
-
-```
-curl -X POST https://notes.yourdomain.com/api/tokens \
-  -H "Authorization: Bearer <any-existing-token>" \
-  -H "Content-Type: application/json" \
-  -d '{"clientName":"extension"}'
-```
+Make a dedicated token for the extension in the web app, under **Settings → Connected apps → New token**, so you can
+revoke it on its own later. (Tokens can only be made from a signed-in web session, not with another token.)
 
 6. Click "Test connection" in the options page to confirm it's wired up.
 

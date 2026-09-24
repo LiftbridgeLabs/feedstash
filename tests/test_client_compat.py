@@ -123,8 +123,12 @@ def test_tokens_are_listed_and_revoked_but_never_readable(api, server):
 
     extension = token_client(server, token)
     assert extension.get("/api/items").status_code == 200
-    assert extension.get("/api/tokens").json()[0]["lastUsedAt"] is not None
-    assert extension.delete(f"/api/tokens/{listed['id']}").status_code == 400  # can't revoke the token in use
+    assert api.get("/api/tokens").json()[0]["lastUsedAt"] is not None
+    # A token can't list, mint or revoke tokens: one that leaks can't make itself new credentials.
+    assert extension.get("/api/tokens").status_code == 403
+    assert extension.post("/api/tokens", json={"clientName": "copy"}).status_code == 403
+    assert extension.delete(f"/api/tokens/{listed['id']}").status_code == 403
+    assert len(api.get("/api/tokens").json()) == 1
     assert api.delete(f"/api/tokens/{listed['id']}").status_code == 204
     assert extension.get("/api/items").status_code == 401
     assert api.post("/api/tokens", json={}).status_code == 400
