@@ -203,15 +203,20 @@ async def _finish_external_sign_in(request: Request, provider: str):
 
     email = str(info.get("email") or "").strip().lower()
     verified = _verified(info.get("email_verified"))
-    # Google always says whether the address is verified; other providers may leave it out, which we accept.
+    # Google always says whether the address is verified; other providers may leave it out, which is accepted for a
+    # new account but not for joining an existing one (see sign_in).
     if not info.get("sub") or not email or verified is False or (provider == "google" and not verified):
         return RedirectResponse("/?error=unverified", status_code=303)
 
     db: Database = request.app.state.db
 
-    def sign_in() -> int | None:
+    def sign_in() -> int | str | None:
         with db.transaction() as conn:
             existing = users_repo.find_by_email(conn, email)
+            # Joining an account that already exists needs the provider's word that the address is theirs;
+            # otherwise whoever could claim that address at the provider would get the account.
+            if existing and not users_repo.has_sub(conn, f"{provider}:{info['sub']}") and verified is not True:
+                return "unverified"
             if not (email_allowed(settings, email) or (existing and existing.has_password)):
                 return None
             return users_repo.upsert(
@@ -220,6 +225,9 @@ async def _finish_external_sign_in(request: Request, provider: str):
             )
 
     user_id = await run_in_threadpool(sign_in)
+    if user_id == "unverified":
+        log.warning("Rejected %s sign-in to the existing account %s: the provider didn't verify the address", provider, email)
+        return RedirectResponse("/?error=unverified", status_code=303)
     if user_id is None:
         log.warning("Rejected %s sign-in from %s (not in ALLOWED_EMAILS/ALLOWED_DOMAINS)", provider, email)
         return RedirectResponse("/?error=not_allowed", status_code=303)

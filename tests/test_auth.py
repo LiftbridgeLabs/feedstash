@@ -116,7 +116,7 @@ def test_admins_manage_accounts_and_people_change_their_own_password(start_serve
 
 def test_sign_in_with_an_openid_connect_provider(start_server, oidc_provider):
     server = start_server(
-        DEV_LOGIN="false", PASSWORD_LOGIN="false", ALLOWED_EMAILS="ann@example.com", OIDC_NAME="Pocket ID",
+        DEV_LOGIN="false", PASSWORD_LOGIN="false", ALLOWED_EMAILS="ann@example.com,cy@example.com", OIDC_NAME="Pocket ID",
         OIDC_ISSUER=oidc_provider.issuer, OIDC_CLIENT_ID=CLIENT_ID, OIDC_CLIENT_SECRET=CLIENT_SECRET,
     )
     assert "Sign in with Pocket ID" in httpx.get(server.base_url + "/").text
@@ -131,10 +131,22 @@ def test_sign_in_with_an_openid_connect_provider(start_server, oidc_provider):
         ({"sub": "bob-1", "email": "bob@example.com", "email_verified": True}, "not_allowed"),
         ({"sub": "ann-2", "email": "ann@example.com", "email_verified": False}, "unverified"),
         ({"sub": "ann-3"}, "unverified"),
+        # A provider that doesn't say whether the address is verified can't join an account that already exists.
+        ({"sub": "ann-4", "email": "ann@example.com"}, "unverified"),
     ]:
         oidc_provider.claims = claims
         response = client_for(server, follow_redirects=True).get("/auth/login/oidc")
         assert response.url.params.get("error") == error, (claims, str(response.url))
+
+    # ...but it can still start a new one, and the first account's own sign-in keeps working.
+    oidc_provider.claims = {"sub": "cy-1", "email": "cy@example.com"}
+    cy = client_for(server, follow_redirects=True)
+    cy.get("/auth/login/oidc")
+    assert cy.get("/api/me").json()["email"] == "cy@example.com"
+    oidc_provider.claims = {"sub": "ann-1", "email": "ann@example.com"}
+    again = client_for(server, follow_redirects=True)
+    again.get("/auth/login/oidc")
+    assert again.get("/api/me").json()["email"] == "ann@example.com"
 
 
 def test_sign_in_returns_to_whichever_address_the_browser_used(start_server, oidc_provider):

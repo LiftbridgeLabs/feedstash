@@ -77,6 +77,11 @@ def get(conn: sqlite3.Connection, user_id: int) -> User | None:
     return _user(conn.execute(f"{_SELECT} WHERE id = ?", (user_id,)).fetchone())
 
 
+def has_sub(conn: sqlite3.Connection, sub: str) -> bool:
+    """Whether an account already signs in with this provider identity."""
+    return conn.execute("SELECT 1 FROM users WHERE sub = ?", (sub,)).fetchone() is not None
+
+
 def find_by_email(conn: sqlite3.Connection, email: str) -> User | None:
     return _user(conn.execute(f"{_SELECT} WHERE email = ? ORDER BY id LIMIT 1", (normalize_email(email),)).fetchone())
 
