@@ -57,14 +57,19 @@ def parse_feed(content: bytes, url: str, content_type: str | None = None, *, now
     )
 
 
+MAX_FEED_LINKS = 10  # a real page advertises a handful; each one is fetched in turn while someone waits
+
+
 def find_feed_links(page: str, base_url: str) -> list[str]:
-    """Absolute URLs of the feeds an HTML page advertises with <link rel="alternate">."""
+    """Absolute URLs of the feeds an HTML page advertises with <link rel="alternate">, the first few, without
+    repeats."""
     finder = _FeedLinkFinder()
     try:
         finder.feed(page)
     except Exception:  # malformed HTML: keep whatever was found before the error
         pass
-    return [urljoin(base_url, href) for href in finder.links]
+    links = list(dict.fromkeys(urljoin(base_url, href) for href in finder.links))
+    return links[:MAX_FEED_LINKS]
 
 
 def plain_text(value: str, limit: int) -> str:

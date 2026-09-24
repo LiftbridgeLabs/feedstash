@@ -75,3 +75,10 @@ def test_find_feed_links_returns_absolute_feed_urls_only():
         "https://site.example.com/feed",
         "https://other.example.com/atom",
     ]
+
+
+def test_a_page_advertising_thousands_of_feeds_yields_only_a_few():
+    links = "".join(f'<link rel="alternate" type="application/rss+xml" href="/feed{i}.xml">' for i in range(5000))
+    page = f"<html><head>{links}{links}</head></html>"
+    found = find_feed_links(page, "https://site.example.com/")
+    assert found == [f"https://site.example.com/feed{i}.xml" for i in range(10)]
