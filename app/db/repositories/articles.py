@@ -227,18 +227,23 @@ def by_ids(conn: sqlite3.Connection, user_id: int, ids: Sequence[int]) -> list[A
 
 # ------------------------------------------------------------------ full text
 
-FULL_TEXT_RETRY_SECONDS = 600  # a fetch that never reported back (the server stopped) is tried again after this
 FULL_TEXT_MAX_AGE_SECONDS = 14 * 86400  # background fetching only looks at articles that arrived recently
 
 
 def claim_full_text(conn: sqlite3.Connection, *, now: int, limit: int) -> list[FullTextJob]:
-    """Unread, recent articles in feeds that ask for full text and haven't been tried, marked as being worked on."""
+    """Unread, recent articles in feeds that ask for full text and haven't been tried, marked as being worked on.
+
+    Runs every couple of seconds, so it must stay cheap: nothing at all unless a feed asks for full text, and then
+    only the partial index of untried unread articles (idx_articles_full_text_due)."""
+    feed_ids = [row[0] for row in conn.execute("SELECT id FROM feeds WHERE full_text = 1")]
+    if not feed_ids:
+        return []
     rows = conn.execute(
-        """SELECT a.id, a.url FROM articles a JOIN feeds f ON f.id = a.feed_id
-           WHERE f.full_text = 1 AND a.read_at IS NULL AND a.url IS NOT NULL AND a.fetched_at >= ?
-             AND (a.full_status IS NULL OR (a.full_status = 'working' AND a.full_attempted_at < ?))
-           ORDER BY a.id DESC LIMIT ?""",
-        (now - FULL_TEXT_MAX_AGE_SECONDS, now - FULL_TEXT_RETRY_SECONDS, limit),
+        f"""SELECT a.id, a.url FROM articles a INDEXED BY idx_articles_full_text_due
+            WHERE a.feed_id IN ({','.join('?' * len(feed_ids))}) AND a.full_status IS NULL AND a.read_at IS NULL
+              AND a.url IS NOT NULL AND a.fetched_at >= ?
+            ORDER BY a.id DESC LIMIT ?""",
+        [*feed_ids, now - FULL_TEXT_MAX_AGE_SECONDS, limit],
     ).fetchall()
     jobs = [FullTextJob(row["id"], row["url"]) for row in rows]
     for job in jobs:
@@ -246,6 +251,11 @@ def claim_full_text(conn: sqlite3.Connection, *, now: int, limit: int) -> list[F
             "UPDATE articles SET full_status = 'working', full_attempted_at = ? WHERE id = ?", (now, job.article_id)
         )
     return jobs
+
+
+def reset_interrupted_full_text(conn: sqlite3.Connection) -> int:
+    """Fetches still marked as working when the server starts were cut off by the restart; they're tried again."""
+    return conn.execute("UPDATE articles SET full_status = NULL WHERE full_status = 'working'").rowcount
 
 
 def full_text_job(conn: sqlite3.Connection, user_id: int, article_id: int) -> FullTextJob:

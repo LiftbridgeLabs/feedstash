@@ -72,6 +72,10 @@ class PageWorker:
             return (pages_repo.claim(conn, now=now(), limit=BATCH_SIZE),
                     articles_repo.claim_full_text(conn, now=now(), limit=BATCH_SIZE))
 
+    def _reset_interrupted(self) -> None:
+        with self._db.transaction() as conn:
+            articles_repo.reset_interrupted_full_text(conn)
+
     async def _handle_article(self, client, job: FullTextJob) -> None:
         try:
             await full_text.fetch(self._db, client, job)
@@ -107,6 +111,7 @@ class PageWorker:
 
     async def _run(self) -> None:
         await asyncio.sleep(1)
+        await asyncio.to_thread(self._reset_interrupted)
         while True:
             try:
                 handled = await self.run_once()
