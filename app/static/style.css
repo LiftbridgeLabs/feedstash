@@ -41,9 +41,16 @@
 /* Each scheme repaints the whole app — backgrounds, sidebar, text and borders — not just the accent. */
 
 :root[data-scheme="slate"] {
-  --bg: #f7f8fa; --bg-sidebar: #1f2430; --bg-hover: #e8eaef; --bg-active: #dfe6f5; --bg-elev: #ffffff;
+  --bg: #f7f8fa; --bg-sidebar: #e8eaef; --bg-hover: #e8eaef; --bg-active: #dfe6f5; --bg-elev: #ffffff;
   --text: #1a1e27; --text-muted: #5a6172; --text-read: #848b9b; --border: #dde0e7;
   --accent: #3d6df0; --accent-hover: #2f59cc; --accent-text: #ffffff;
+}
+/* Slate's signature is a dark sidebar beside light content. Only the sidebar is repainted, with its own light
+   text, hover and menu colors; code blocks, table headings and the sign-in page keep the light --bg-sidebar. */
+:root[data-scheme="slate"][data-mode="light"] .sidebar {
+  --bg-sidebar: #1f2430; --bg-hover: #2a3040; --bg-active: #2c3a5c; --bg-elev: #262b38;
+  --text: #e4e7ee; --text-muted: #98a0b3; --text-read: #727a8c; --border: #2f3544;
+  color: var(--text);                      /* the body's color is inherited already resolved, so set it again */
 }
 :root[data-scheme="slate"][data-mode="dark"] {
   --bg: #171a21; --bg-sidebar: #12151b; --bg-hover: #242936; --bg-active: #22304f; --bg-elev: #1d212a;
