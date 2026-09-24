@@ -114,6 +114,13 @@ All settings are environment variables (see `.env.example`).
 | `MAIL_POLL_MINUTES` | `5` | How often a mailbox connected under Settings → Email is checked. Nothing runs at all until someone connects one, and it stops again when the last one is disconnected. |
 | `PAGE_CAPTURE` | `true` | Fetch the web page behind each saved link for its preview, readable copy and search text. Turn it off if the server shouldn't reach out to the sites you save. |
 | `DEV_LOGIN` | `false` | Local testing only: skips sign-in entirely. |
+| `KEEP_PER_FEED` | `50` | How many of each feed's newest articles `RETENTION_DAYS` always keeps. |
+| `COOKIE_SECURE` | depends on `BASE_URL` | Force the session cookie's `Secure` flag on (`true`) or off (`false`). Normally worked out from `BASE_URL`: on for https addresses, and per request when you list both. |
+| `DATABASE_PATH` | `/data/feedstash.db` in the image | Where the database lives; `secret.key` and uploads go next to it. |
+| `HOST` | `0.0.0.0` in the image, `127.0.0.1` otherwise | The address the server listens on. |
+| `SCHEDULER_ENABLED` | `true` | Fetch feeds on a timer. Off is only for tests. |
+
+`FEEDSTASH_VERSION` is set by the image to its release; it's what the sidebar and `/api/health` show.
 
 ## Deploying
 
