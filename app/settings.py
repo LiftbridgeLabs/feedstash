@@ -3,7 +3,9 @@
 Constructing Settings has no side effects; `resolve_secret_key` is the only function that touches disk.
 """
 
+import contextlib
 import logging
+import os
 import secrets
 from pathlib import Path
 from typing import Annotated
@@ -156,9 +158,15 @@ def resolve_secret_key(settings: Settings) -> str:
         return settings.secret_key.get_secret_value()
     path = settings.database_path.resolve().parent / "secret.key"
     if path.exists():
+        # Keys written by earlier releases were readable by everyone; this one signs sessions and encrypts the
+        # mailbox password, so only the server's own user may read it.
+        with contextlib.suppress(OSError):
+            path.chmod(0o600)
         return path.read_text(encoding="utf-8").strip()
     path.parent.mkdir(parents=True, exist_ok=True)
     key = secrets.token_urlsafe(48)
-    path.write_text(key, encoding="utf-8")
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as file:
+        file.write(key)
     log.warning("SECRET_KEY not set; generated one at %s", path)
     return key

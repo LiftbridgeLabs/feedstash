@@ -121,7 +121,17 @@ def test_secret_key_is_generated_once_then_reused(settings_from_env, tmp_path):
     key = resolve_secret_key(settings)
     assert len(key) > 40
     assert resolve_secret_key(settings) == key
-    assert (tmp_path / "data" / "secret.key").read_text(encoding="utf-8") == key
+    path = tmp_path / "data" / "secret.key"
+    assert path.read_text(encoding="utf-8") == key
+    assert path.stat().st_mode & 0o777 == 0o600  # it signs sessions: only the server's user may read it
+
+
+def test_a_readable_secret_key_from_an_older_release_is_locked_down(settings_from_env, tmp_path):
+    path = tmp_path / "secret.key"
+    path.write_text("older-key", encoding="utf-8")
+    path.chmod(0o644)
+    assert resolve_secret_key(settings_from_env(DATABASE_PATH=str(tmp_path / "reader.db"))) == "older-key"
+    assert path.stat().st_mode & 0o777 == 0o600
 
 
 def test_explicit_secret_key_wins(settings_from_env, tmp_path):
