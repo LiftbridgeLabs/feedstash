@@ -36,3 +36,17 @@ def test_signing_in_clears_the_account_count():
     limiter.clear_account("A@example.com")
     limiter.record_failure("1.1.1.1", "a@example.com")
     assert limiter.retry_after("1.1.1.1", "a@example.com") == 0
+
+
+def test_guesses_spread_over_many_made_up_accounts_dont_pile_up():
+    clock = Clock()
+    limiter = LoginLimiter(per_account=3, per_address=10**9, window_seconds=60, clock=clock)
+    for i in range(LoginLimiter.MAX_KEYS + 500):
+        limiter.record_failure("198.51.100.7", f"nobody{i}@example.com")
+    assert len(limiter._failures) <= LoginLimiter.MAX_KEYS + 1
+    clock.now += 61  # once the window has passed, a sweep empties it
+    limiter.record_failure("198.51.100.8", "someone@example.com")
+    for i in range(LoginLimiter.MAX_KEYS):
+        limiter.record_failure("198.51.100.8", f"again{i}@example.com")
+    assert len(limiter._failures) <= LoginLimiter.MAX_KEYS + 1
+    assert all(len(failures) <= 10**9 for failures in limiter._failures.values())
