@@ -42,7 +42,7 @@ async def _read_capture(request: Request) -> stash.Capture:
     """Items are posted as multipart/urlencoded forms (extension, phone apps, email worker) or as JSON."""
     content_type = request.headers.get("content-type", "")
     if content_type.startswith(("multipart/form-data", "application/x-www-form-urlencoded")):
-        async with request.form(max_part_size=MAX_FIELD_BYTES) as form:
+        async with request.form(max_part_size=MAX_FIELD_BYTES, max_files=1) as form:
             fields = {key: value for key, value in form.items() if isinstance(value, str)}
             upload = form.get("image")
             image = await upload.read(MAX_IMAGE_BYTES + 1) if isinstance(upload, UploadFile) else None

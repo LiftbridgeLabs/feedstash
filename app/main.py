@@ -35,6 +35,9 @@ log = logging.getLogger("feedstash")
 SESSION_COOKIE = "feedstash_session"
 
 
+MAX_REQUEST_BYTES = 32 * 1024 * 1024
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     _configure_logging()
     settings = settings or load_settings()
@@ -72,6 +75,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.login_limiter = LoginLimiter()
     app.state.background_tasks = set()
 
+    # The largest real upload is a 20 MB image with a few fields; nothing bigger is read into memory. Added first,
+    # so it sits innermost: its 413 is raised where the endpoint reads the body, inside the app's error handling.
+    app.add_middleware(security.BodySizeLimit, max_bytes=MAX_REQUEST_BYTES)
     security.install(app)
     errors.install(app)
     app.add_middleware(

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 CSRF_HEADER = "x-requested-with"
@@ -51,6 +51,38 @@ def _sends_api_credentials(request: Request) -> bool:
 def _is_client_login(request: Request) -> bool:
     """The Google Reader API's sign-in. It reads no cookie and changes nothing, so there's no session to forge."""
     return request.url.path.endswith("/accounts/ClientLogin")
+
+
+class BodySizeLimit:
+    """Refuses request bodies over `max_bytes` before anything reads them into memory: by Content-Length when it's
+    sent, and by counting as the body streams in when it isn't. Endpoints still apply their own, smaller limits."""
+
+    def __init__(self, app, max_bytes: int):
+        self.app = app
+        self.max_bytes = max_bytes
+        self.message = f"That's too large to send (the limit is {max_bytes // (1024 * 1024)} MB)"
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        length = dict(scope.get("headers") or []).get(b"content-length")
+        if length is not None and length.isdigit() and int(length) > self.max_bytes:
+            response = JSONResponse({"detail": self.message, "error": self.message}, status_code=413)
+            return await response(scope, receive, send)
+
+        received = 0
+
+        async def limited_receive():
+            nonlocal received
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > self.max_bytes:
+                    # Raised where the endpoint reads its body, so the app's error handling answers with a 413.
+                    raise HTTPException(status_code=413, detail=self.message)
+            return message
+
+        await self.app(scope, limited_receive, send)
 
 
 # The app uses none of these; saying so means nothing it shows can ask for them.

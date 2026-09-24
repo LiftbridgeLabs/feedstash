@@ -163,3 +163,17 @@ def test_links_that_could_run_code_are_refused(api):
     assert api.patch(f"/api/items/{item['id']}", json={"url": "javascript:alert(1)"}).status_code == 400
     # Web addresses and app links are kept.
     assert [link["url"] for link in item["links"]] == ["mailto:me@example.com"]
+
+
+def test_oversized_requests_are_refused_before_they_are_read(api):
+    big = b"x" * (33 * 1024 * 1024)
+    response = api.post("/api/items", content=big, headers={"Content-Type": "application/json"})
+    assert response.status_code == 413 and "too large" in response.json()["detail"]
+
+    def chunks():  # no Content-Length: counted as it streams in
+        for _ in range(33):
+            yield b"x" * (1024 * 1024)
+
+    response = api.post("/api/items", content=chunks(), headers={"Content-Type": "application/json"})
+    assert response.status_code == 413
+    assert api.post("/api/items", json={"type": "snippet", "content": "still fine"}).status_code == 201

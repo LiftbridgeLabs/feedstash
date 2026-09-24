@@ -58,7 +58,7 @@ async def _params(request: Request) -> MultiDict:
     """Clients send parameters in the query string or as a form, and repeat keys (i=, a=, s=) for lists."""
     items = list(request.query_params.multi_items())
     if request.method == "POST":
-        form = await request.form()
+        form = await request.form(max_files=0)
         items += [(key, value) for key, value in form.multi_items() if isinstance(value, str)]
     return MultiDict(items)
 
