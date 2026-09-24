@@ -151,12 +151,22 @@ def apply(
     return bool(changes)
 
 
-def apply_to_all(conn: sqlite3.Connection, user_id: int, *, now: int) -> int:
-    """Runs the rules over every item that isn't archived. Returns how many items changed."""
+def unarchived_item_ids(conn: sqlite3.Connection, user_id: int) -> list[int]:
+    """What "run the rules on everything" goes through."""
+    return [row[0] for row in conn.execute(
+        "SELECT id FROM items WHERE user_id = ? AND archived_at IS NULL ORDER BY id", (user_id,)
+    )]
+
+
+def apply_to_items(conn: sqlite3.Connection, user_id: int, item_ids: list[int], *, now: int) -> int:
+    """Runs the rules over these items. Returns how many changed; an item deleted meanwhile is skipped."""
     rules = list_for_user(conn, user_id)
     if not rules:
         return 0
-    ids = [row[0] for row in conn.execute(
-        "SELECT id FROM items WHERE user_id = ? AND archived_at IS NULL ORDER BY id", (user_id,)
-    )]
-    return sum(apply(conn, user_id, item_id, now=now, rules=rules) for item_id in ids)
+    changed = 0
+    for item_id in item_ids:
+        try:
+            changed += apply(conn, user_id, item_id, now=now, rules=rules)
+        except NotFound:
+            pass
+    return changed

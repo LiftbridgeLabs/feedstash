@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from app.clock import now
 from app.db.repositories import smart_lists, stash_folders, stash_rules
+from app.services import stash as stash_service
 from app.web.deps import DatabaseDep, UserDep
 from app.web.schemas import (
     ChangedOut,
@@ -113,8 +114,7 @@ def create_rule(body: StashRuleIn, user: UserDep, db: DatabaseDep) -> StashRuleO
 @router.post("/rules/apply", response_model=ChangedOut)
 def apply_rules(user: UserDep, db: DatabaseDep) -> ChangedOut:
     """Runs the rules over everything saved that isn't archived."""
-    with db.transaction() as conn:
-        return ChangedOut(changed=stash_rules.apply_to_all(conn, user.id, now=now()))
+    return ChangedOut(changed=stash_service.apply_rules_to_everything(db, user.id))
 
 
 @router.delete("/rules/{rule_id}", response_model=OkOut)

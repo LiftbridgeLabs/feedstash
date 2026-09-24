@@ -238,3 +238,19 @@ def stash_article(db: Database, user_id: int, article_id: int) -> tuple[StashIte
     with db.transaction() as conn:
         article = articles_repo.get(conn, user_id, article_id)
         return to_stash.stash_article(conn, user_id, article, now=now())
+
+
+RULES_BATCH = 200
+
+
+def apply_rules_to_everything(db: Database, user_id: int) -> int:
+    """Runs the stash rules over every unarchived item, a batch per transaction: one transaction over a whole stash
+    would hold SQLite's only write lock long enough to stall feed refreshes and page saving. Returns how many
+    items changed."""
+    with db.transaction() as conn:
+        ids = stash_rules.unarchived_item_ids(conn, user_id)
+    changed = 0
+    for start in range(0, len(ids), RULES_BATCH):
+        with db.transaction() as conn:
+            changed += stash_rules.apply_to_items(conn, user_id, ids[start:start + RULES_BATCH], now=now())
+    return changed

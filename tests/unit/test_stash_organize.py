@@ -114,3 +114,26 @@ def test_a_feed_can_save_its_new_articles_to_the_stash(conn, user_id):
     third = ParsedFeed(title="News", site_url=None, entries=[entry("g3", "Third", "https://news.example.com/3")])
     ingest.save_entries(conn, feed_id, third, first_fetch=True, retention_days=90, now=2200)
     assert len(items_repo.search(conn, user_id, ItemFilter())) == 1
+
+
+def test_running_the_rules_on_everything_goes_in_batches(tmp_path, monkeypatch):
+    from app.db import Database
+    from app.db.repositories import users
+    from app.services import stash as stash_service
+
+    db = Database(tmp_path / "rules.db")
+    db.initialize()
+    with db.transaction() as conn:
+        user_id = users.upsert(conn, sub="sub-ann", email="ann@example.com", name="Ann", picture=None)
+        add_rule(conn, user_id, field="domain", value="example.com", add_tag="blog")
+        for i in range(450):
+            items_repo.create(conn, user_id, type="link", title=None, content=None, url=f"https://example.com/{i}",
+                              image_name=None, source="web", tags=[], now=100)
+
+    transactions = []
+    real = db.transaction
+    monkeypatch.setattr(db, "transaction", lambda: (transactions.append(1), real())[1])
+    assert stash_service.apply_rules_to_everything(db, user_id) == 450
+    assert len(transactions) == 1 + 3  # the ids, then 200 + 200 + 50
+    with db.transaction() as conn:
+        assert all(item.tags == ["blog"] for item in items_repo.search(conn, user_id, ItemFilter(limit=1000)))
