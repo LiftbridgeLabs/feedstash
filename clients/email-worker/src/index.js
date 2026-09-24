@@ -6,6 +6,12 @@ const BORING_LINK = /unsubscribe|list-manage|mailchi\.mp\/.*unsub|preferences|pr
 
 export default {
   async email(message, env) {
+    // Every failure below bounces the message (setReject), so it stays in your outbox instead of vanishing.
+    if (!env.FEEDSTASH_API_BASE || !env.FEEDSTASH_API_TOKEN) {
+      console.error('FEEDSTASH_API_BASE and FEEDSTASH_API_TOKEN must both be set on the worker.');
+      message.setReject('This FeedStash email address is not set up yet.');
+      return;
+    }
     const from = (message.from || '').trim().toLowerCase();
     if (!senderAllowed(from, env)) {
       console.error('Rejected mail from', from);
@@ -42,13 +48,20 @@ export default {
       fd.set('image', new Blob([image.content], { type: image.mimeType }), image.filename || 'attachment.png');
     }
 
-    const res = await fetch(`${env.FEEDSTASH_API_BASE.replace(/\/$/, '')}/api/items`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${env.FEEDSTASH_API_TOKEN}` },
-      body: fd,
-      // Don't follow redirects: a sign-in page in front of FeedStash would answer 200 and look like success.
-      redirect: 'manual',
-    });
+    let res;
+    try {
+      res = await fetch(`${env.FEEDSTASH_API_BASE.replace(/\/$/, '')}/api/items`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${env.FEEDSTASH_API_TOKEN}` },
+        body: fd,
+        // Don't follow redirects: a sign-in page in front of FeedStash would answer 200 and look like success.
+        redirect: 'manual',
+      });
+    } catch (err) {
+      console.error('Could not reach FeedStash:', err);
+      message.setReject('FeedStash could not be reached, so this message was not saved. Try again later.');
+      return;
+    }
 
     if (res.status >= 300 && res.status < 400) {
       console.error('Redirected to', res.headers.get('location'), '— something in front of FeedStash wants a sign-in.');
