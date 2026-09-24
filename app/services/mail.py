@@ -86,6 +86,11 @@ def check_account(
     return saved
 
 
+# Message-IDs are remembered so a message isn't saved twice if a mailbox loses its read flag; after this long it
+# won't be handed over again, so the record can go.
+REMEMBER_MESSAGES_DAYS = 180
+
+
 class MailWorker:
     """Checks every connected mailbox on a timer. Run it in one process, like the feed refresher."""
 
@@ -127,6 +132,10 @@ class MailWorker:
                 log.exception("Unexpected error checking %s", account.username)
         return saved
 
+    def _forget_old_messages(self) -> None:
+        with self._db.transaction() as conn:
+            mail_repo.forget_seen(conn, seen_before=now() - REMEMBER_MESSAGES_DAYS * 86400)
+
     def _accounts(self) -> list[MailAccount]:
         with self._db.transaction() as conn:
             return mail_repo.enabled_accounts(conn)
@@ -147,6 +156,7 @@ class MailWorker:
                         log.warning("Mailbox %s: %s", account.username, exc)
                     except Exception:
                         log.exception("Unexpected error checking %s", account.username)
+                await asyncio.to_thread(self._forget_old_messages)
                 await asyncio.sleep(self._seconds)
         except asyncio.CancelledError:
             raise

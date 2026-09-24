@@ -183,3 +183,13 @@ def test_a_message_that_fails_for_a_passing_reason_stays_unread_and_is_saved_nex
     assert box.seen == [b"0"]
     with db.transaction() as conn:
         assert mail_repo.get(conn, account.user_id).last_error is None
+
+
+def test_remembered_message_ids_are_forgotten_after_a_while(mailbox_setup):
+    db, _, _, account = mailbox_setup
+    with db.transaction() as conn:
+        mail_repo.remember(conn, account.id, "<old@x>", now=1_000)
+        mail_repo.remember(conn, account.id, "<new@x>", now=9_000)
+        assert mail_repo.forget_seen(conn, seen_before=5_000) == 1
+        assert not mail_repo.already_saved(conn, account.id, "<old@x>")
+        assert mail_repo.already_saved(conn, account.id, "<new@x>")

@@ -77,3 +77,8 @@ def remember(conn: sqlite3.Connection, account_id: int, message_id: str, *, now:
         "INSERT OR IGNORE INTO mail_messages (account_id, message_id, seen_at) VALUES (?, ?, ?)",
         (account_id, message_id, now),
     )
+
+
+def forget_seen(conn: sqlite3.Connection, *, seen_before: int) -> int:
+    """Drops remembered Message-IDs old enough that a mailbox won't hand the message over again."""
+    return conn.execute("DELETE FROM mail_messages WHERE seen_at < ?", (seen_before,)).rowcount
