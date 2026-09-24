@@ -18,9 +18,11 @@ def browser_page(tmp_path):
     if not executable:
         pytest.skip("set READER_E2E_BROWSER to a Chrome/Edge executable to run browser tests")
     port = free_port()
+    # GitHub's Ubuntu runners don't allow Chrome's sandbox; the pages under test are our own.
+    sandbox = ["--no-sandbox"] if os.environ.get("CI") else []
     process = subprocess.Popen([
         executable, "--headless=new", f"--remote-debugging-port={port}", f"--user-data-dir={tmp_path / 'profile'}",
-        "--no-first-run", "--disable-extensions", "--window-size=1400,900", "about:blank",
+        "--no-first-run", "--disable-extensions", "--window-size=1400,900", *sandbox, "about:blank",
     ])
     try:
         ws_url = None
