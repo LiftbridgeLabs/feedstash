@@ -1,6 +1,7 @@
 """FastAPI dependencies shared by the routers."""
 
 import asyncio
+import logging
 from collections.abc import Coroutine
 from typing import Annotated
 
@@ -12,6 +13,9 @@ from app.db.models import User
 from app.images import ImageStore
 from app.settings import Settings
 from app.web.auth import bearer_token, session_user, token_user
+
+
+log = logging.getLogger("feedstash.web")
 
 
 def get_settings(request: Request) -> Settings:
@@ -79,3 +83,10 @@ def run_in_background(request: Request, coroutine: Coroutine) -> None:
     task = asyncio.create_task(coroutine)
     tasks.add(task)
     task.add_done_callback(tasks.discard)
+    task.add_done_callback(_log_failure)
+
+
+def _log_failure(task: asyncio.Task) -> None:
+    """Nobody awaits background work, so an error in it would otherwise vanish without a trace."""
+    if not task.cancelled() and (error := task.exception()) is not None:
+        log.error("Background task %s failed", task.get_coro().__qualname__, exc_info=error)
