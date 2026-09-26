@@ -14,6 +14,7 @@ def add(conn, user_id, *, now=1000, **fields):
 
 def test_tags_are_normalized():
     assert items.normalize_tags([" Dev ", "#dev", "", "Two   Words", "x" * 80]) == ["dev", "two words", "x" * 50]
+    assert items.normalize_tags(["#appstore #liftbridge", "#Dev", "a#b"]) == ["appstore", "liftbridge", "dev", "a#b"]
 
 
 def test_search_combines_filters_and_matches_wildcards_literally(conn, user_id):
