@@ -90,6 +90,8 @@ READER_E2E_BROWSER="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
   (`reader.api`, `reader.pollForNew`, `reader.setPref`) for tests.
 - The full run takes 5–8 minutes (~235 tests). There's no JS unit runner; for a quick syntax check, copy a module to
   a `.mjs` file and run `node --check` on it.
+- Running as root on Linux (a container or cloud VM), set `CI=1` so Chrome gets `--no-sandbox`
+  (`tests/e2e/conftest.py`); otherwise every browser test errors with "browser didn't expose a debuggable page".
 - Run the full suite before every release. Don't run it while a Docker build is going on the same machine — the
   parallel servers plus the build can exhaust local sockets.
 
