@@ -1,5 +1,6 @@
 """Stash items (links, snippets, screenshots, emails) and their tags."""
 
+import re
 import sqlite3
 from collections.abc import Iterable, Sequence
 
@@ -15,17 +16,20 @@ MAX_TAG_LENGTH = 50
 _SELECT = """SELECT i.id, i.type, i.title, i.content, i.url, i.image_name, i.source, i.reviewed_at, i.archived_at,
     i.created_at, i.updated_at, i.folder_id, i.feed_id FROM items i"""
 _UNSET = object()
+_HASH_SPLIT = re.compile(r"\s+(?=#)")
 
 
 def normalize_tags(raw: Iterable[str]) -> list[str]:
-    """Lowercase, whitespace-squeezed, without a leading '#', de-duplicated, in the order given."""
+    """Lowercase, whitespace-squeezed, without a leading '#', de-duplicated, in the order given. "#a #b" is two tags,
+    the way people type them on a phone; "two words" stays one."""
     seen: set[str] = set()
     tags = []
     for value in raw:
-        name = " ".join(str(value).split()).lower().lstrip("#").strip()[:MAX_TAG_LENGTH]
-        if name and name not in seen:
-            seen.add(name)
-            tags.append(name)
+        for part in _HASH_SPLIT.split(str(value)):
+            name = " ".join(part.split()).lower().lstrip("#").strip()[:MAX_TAG_LENGTH]
+            if name and name not in seen:
+                seen.add(name)
+                tags.append(name)
     return tags
 
 
