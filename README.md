@@ -343,3 +343,8 @@ READER_E2E_BROWSER="/path/to/chrome" pytest      # also run the browser tests (C
 - Browser requests need a CSRF header; API clients use bearer tokens, which browsers never send on their own.
 - Uploaded image URLs are not behind sign-in, so the random file name is what protects them. SVG and other non-image uploads are rejected.
 - Any signed-in user can make the server fetch any http(s) URL when adding a feed. Only give accounts to people you trust.
+
+## License
+
+FeedStash is free software under the [GNU Affero General Public License v3.0](LICENSE). You can run it, change it and
+share it. If you run a changed version as a service for other people, the license asks you to offer them its source.
