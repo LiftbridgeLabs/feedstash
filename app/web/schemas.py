@@ -175,13 +175,17 @@ class PasswordLoginIn(BaseModel):
     password: str = Field(max_length=1024)
 
 
-class SetupIn(BaseModel):
+class AccountFields(BaseModel):
     email: str = Field(max_length=320)
     name: str | None = Field(default=None, max_length=100)
     password: str = Field(max_length=1024)
 
 
-class NewAccountIn(SetupIn):
+class SetupIn(AccountFields):
+    setup_token: str | None = Field(default=None, max_length=1024)  # needed only when setting up from outside
+
+
+class NewAccountIn(AccountFields):
     is_admin: bool = False
 
 

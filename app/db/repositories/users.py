@@ -98,13 +98,15 @@ def admin_count(conn: sqlite3.Connection) -> int:
     return conn.execute("SELECT COUNT(*) FROM users WHERE is_admin = 1").fetchone()[0]
 
 
-def credentials(conn: sqlite3.Connection, email: str) -> tuple[int, str] | None:
-    """The id and password hash of the password account with this email."""
+def credentials(conn: sqlite3.Connection, email: str) -> tuple[int, str, int] | None:
+    """The id, password hash and session number of the password account with this email, read together: a session
+    started with this password carries this number, so it doesn't count if the password changes meanwhile."""
     row = conn.execute(
-        "SELECT id, password_hash FROM users WHERE email = ? AND password_hash IS NOT NULL ORDER BY id LIMIT 1",
+        "SELECT id, password_hash, session_version FROM users WHERE email = ? AND password_hash IS NOT NULL "
+        "ORDER BY id LIMIT 1",
         (normalize_email(email),),
     ).fetchone()
-    return (row["id"], row["password_hash"]) if row else None
+    return (row["id"], row["password_hash"], row["session_version"]) if row else None
 
 
 def get_password_hash(conn: sqlite3.Connection, user_id: int) -> str | None:
@@ -112,8 +114,23 @@ def get_password_hash(conn: sqlite3.Connection, user_id: int) -> str | None:
     return row["password_hash"] if row else None
 
 
+def session_version(conn: sqlite3.Connection, user_id: int) -> int | None:
+    """The number a web session must carry to still count (see migration 11); None when there's no such user."""
+    row = conn.execute("SELECT session_version FROM users WHERE id = ?", (user_id,)).fetchone()
+    return row["session_version"] if row else None
+
+
+def end_sessions(conn: sqlite3.Connection, user_id: int) -> int:
+    """Ends every web session this user has; returns the new number a session must carry."""
+    conn.execute("UPDATE users SET session_version = session_version + 1 WHERE id = ?", (user_id,))
+    return session_version(conn, user_id) or 0
+
+
 def set_password(conn: sqlite3.Connection, user_id: int, password_hash: str) -> None:
-    if conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (password_hash, user_id)).rowcount == 0:
+    """Sets the password and ends the account's web sessions: whoever had them must sign in with the new one."""
+    if conn.execute(
+        "UPDATE users SET password_hash = ?, session_version = session_version + 1 WHERE id = ?", (password_hash, user_id)
+    ).rowcount == 0:
         raise NotFound("No such account")
 
 

@@ -3,6 +3,7 @@
 import asyncio
 import socket
 
+import httpcore
 import httpx
 import pytest
 
@@ -60,3 +61,60 @@ def test_redirects_are_checked_too(monkeypatch):
     with pytest.raises(netguard.BlockedAddress):
         run(fetch())
     assert sent == ["93.184.216.34"]  # the redirect was refused before anything was sent to it
+
+
+@pytest.mark.parametrize("host", ["100.100.100.200", "fd00:ec2::254"])
+def test_other_clouds_metadata_addresses_are_refused(host):
+    with pytest.raises(netguard.BlockedAddress):
+        run(netguard.check_host(host))
+
+
+def test_the_connection_uses_the_address_checked_at_that_moment(monkeypatch):
+    # DNS rebinding: the name looks ordinary when the request is checked, then points at the metadata service when
+    # the connection resolves it. The connection resolves it once itself and refuses.
+    answers = iter(["93.184.216.34", "169.254.169.254"])
+    connected = []
+
+    async def fake_getaddrinfo(self, host, port, **kwargs):
+        return [(socket.AF_INET, socket.SOCK_STREAM, 0, "", (next(answers), 0))]
+
+    class Recorder(httpcore.AsyncNetworkBackend):
+        async def connect_tcp(self, host, port, **kwargs):
+            connected.append(host)
+            raise httpcore.ConnectError("not really connecting")
+
+    monkeypatch.setattr(asyncio.BaseEventLoop, "getaddrinfo", fake_getaddrinfo)
+
+    async def fetch():
+        transport = netguard.GuardedTransport()
+        transport._pool._network_backend._inner = Recorder()
+        async with httpx.AsyncClient(transport=transport) as client:
+            await client.get("http://rebind.example.com/feed")
+
+    with pytest.raises(netguard.BlockedAddress, match="points to one"):
+        run(fetch())
+    assert connected == []
+
+
+def test_the_connection_goes_to_the_resolved_address(monkeypatch):
+    connected = []
+
+    async def fake_getaddrinfo(self, host, port, **kwargs):
+        return [(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", 0))]
+
+    class Recorder(httpcore.AsyncNetworkBackend):
+        async def connect_tcp(self, host, port, **kwargs):
+            connected.append((host, port))
+            raise httpcore.ConnectError("not really connecting")
+
+    monkeypatch.setattr(asyncio.BaseEventLoop, "getaddrinfo", fake_getaddrinfo)
+
+    async def fetch():
+        transport = netguard.GuardedTransport()
+        transport._pool._network_backend._inner = Recorder()
+        async with httpx.AsyncClient(transport=transport) as client:
+            await client.get("http://feeds.example.com/feed")
+
+    with pytest.raises(httpx.ConnectError):
+        run(fetch())
+    assert connected == [("93.184.216.34", 80)]

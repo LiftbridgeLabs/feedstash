@@ -13,6 +13,9 @@ from app.netguard import BlockedAddress, GuardedTransport
 USER_AGENT = "Mozilla/5.0 (compatible; SelfHostedReader/1.0)"
 ACCEPT = "application/rss+xml, application/atom+xml, application/xml;q=0.9, text/xml;q=0.9, */*;q=0.8"
 MAX_BYTES = 15 * 1024 * 1024
+# The client's timeout is per read, so a server trickling a byte at a time could hold a fetch (and the refresh round
+# waiting on it) for hours. This bounds the whole download.
+DEADLINE_SECONDS = 90
 COMMON_FEED_PATHS = ("feed", "rss", "feed.xml", "rss.xml", "atom.xml", "index.xml")
 
 
@@ -112,15 +115,18 @@ class Fetcher:
     # -------------------------------------------------------------- internals
 
     async def _get(self, url: str, headers: dict | None = None) -> tuple[httpx.Response, bytes]:
-        async with self._client.stream("GET", url, headers=headers) as response:
-            chunks, size = [], 0
-            if response.status_code == 200:
-                async for chunk in response.aiter_bytes():
-                    size += len(chunk)
-                    if size > MAX_BYTES:
-                        raise FetchError("Feed is too large")
-                    chunks.append(chunk)
-            return response, b"".join(chunks)
+        try:
+            async with asyncio.timeout(DEADLINE_SECONDS), self._client.stream("GET", url, headers=headers) as response:
+                chunks, size = [], 0
+                if response.status_code == 200:
+                    async for chunk in response.aiter_bytes():
+                        size += len(chunk)
+                        if size > MAX_BYTES:
+                            raise FetchError("Feed is too large")
+                        chunks.append(chunk)
+                return response, b"".join(chunks)
+        except TimeoutError:
+            raise FetchError(f"The feed took more than {DEADLINE_SECONDS} seconds to download") from None
 
     @staticmethod
     async def _parse(response: httpx.Response, body: bytes) -> ParsedFeed | None:

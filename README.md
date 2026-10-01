@@ -62,7 +62,7 @@ Turn on any combination. The sign-in page shows whatever is configured.
 
 On a fresh install the first visit shows **Create the first account**. That account is an admin and can add more accounts, set their passwords, and make other admins under **Settings → Accounts**. Everyone can change their own password in Settings.
 
-- Create the first account right after starting a new server: until someone does, anyone who can open the page can.
+- Setup only works from your own network (your LAN, Docker, Tailscale), so nobody who finds a new server on the internet can claim it first. Setting up a server you can only reach over the internet, like one on a VPS? Set `SETUP_TOKEN` to something only you know and enter it on the setup page.
 - If `ALLOWED_EMAILS` or `ALLOWED_DOMAINS` is set, the first account must use one of those addresses.
 - After 10 wrong passwords for one account (or 30 from one address) within 15 minutes, sign-in is paused for that account or address.
 - Set `PASSWORD_LOGIN=false` if you only want Google or OIDC.
@@ -106,7 +106,8 @@ All settings are environment variables (see `.env.example`).
 | `ALLOWED_EMAILS`, `ALLOWED_DOMAINS` | | Comma-separated. Who may sign in with Google or OIDC. |
 | `PUID`, `PGID` | `1000`, `1000` | The user and group the app runs as. The container makes `/data` theirs on start. |
 | `PORT` | `8672` | Port inside the container. |
-| `FORWARDED_ALLOW_IPS` | `*` in the Docker image, `127.0.0.1` otherwise | Addresses whose `X-Forwarded-*` headers are trusted. If the port can be reached without going through your proxy, set it to the proxy's IP: otherwise anyone reaching the port can claim any address and get past the sign-in rate limit. |
+| `FORWARDED_ALLOW_IPS` | private networks in the Docker image, `127.0.0.1` otherwise | Addresses or ranges whose `X-Forwarded-*` headers are trusted. The default covers a reverse proxy on the same machine or network. Set it to your proxy's address if the proxy reaches FeedStash from a public one. Never `*`: anyone could then claim any address and get past the sign-in rate limit, and setup would need `SETUP_TOKEN`. |
+| `SETUP_TOKEN` | | Lets the first account be created from outside your own network, by entering this on the setup page. |
 | `SECRET_KEY` | generated | Signs session cookies. Generated once into `/data/secret.key` when empty. |
 | `SESSION_DAYS` | `30` | How long you stay signed in. |
 | `REFRESH_INTERVAL_MINUTES` | `15` | How often feeds are fetched (5 or more). |
@@ -158,7 +159,7 @@ feedstash.example.com {
 }
 ```
 
-With Nginx Proxy Manager, add a proxy host for the container's IP and port 8672 and request a certificate; websockets aren't needed. If the container's port is published to the internet as well, bind it to localhost (`127.0.0.1:8672:8672`) or set `FORWARDED_ALLOW_IPS` to the proxy's address.
+With Nginx Proxy Manager, add a proxy host for the container's IP and port 8672 and request a certificate; websockets aren't needed. The image trusts `X-Forwarded-For` only from private networks, which is where a proxy like this runs, so nothing needs setting. If your proxy reaches FeedStash from a public address instead (a proxy on a VPS in front of a home server), set `FORWARDED_ALLOW_IPS` to that address.
 
 To use FeedStash both through the proxy and directly at home, list both addresses, the proxy's first: `BASE_URL=https://feedstash.example.com,http://192.168.1.50:8672`. You stay signed in on each, and the cookie is `Secure` on the https one. (Pointing the domain at the proxy from inside your network too, with local DNS, gives you one https address everywhere, which Google sign-in needs.)
 
@@ -338,7 +339,9 @@ READER_E2E_BROWSER="/path/to/chrome" pytest      # also run the browser tests (C
 
 **Security notes**
 
-- Passwords are hashed with scrypt. Sessions are signed cookies (`SameSite=Lax`, `Secure` over https), started fresh on every sign-in.
+- Passwords are hashed with scrypt. Sessions are signed cookies (`SameSite=Lax`, `Secure` over https), started fresh on every sign-in. Changing or resetting a password signs that account out of every other browser, and **Settings → Sign out other browsers** does the same on demand (apps with a token stay connected; revoke tokens under Connected apps).
+- The server's mailbox connection checks the mail server's certificate, and mailbox settings can only be changed from the web app; changing the mail server asks for the password again.
+- Credentials passed in a URL (`?token=`, the Reader API's `ClientLogin`) are hidden in the access log.
 - Feed HTML is sanitized twice (server and browser), and a strict Content-Security-Policy blocks all scripts except the app's own. Stash text is always shown as plain text.
 - Browser requests need a CSRF header; API clients use bearer tokens, which browsers never send on their own.
 - Uploaded image URLs are not behind sign-in, so the random file name is what protects them. SVG and other non-image uploads are rejected.

@@ -29,11 +29,16 @@ class Settings(BaseSettings):
     database_path: Path = Path("data/feedstash.db")
     host: str = "127.0.0.1"
     port: int = Field(default=8672, ge=1, le=65535)
-    # Proxies whose X-Forwarded-For/-Proto headers are trusted ("*" = any; fine when only a proxy can reach the app).
+    # Proxies whose X-Forwarded-For/-Proto headers are trusted: addresses or ranges, comma-separated. The Docker
+    # image trusts private networks (where a reverse proxy normally sits). "*" trusts anyone, which lets any client
+    # claim any address, so it also turns off setup from your own network (see SETUP_TOKEN).
     forwarded_allow_ips: str = "127.0.0.1"
 
     # Accounts with a FeedStash password. The first one is created on the setup page and is an admin.
     password_login: bool = True
+    # The setup page only works from the server's own network. Set this to also allow it from anywhere else, by
+    # entering the token on the setup page (a server on a VPS, set up from home).
+    setup_token: SecretStr = SecretStr("")
 
     # Google and any other OpenID Connect provider (Authentik, Authelia, Keycloak, Pocket ID...).
     # Their users need an email in ALLOWED_EMAILS or ALLOWED_DOMAINS, or an existing password account.

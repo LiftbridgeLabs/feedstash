@@ -3,6 +3,7 @@
 import imaplib
 import logging
 import socket
+import ssl
 from collections.abc import Iterator
 from dataclasses import dataclass
 
@@ -35,7 +36,13 @@ class Mailbox:
     def __enter__(self) -> "Mailbox":
         config = self._config
         try:
-            self._imap = imaplib.IMAP4_SSL(config.host, config.port, timeout=TIMEOUT)
+            # imaplib's own default context checks neither the certificate nor the host name, so anyone on the
+            # way could pose as the mail server and collect the password.
+            self._imap = imaplib.IMAP4_SSL(
+                config.host, config.port, ssl_context=ssl.create_default_context(), timeout=TIMEOUT
+            )
+        except ssl.SSLCertVerificationError as exc:
+            raise MailError(f"{config.host} didn't present a valid certificate for its name ({exc.verify_message})") from exc
         except (OSError, socket.timeout, imaplib.IMAP4.error) as exc:
             raise MailError(f"Couldn't reach {config.host}:{config.port} ({exc.__class__.__name__})") from exc
         try:

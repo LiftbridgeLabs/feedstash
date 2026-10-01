@@ -31,9 +31,18 @@ def test_setup_works_once_and_passwords_are_checked(db):
     assert (owner.email, owner.is_admin, owner.has_password) == ("owner@example.com", True, True)
     with pytest.raises(Conflict):
         accounts.setup_first_account(db, email="other@example.com", name=None, password=PASSWORD)
-    assert accounts.authenticate(db, "OWNER@example.com", PASSWORD).id == owner.id
+    user, session_version = accounts.authenticate(db, "OWNER@example.com", PASSWORD)
+    assert (user.id, session_version) == (owner.id, 0)
     assert accounts.authenticate(db, "owner@example.com", "wrong horse") is None
     assert accounts.authenticate(db, "nobody@example.com", PASSWORD) is None
+
+
+def test_a_sign_in_checked_while_the_password_changes_gets_a_session_that_doesnt_count(db):
+    owner = accounts.setup_first_account(db, email="owner@example.com", name=None, password=PASSWORD)
+    _, number_read_with_old_password = accounts.authenticate(db, "owner@example.com", PASSWORD)
+    accounts.change_own_password(db, owner, current_password=PASSWORD, new_password="a new password")
+    with db.transaction() as conn:
+        assert users.session_version(conn, owner.id) != number_read_with_old_password
 
 
 def test_admin_changes_keep_an_admin_and_removing_an_account_removes_its_images(db, tmp_path):

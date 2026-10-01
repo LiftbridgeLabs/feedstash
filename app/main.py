@@ -1,6 +1,7 @@
 """Application factory. Run with:  python -m app   (or  uvicorn --factory app.main:create_app)"""
 
 import logging
+import re
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -121,13 +122,35 @@ def load_settings() -> Settings:
         raise SystemExit(f"Invalid configuration:\n{exc}") from None
 
 
+class RedactCredentials(logging.Filter):
+    """Hides credentials that clients put in a URL's query (`?token=` reads, the Reader API's
+    `ClientLogin?Passwd=`) from the access log, which `docker logs` shows to anyone with access to the host."""
+
+    _SECRET = re.compile(r"((?:^|[?&])(?:token|passwd|password|auth)=)[^&\s]*", re.IGNORECASE)
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple) and len(record.args) >= 3 and isinstance(record.args[2], str):
+            args = list(record.args)
+            args[2] = self._SECRET.sub(r"\1[hidden]", args[2])  # uvicorn's access line: client, method, path, ...
+            record.args = tuple(args)
+        return True
+
+
 def _configure_logging() -> None:
     if not logging.getLogger().handlers:
         logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)  # otherwise every feed fetch is logged
+    access = logging.getLogger("uvicorn.access")
+    if not any(isinstance(f, RedactCredentials) for f in access.filters):
+        access.addFilter(RedactCredentials())
 
 
 def _warn_about_sign_in(settings: Settings) -> None:
+    if "*" in [part.strip() for part in settings.forwarded_allow_ips.split(",")]:
+        log.warning(
+            "FORWARDED_ALLOW_IPS is *: anyone can claim any address with X-Forwarded-For and get past the sign-in "
+            "rate limit. Remove it to use the default (private networks) or set it to your reverse proxy's address"
+        )
     external = settings.google_configured or settings.oidc_configured
     if settings.dev_login:
         log.warning("DEV_LOGIN is enabled: anyone who can reach this server can sign in")

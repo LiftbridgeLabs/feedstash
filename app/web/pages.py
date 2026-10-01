@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from app.clock import iso, now
 from app.db.repositories import users as users_repo
 from app.settings import Settings
-from app.web.auth import external_providers, session_user
+from app.web.auth import SETUP_BLOCKED, external_providers, session_user, setup_needs_token
 
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
 
@@ -31,14 +31,18 @@ SETUP_FORM = """<form class="login-form" data-login="setup" method="post" novali
   <label>Name<input type="text" name="name" autocomplete="name" maxlength="100" autofocus></label>
   <label>Email<input type="email" name="email" autocomplete="username" required></label>
   <label><span>Password <small>(at least 8 characters)</small></span><input type="password" name="password" autocomplete="new-password" required></label>
-  <p class="login-error" data-login-error hidden></p>
+  {token_field}<p class="login-error" data-login-error hidden></p>
   <button class="btn btn-primary btn-lg" type="submit">Create account</button>
 </form>"""
+
+# Setting up from outside the server's own network needs SETUP_TOKEN (see auth.setup_needs_token).
+SETUP_TOKEN_FIELD = """<label><span>Setup token <small>(the SETUP_TOKEN in the server's settings)</small></span><input type="password" name="setup_token" autocomplete="off" required></label>
+  """
 
 router = APIRouter(include_in_schema=False)
 
 
-def login_page(settings: Settings, *, error: str | None, needs_setup: bool) -> str:
+def login_page(settings: Settings, *, error: str | None, needs_setup: bool, setup_needs_token: bool = False) -> str:
     message = LOGIN_ERRORS.get(error or "")
     options = []
     if settings.dev_login:
@@ -47,11 +51,18 @@ def login_page(settings: Settings, *, error: str | None, needs_setup: bool) -> s
         options.append(f'<a class="btn btn-lg" href="/auth/login/{provider}">{html.escape(label)}</a>')
     form = ""
     if settings.password_login and not settings.dev_login:
-        form = SETUP_FORM if needs_setup else PASSWORD_FORM
+        if not needs_setup:
+            form = PASSWORD_FORM
+        elif not setup_needs_token:
+            form = SETUP_FORM.format(token_field="")
+        elif settings.setup_token.get_secret_value():
+            form = SETUP_FORM.format(token_field=SETUP_TOKEN_FIELD)
+        else:
+            message = message or SETUP_BLOCKED
     if not (options or form):
         message = message or "No sign-in method is turned on. Set PASSWORD_LOGIN=true, or configure Google or OIDC."
     tagline = (
-        "Create the first account. It becomes the admin." if form == SETUP_FORM
+        "Create the first account. It becomes the admin." if needs_setup and settings.password_login and not settings.dev_login
         else "Your feeds, and everything you save for later."
     )
     return f"""<!doctype html>
@@ -74,7 +85,9 @@ def index(request: Request, error: str | None = None):
     settings: Settings = request.app.state.settings
     with request.app.state.db.transaction() as conn:
         needs_setup = users_repo.count(conn) == 0
-    return HTMLResponse(login_page(settings, error=error, needs_setup=needs_setup))
+    return HTMLResponse(login_page(
+        settings, error=error, needs_setup=needs_setup, setup_needs_token=needs_setup and setup_needs_token(request)
+    ))
 
 
 @router.get("/healthz")

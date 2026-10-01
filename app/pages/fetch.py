@@ -22,6 +22,8 @@ HEADERS = {
 }
 BLOCKED_STATUSES = {401, 403, 451}
 MAX_BYTES = 5 * 1024 * 1024
+# The client's timeout is per read; this bounds the whole download, so a trickling server can't stall the worker.
+DEADLINE_SECONDS = 90
 MAX_TEXT = 200_000
 MAX_HTML = 1_000_000
 
@@ -60,7 +62,7 @@ def create_client() -> httpx.AsyncClient:
 
 async def fetch_page(client: httpx.AsyncClient, url: str) -> Page:
     try:
-        async with client.stream("GET", url) as response:
+        async with asyncio.timeout(DEADLINE_SECONDS), client.stream("GET", url) as response:
             if response.status_code in BLOCKED_STATUSES:
                 raise PageBlocked(f"the site blocked FeedStash (HTTP {response.status_code})")
             if response.status_code >= 400:
@@ -75,6 +77,8 @@ async def fetch_page(client: httpx.AsyncClient, url: str) -> Page:
                     raise NotAWebPage("The page is too large to save")
                 chunks.append(chunk)
             final_url = str(response.url)
+    except TimeoutError:
+        raise PageError(f"The page took more than {DEADLINE_SECONDS} seconds to download") from None
     except BlockedAddress as exc:
         raise PageBlocked(str(exc)) from exc
     except httpx.HTTPError as exc:

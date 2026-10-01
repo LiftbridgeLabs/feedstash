@@ -25,18 +25,20 @@ def setup_first_account(db: Database, *, email: str, name: str | None, password:
         return user
 
 
-def authenticate(db: Database, email: str, password: str) -> User | None:
-    """The account with this email and password, or None."""
+def authenticate(db: Database, email: str, password: str) -> tuple[User, int] | None:
+    """The account with this email and password, with the session number read along with the password (for the
+    session this sign-in starts), or None."""
     with db.transaction() as conn:
         found = users_repo.credentials(conn, email)
     if found is None:
         verify_password(password, DUMMY_HASH)
         return None
-    user_id, stored = found
+    user_id, stored, session_version = found
     if not verify_password(password, stored):
         return None
     with db.transaction() as conn:
-        return users_repo.get(conn, user_id)
+        user = users_repo.get(conn, user_id)
+    return (user, session_version) if user else None
 
 
 def change_own_password(db: Database, user: User, *, current_password: str, new_password: str) -> None:

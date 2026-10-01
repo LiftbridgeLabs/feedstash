@@ -3,18 +3,18 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from starlette.concurrency import run_in_threadpool
 
 from app.db.models import User
 from app.db.repositories import users as users_repo
 from app.services import accounts
+from app.web.auth import PASSWORD_CHECKS, start_session
 from app.web.deps import DatabaseDep, ImagesDep, SessionUserDep, UserDep
 from app.web.schemas import (
     AccountOut, AccountPrefsIn, AccountUpdateIn, NewAccountIn, OkOut, PasswordChangeIn, UserOut, to_schema,
 )
 
 router = APIRouter(prefix="/api")
-
-
 
 
 def admin_user(user: SessionUserDep) -> User:
@@ -27,8 +27,27 @@ AdminDep = Annotated[User, Depends(admin_user)]
 
 
 @router.post("/account/password", response_model=OkOut)
-def change_password(body: PasswordChangeIn, user: SessionUserDep, db: DatabaseDep) -> OkOut:
-    accounts.change_own_password(db, user, current_password=body.current_password, new_password=body.new_password)
+async def change_password(body: PasswordChangeIn, request: Request, user: SessionUserDep, db: DatabaseDep) -> OkOut:
+    """Changes your password. Every other browser signed in to the account is signed out; this one stays in."""
+    async with PASSWORD_CHECKS:
+        await run_in_threadpool(
+            accounts.change_own_password, db, user,
+            current_password=body.current_password, new_password=body.new_password,
+        )
+    await start_session(request, user.id)
+    return OkOut()
+
+
+@router.post("/account/sign-out-others", response_model=OkOut)
+async def sign_out_other_browsers(request: Request, user: SessionUserDep, db: DatabaseDep) -> OkOut:
+    """Signs out every other browser signed in to your account (API tokens are separate: revoke those one by one)."""
+
+    def end() -> None:
+        with db.transaction() as conn:
+            users_repo.end_sessions(conn, user.id)
+
+    await run_in_threadpool(end)
+    await start_session(request, user.id)
     return OkOut()
 
 
@@ -53,14 +72,23 @@ def create_account(body: NewAccountIn, admin: AdminDep, db: DatabaseDep) -> Acco
 
 
 @router.patch("/accounts/{user_id}", response_model=AccountOut)
-def update_account(user_id: int, body: AccountUpdateIn, admin: AdminDep, db: DatabaseDep) -> AccountOut:
-    """Sets a new password and/or changes admin rights."""
+async def update_account(
+    user_id: int, body: AccountUpdateIn, request: Request, admin: AdminDep, db: DatabaseDep
+) -> AccountOut:
+    """Sets a new password (which signs that account out everywhere) and/or changes admin rights."""
     if body.password is not None:
-        accounts.reset_password(db, user_id, body.password)
+        async with PASSWORD_CHECKS:
+            await run_in_threadpool(accounts.reset_password, db, user_id, body.password)
+        if user_id == admin.id:
+            await start_session(request, admin.id)  # an admin resetting their own password stays signed in here
     if body.is_admin is not None:
-        accounts.set_admin(db, user_id, body.is_admin)
-    with db.transaction() as conn:
-        user = users_repo.get(conn, user_id)
+        await run_in_threadpool(accounts.set_admin, db, user_id, body.is_admin)
+
+    def load() -> User | None:
+        with db.transaction() as conn:
+            return users_repo.get(conn, user_id)
+
+    user = await run_in_threadpool(load)
     if user is None:
         raise HTTPException(status_code=404, detail="No such account")
     return AccountOut.from_user(user)

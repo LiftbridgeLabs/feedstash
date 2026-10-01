@@ -4,7 +4,10 @@ Who may use the app: accounts with a FeedStash password (created on purpose), an
 email is in ALLOWED_EMAILS / ALLOWED_DOMAINS.
 """
 
+import asyncio
+import ipaddress
 import logging
+import secrets
 
 import httpx
 from authlib.integrations.starlette_client import OAuth, OAuthError
@@ -27,11 +30,16 @@ log = logging.getLogger("reader.auth")
 GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
 DEV_LOGIN_SUB = "dev-login"
 SESSION_USER_KEY = "uid"
+SESSION_VERSION_KEY = "sv"  # see migration 11: a session started before the account's last change doesn't count
 PROVIDERS = ("google", "oidc")
 # Errors a provider can cause while we fetch its metadata, keys or tokens.
 PROVIDER_ERRORS = (OAuthError, httpx.HTTPError, ValueError, KeyError)
 
 router = APIRouter()
+
+# Each password check costs scrypt's 32 MB and about a tenth of a second, so a flood of sign-ins could exhaust the
+# machine. A few at a time; the rest wait their turn.
+PASSWORD_CHECKS = asyncio.Semaphore(4)
 
 
 def build_oauth(settings: Settings) -> OAuth | None:
@@ -90,7 +98,8 @@ def session_user(request: Request) -> User | None:
     db: Database = request.app.state.db
     with db.transaction() as conn:
         user = users_repo.get(conn, user_id)
-    if user is None or not user_allowed(settings, user):
+        version = users_repo.session_version(conn, user_id)
+    if user is None or not user_allowed(settings, user) or request.session.get(SESSION_VERSION_KEY, 0) != version:
         request.session.clear()
         return None
     return user
@@ -119,9 +128,19 @@ def token_user(request: Request, token: str) -> User | None:
     return user
 
 
-def _start_session(request: Request, user_id: int) -> None:
+async def start_session(request: Request, user_id: int, session_version: int | None = None) -> None:
+    """Signs this browser in as the user: a fresh session, carrying the account's session number. A password sign-in
+    passes the number it read with the password, so a password changed in between doesn't leave this one valid."""
+    db: Database = request.app.state.db
+
+    def current() -> int:
+        with db.transaction() as conn:
+            return users_repo.session_version(conn, user_id) or 0
+
+    version = session_version if session_version is not None else await run_in_threadpool(current)
     request.session.clear()  # a fresh session on every sign-in
     request.session[SESSION_USER_KEY] = user_id
+    request.session[SESSION_VERSION_KEY] = version
 
 
 # ------------------------------------------------------------------ Google and OIDC
@@ -138,7 +157,7 @@ async def login(request: Request):
             with db.transaction() as conn:
                 return users_repo.upsert(conn, sub=DEV_LOGIN_SUB, email="dev@localhost", name="Local user", picture=None)
 
-        _start_session(request, await run_in_threadpool(upsert))
+        await start_session(request, await run_in_threadpool(upsert))
         return RedirectResponse("/", status_code=303)
     providers = external_providers(settings)
     if len(providers) == 1 and not settings.password_login:
@@ -231,7 +250,7 @@ async def _finish_external_sign_in(request: Request, provider: str):
     if user_id is None:
         log.warning("Rejected %s sign-in from %s (not in ALLOWED_EMAILS/ALLOWED_DOMAINS)", provider, email)
         return RedirectResponse("/?error=not_allowed", status_code=303)
-    _start_session(request, user_id)
+    await start_session(request, user_id)
     return RedirectResponse("/", status_code=303)
 
 
@@ -252,13 +271,52 @@ async def password_sign_in(body: PasswordLoginIn, request: Request) -> OkOut:
             detail=f"Too many failed sign-ins. Try again in {minutes} minute{'' if minutes == 1 else 's'}.",
             headers={"Retry-After": str(wait)},
         )
-    user = await run_in_threadpool(accounts.authenticate, request.app.state.db, body.email, body.password)
-    if user is None:
+    async with PASSWORD_CHECKS:
+        found = await run_in_threadpool(accounts.authenticate, request.app.state.db, body.email, body.password)
+    if found is None:
         limiter.record_failure(address, body.email)
         raise HTTPException(status_code=401, detail="Wrong email or password")
+    user, session_version = found
     limiter.clear_account(body.email)
-    _start_session(request, user.id)
+    await start_session(request, user.id, session_version)
     return OkOut()
+
+
+# Addresses on the server's own network: loopback, private LAN and Docker ranges, IPv6 unique-local and link-local,
+# and 100.64.0.0/10 (Tailscale). Listed rather than ip.is_private, which also counts documentation and reserved
+# ranges.
+OWN_NETWORKS = tuple(ipaddress.ip_network(n) for n in (
+    "127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10", "169.254.0.0/16",
+    "::1/128", "fc00::/7", "fe80::/10",
+))
+
+
+def from_own_network(request: Request) -> bool:
+    """Whether the request comes from the server's own network (LAN, Docker, VPN), as far as FeedStash can tell.
+    With FORWARDED_ALLOW_IPS=* anyone can claim any address, so then it can't tell, and says no."""
+    settings: Settings = request.app.state.settings
+    if "*" in [part.strip() for part in settings.forwarded_allow_ips.split(",")]:
+        return False
+    try:
+        ip = ipaddress.ip_address((request.client.host if request.client else "").split("%", 1)[0])
+    except ValueError:
+        return False
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
+        ip = ip.ipv4_mapped
+    return any(ip in network for network in OWN_NETWORKS)
+
+
+def setup_needs_token(request: Request) -> bool:
+    """First-run setup is open on the server's own network. From anywhere else it needs SETUP_TOKEN, so whoever
+    finds a new server on the internet before its owner can't claim it."""
+    return not from_own_network(request)
+
+
+SETUP_BLOCKED = (
+    "For safety, FeedStash can only be set up from your own network. Open it at the server's address on your "
+    "network (like http://192.168.1.50:8672) rather than through your domain, or set SETUP_TOKEN in the server's "
+    "settings and enter it here."
+)
 
 
 @router.post("/auth/setup", response_model=OkOut)
@@ -267,14 +325,21 @@ async def first_run_setup(body: SetupIn, request: Request) -> OkOut:
     settings: Settings = request.app.state.settings
     if not settings.password_login or settings.dev_login:
         raise HTTPException(status_code=404, detail="Setup isn't available")
+    if setup_needs_token(request):
+        expected = settings.setup_token.get_secret_value()
+        if not expected:
+            raise HTTPException(status_code=403, detail=SETUP_BLOCKED)
+        if not secrets.compare_digest((body.setup_token or "").strip().encode(), expected.encode()):
+            raise HTTPException(status_code=403, detail="That setup token isn't right")
     if (settings.allowed_emails or settings.allowed_domains) and not email_allowed(settings, body.email):
         raise HTTPException(status_code=403, detail="Use an email address from ALLOWED_EMAILS or ALLOWED_DOMAINS")
-    user = await run_in_threadpool(
-        lambda: accounts.setup_first_account(
-            request.app.state.db, email=body.email, name=body.name, password=body.password
+    async with PASSWORD_CHECKS:
+        user = await run_in_threadpool(
+            lambda: accounts.setup_first_account(
+                request.app.state.db, email=body.email, name=body.name, password=body.password
+            )
         )
-    )
-    _start_session(request, user.id)
+    await start_session(request, user.id)
     return OkOut()
 
 

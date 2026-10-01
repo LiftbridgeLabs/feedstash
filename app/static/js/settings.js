@@ -5,8 +5,9 @@ import { modal, toast } from './dialogs.js';
 import { icon } from './icons.js';
 import { importSectionHTML, renderImportPlan, wireImport } from './importlinks.js';
 import { loadMail, mailSectionHTML, wireMail } from './mailbox.js';
+import { setPref } from './menus.js';
 import { loadRules, rulesSectionHTML, wireRules } from './rules.js';
-import { els } from './state.js';
+import { els, state } from './state.js';
 import { MODES, SCHEMES, setTheme, theme } from './theme.js';
 import { $, $$, agoLong, esc, fullDate } from './util.js';
 
@@ -41,6 +42,17 @@ export function showSettings() {
     <div class="setting-row">
       <span class="field-label">Colors</span>
       <div class="swatches" data-schemes>${schemeButtons()}</div>
+    </div>
+
+    <h3>Reading</h3>
+    <div class="setting-row">
+      <label for="mark-on-scroll">Mark as read while scrolling</label>
+      <select id="mark-on-scroll" data-settings-field="mark-on-scroll">
+        <option value="off" ${state.prefs.markOnScroll ? '' : 'selected'}>Off</option>
+        <option value="on" ${state.prefs.markOnScroll ? 'selected' : ''}>On</option>
+      </select>
+      <p class="muted">Articles are marked read once they scroll off the top of the list. Kept in this browser; it's
+        also in the list's view options.</p>
     </div>
 
     <h3>Feeds</h3>
@@ -134,6 +146,7 @@ async function loadAccount() {
         ${me.is_admin ? '<span class="muted">· admin</span>' : ''}</p>
       <div class="org-actions">
         ${me.has_password ? `<button class="btn btn-sm" data-settings="change-password">${icon('key')}Change password</button>` : ''}
+        <button class="btn btn-sm" data-settings="sign-out-others">${icon('logout')}Sign out other browsers</button>
       </div>
     </div>
     <div class="setting-row">
@@ -159,7 +172,16 @@ async function changePassword() {
       new_password: fd.get('next') || '',
     }),
   });
-  if (ok) toast('Password changed');
+  if (ok) toast('Password changed. Other browsers signed in to your account have been signed out.');
+}
+
+async function signOutOthers() {
+  try {
+    await api('POST', '/api/account/sign-out-others');
+    toast('Signed out of every other browser. Apps that use a token stay connected.');
+  } catch (err) {
+    toast(err.message, { error: true });
+  }
 }
 
 /* ---- accounts (admins) */
@@ -331,6 +353,7 @@ export function wireSettings() {
   els.settings.addEventListener('change', (e) => {
     if (e.target.matches('[data-settings-field=read-retention]')) saveReadRetention(e.target);
     if (e.target.matches('[data-settings-field=theme-mode]')) setTheme({ mode: e.target.value });
+    if (e.target.matches('[data-settings-field=mark-on-scroll]')) setPref('markOnScroll', e.target.value === 'on');
   });
   els.settings.addEventListener('click', (e) => {
     const copy = e.target.closest('[data-copy]');
@@ -344,6 +367,7 @@ export function wireSettings() {
       case 'new-token': newToken(); break;
       case 'revoke': revoke(Number(id), name); break;
       case 'change-password': changePassword(); break;
+      case 'sign-out-others': signOutOthers(); break;
       case 'new-account': newAccount(); break;
       case 'set-password': setPassword(Number(id), name); break;
       case 'toggle-admin': toggleAdmin(Number(id), button.dataset.admin === 'true', name); break;

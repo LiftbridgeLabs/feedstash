@@ -8,3 +8,25 @@ def test_choose_how_long_read_articles_are_kept(reader):
     reader.js("location.hash = '#/all'")
     reader.js("location.hash = '#/settings'")
     assert reader.wait_for(f"{select}?.value === '7'")
+
+
+def test_mark_as_read_while_scrolling_is_in_settings_too(reader):
+    reader.js("location.hash = '#/settings'")
+    select = "document.querySelector('[data-settings-field=mark-on-scroll]')"
+    assert reader.wait_for(f"{select}?.value === 'off'")
+    reader.js(f"(() => {{ const s = {select}; s.value = 'on'; s.dispatchEvent(new Event('change', {{ bubbles: true }})); }})()")
+    assert reader.wait_for("reader.state.prefs.markOnScroll === true")
+    assert reader.js("JSON.parse(localStorage.getItem('reader.prefs')).markOnScroll") is True
+
+    reader.js("location.hash = '#/all'")
+    reader.js("location.hash = '#/settings'")
+    assert reader.wait_for(f"{select}?.value === 'on'")
+
+
+def test_sign_out_other_browsers_keeps_this_one(reader):
+    reader.js("location.hash = '#/settings'")
+    button = "document.querySelector('[data-settings=sign-out-others]')"
+    assert reader.wait_for(f"!!{button}")
+    reader.js(f"{button}.click()")
+    assert reader.wait_for("document.body.textContent.includes('Signed out of every other browser')")
+    assert reader.wait_for("reader.api('GET', '/api/me').then((me) => !!me.email)")

@@ -246,6 +246,11 @@ MIGRATIONS: list[str] = [
     ALTER TABLE articles ADD COLUMN full_attempted_at INTEGER;
     CREATE INDEX idx_articles_full_text_due ON articles(feed_id) WHERE full_status IS NULL AND read_at IS NULL;
     """,
+    # 11: a number each web session carries; changing it (a password change or reset, "sign out of other browsers")
+    # ends every session started before. Session cookies are signed, not stored, so this is how they're revoked.
+    """
+    ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0;
+    """,
 ]
 
 
