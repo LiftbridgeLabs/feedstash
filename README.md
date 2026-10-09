@@ -31,7 +31,7 @@ Everything you want to read, in one self-hosted app: the feeds you follow, and t
 
 **Accounts.** Several people can share one server; each has their own feeds and stash. Admins add and remove accounts in **Settings → Accounts**. Each person also chooses how long their read articles are kept (**Settings → Your account**, 30 days by default; Read later is never deleted).
 
-**Keyboard:** `j`/`k` next/previous article, `o` open, `v` open original, `m` toggle read, `s` read later, `b` save to stash, `c` capture, `/` search, `r` refresh, `Shift+A` mark all read, `Esc` close.
+**Keyboard:** press `?` in the web app for the list (it's also under Settings → Reading). `j`/`k` open the next/previous article, `n`/`p` select without opening, `o` open, `v` open original, `m` toggle read, `s` read later, `b` save to stash, `c` save something, `/` search, `r` refresh, `Shift+A` mark all read, `Esc` close.
 
 ## Quick start
 

@@ -1,5 +1,5 @@
-/* Keyboard shortcuts.
-   Anywhere: c capture, / search, Esc close.
+/* Keyboard shortcuts. The list people see (? or Settings) is SHORTCUTS in shortcuts.js: change both together.
+   Anywhere: c capture, / search, ? the list of shortcuts, Esc close.
    Articles: j/k open next/previous, n/p select, o/Enter toggle, v original, m read, s read later, b save to stash,
              r refresh, A mark all read. */
 
@@ -10,6 +10,7 @@ import {
 } from './articles.js';
 import { closeMenus } from './menus.js';
 import { focusSearch } from './search.js';
+import { showShortcuts } from './shortcuts.js';
 import { captureDialog, closeStashItem, stashArticle } from './stash.js';
 import { ARTICLE_SCOPES, state } from './state.js';
 import { $ } from './util.js';
@@ -55,6 +56,11 @@ export function wireKeyboard() {
     if (e.key === '/') {
       e.preventDefault();
       focusSearch();
+      return;
+    }
+    if (e.key === '?') {
+      e.preventDefault();
+      showShortcuts();
       return;
     }
     if (!ARTICLE_SCOPES.has(state.route.scope)) return;

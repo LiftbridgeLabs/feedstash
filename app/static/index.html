@@ -47,14 +47,14 @@
           <h1 id="view-title">All articles</h1>
           <span class="muted" id="view-count"></span>
         </div>
-        <input type="search" class="list-search" id="toolbar-search" placeholder="Search articles" aria-label="Search articles"
+        <input type="search" class="list-search" id="toolbar-search" placeholder="Search articles" aria-label="Search articles" title="Search (/)"
                autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" hidden>
         <div class="actions" id="list-actions">
           <button class="icon-btn" id="refresh-btn" title="Refresh (r)" data-icon="refresh"></button>
           <div class="dropdown">
-            <button class="btn btn-sm" data-dropdown="mark-menu"><span data-icon="check"></span><span class="hide-sm">Mark as read</span><span data-icon="chevron-down"></span></button>
+            <button class="btn btn-sm" data-dropdown="mark-menu" title="Mark as read (Shift+A marks everything)"><span data-icon="check"></span><span class="hide-sm">Mark as read</span><span data-icon="chevron-down"></span></button>
             <div class="menu" id="mark-menu" hidden>
-              <button data-mark="all">Mark all as read</button>
+              <button data-mark="all">Mark all as read <span class="kbd">⇧A</span></button>
               <button data-mark="12">Older than 12 hours</button>
               <button data-mark="24">Older than 1 day</button>
               <button data-mark="168">Older than 1 week</button>

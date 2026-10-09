@@ -131,12 +131,12 @@ function articleHTML(a) {
 
 function readerBar(a) {
   return `
-    <button class="btn btn-sm" data-action="star">${icon('star', a.starred)}${a.starred ? 'Saved' : 'Read later'}</button>
+    <button class="btn btn-sm" data-action="star" title="Read later (s)">${icon('star', a.starred)}${a.starred ? 'Saved' : 'Read later'}</button>
     <button class="btn btn-sm" data-action="stash" title="Save to stash (b)">${icon('inbox')}Save to stash</button>
-    <button class="btn btn-sm" data-action="toggle-read">${icon(a.read ? 'circle' : 'check')}${a.read ? 'Keep unread' : 'Mark as read'}</button>
+    <button class="btn btn-sm" data-action="toggle-read" title="${a.read ? 'Keep unread' : 'Mark as read'} (m)">${icon(a.read ? 'circle' : 'check')}${a.read ? 'Keep unread' : 'Mark as read'}</button>
     ${a.url && state.tree.page_capture ? `<button class="btn btn-sm" data-action="full-text" title="Switch between the feed's text and the article's own page">${icon('article')}${showingFull(a) ? 'Feed version' : 'Full article'}</button>` : ''}
-    ${a.url ? `<a class="btn btn-sm" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">${icon('external')}Visit website</a>` : ''}
-    <button class="btn btn-sm" data-action="close">${icon('x')}Close</button>`;
+    ${a.url ? `<a class="btn btn-sm" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer" title="Visit website (v)">${icon('external')}Visit website</a>` : ''}
+    <button class="btn btn-sm" data-action="close" title="Close (Esc)">${icon('x')}Close</button>`;
 }
 
 export const itemEl = (id) => els.articles.querySelector(`.item[data-id="${id}"]`);

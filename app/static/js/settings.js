@@ -6,6 +6,7 @@ import { icon } from './icons.js';
 import { importSectionHTML, renderImportPlan, wireImport } from './importlinks.js';
 import { loadMail, mailSectionHTML, wireMail } from './mailbox.js';
 import { setPref } from './menus.js';
+import { showShortcuts } from './shortcuts.js';
 import { loadRules, rulesSectionHTML, wireRules } from './rules.js';
 import { els, state } from './state.js';
 import { MODES, SCHEMES, setTheme, theme } from './theme.js';
@@ -53,6 +54,11 @@ export function showSettings() {
       </select>
       <p class="muted">Articles are marked read once they scroll off the top of the list. Kept in this browser; it's
         also in the list's view options.</p>
+    </div>
+    <div class="setting-row">
+      <p class="muted">Move through articles, mark them read and save them without the mouse. Press <kbd>?</kbd>
+        anywhere to see the shortcuts.</p>
+      <button class="btn btn-sm" data-settings="shortcuts">Keyboard shortcuts</button>
     </div>
 
     <h3>Feeds</h3>
@@ -368,6 +374,7 @@ export function wireSettings() {
       case 'revoke': revoke(Number(id), name); break;
       case 'change-password': changePassword(); break;
       case 'sign-out-others': signOutOthers(); break;
+      case 'shortcuts': showShortcuts(); break;
       case 'new-account': newAccount(); break;
       case 'set-password': setPassword(Number(id), name); break;
       case 'toggle-admin': toggleAdmin(Number(id), button.dataset.admin === 'true', name); break;

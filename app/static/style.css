@@ -489,6 +489,13 @@ dialog.modal {
 dialog.modal::backdrop { background: rgba(0, 0, 0, .4); }
 dialog.modal form { padding: 22px; }
 dialog.modal h2 { margin: 0 0 16px; font-size: 19px; }
+kbd { display: inline-block; min-width: 1.6em; padding: 1px 6px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; background: var(--bg); color: var(--text); font: 600 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; text-align: center; }
+dialog.shortcuts h3 { margin: 16px 0 6px; font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+dialog.shortcuts dl { margin: 0; }
+dialog.shortcuts dl > div { display: flex; gap: 12px; align-items: baseline; padding: 5px 0; border-bottom: 1px solid var(--border); }
+dialog.shortcuts dt { flex: 0 0 9.5em; white-space: nowrap; }
+dialog.shortcuts dd { margin: 0; }
+dialog.shortcuts > form > .muted { margin: 14px 0 0; font-size: 13px; }
 .modal-body { display: flex; flex-direction: column; gap: 14px; }
 .modal-body label { display: flex; flex-direction: column; gap: 5px; font-size: 13px; font-weight: 600; color: var(--text-muted); }
 .modal-body label.check { flex-direction: row; align-items: center; gap: 8px; font-weight: 400; color: var(--text); font-size: 14px; }
