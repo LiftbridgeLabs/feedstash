@@ -90,6 +90,7 @@ export function showSettings() {
       <p class="muted">The extension, email worker and phone apps sign in with a token. Make one each, so you can
         revoke them separately. A token is shown only once.</p>
       <div class="org-actions">
+        <button class="btn btn-sm" data-settings="connect-phone">Connect a phone or iPad</button>
         <button class="btn btn-sm btn-primary" data-settings="new-token">${icon('plus')}New token</button>
       </div>
     </div>
@@ -104,7 +105,7 @@ export function showSettings() {
           options, and enter the server URL and a token.</li>
         <li><b>Email</b>: deploy <code>clients/email-worker</code> to Cloudflare with <code>FEEDSTASH_API_BASE</code> set to
           the server URL and <code>FEEDSTASH_API_TOKEN</code> to a token. Hashtags in the subject become tags.</li>
-        <li><b>Android and iOS</b>: enter the server URL and a token on the FeedStash app's Settings tab. Sharing to
+        <li><b>iPhone and iPad</b>: click <b>Connect a phone or iPad</b> above and scan the code, or enter the server URL and a token on the FeedStash app's Settings tab. Sharing to
           FeedStash saves links, text and images.</li>
         <li><b>Other reader apps</b> (NetNewsWire, Reeder Classic, lire, Capy Reader): add a <b>FreshRSS</b> or
           <b>Google Reader</b> account with the server URL above (some apps want
@@ -302,6 +303,50 @@ async function copyFrom(button) {
   }
 }
 
+/** A new token for the phone or iPad app, as a QR code it can scan to connect without typing anything. */
+async function connectPhone() {
+  let created;
+  try {
+    created = await api('POST', '/api/tokens/connect', { clientName: 'Phone or iPad' });
+  } catch (err) {
+    toast(err.message, { error: true });
+    return;
+  }
+  loadTokens();
+  const [first] = created.codes;
+  const choices = created.codes.length > 1
+    ? `<label>Server address <small>(the one the app will use; your https address works away from home too)</small>
+        <select data-connect-server>${created.codes.map((code, i) => `<option value="${i}">${esc(code.server)}</option>`).join('')}</select></label>`
+    : '';
+  await modal({
+    title: 'Connect a phone or iPad',
+    confirmText: 'Done',
+    // The QR codes are SVG the server drew from the link; nothing anyone typed is in them.
+    html: `<p>Point the iPhone or iPad Camera at this code, or tap <b>Scan QR code</b> in the FeedStash app's
+        Settings. It connects the app with a new token, “${esc(created.clientName)}”, that you can revoke here.
+        The code is shown only once.</p>
+      ${choices}
+      <div class="qr-code" data-qr>${first.svg}</div>
+      <details class="connect-manual"><summary>Type it in instead</summary>
+        <label>Server address<input type="text" readonly value="${esc(first.server)}" data-connect-address></label>
+        <label>Token<input type="text" readonly value="${esc(created.token)}"></label>
+        <p><button type="button" class="btn btn-sm" data-copy="${esc(created.token)}">${icon('copy')}Copy token</button></p>
+      </details>`,
+    onOpen: (dialog) => {
+      dialog.addEventListener('click', (e) => {
+        const button = e.target.closest('[data-copy]');
+        if (button) copyFrom(button);
+      });
+      dialog.addEventListener('change', (e) => {
+        if (!e.target.matches('[data-connect-server]')) return;
+        const code = created.codes[Number(e.target.value)];
+        $('[data-qr]', dialog).innerHTML = code.svg;
+        $('[data-connect-address]', dialog).value = code.server;
+      });
+    },
+  });
+}
+
 async function newToken() {
   const created = await modal({
     title: 'New API token',
@@ -371,6 +416,7 @@ export function wireSettings() {
     const { id, name } = button.dataset;
     switch (button.dataset.settings) {
       case 'new-token': newToken(); break;
+      case 'connect-phone': connectPhone(); break;
       case 'revoke': revoke(Number(id), name); break;
       case 'change-password': changePassword(); break;
       case 'sign-out-others': signOutOthers(); break;

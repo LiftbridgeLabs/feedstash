@@ -30,3 +30,12 @@ def test_sign_out_other_browsers_keeps_this_one(reader):
     reader.js(f"{button}.click()")
     assert reader.wait_for("document.body.textContent.includes('Signed out of every other browser')")
     assert reader.wait_for("reader.api('GET', '/api/me').then((me) => !!me.email)")
+
+
+def test_connect_a_phone_shows_a_qr_code(reader):
+    reader.js("location.hash = '#/settings'")
+    button = "document.querySelector('[data-settings=connect-phone]')"
+    assert reader.wait_for(f"!!{button}")
+    reader.js(f"{button}.click()")
+    assert reader.wait_for("!!document.querySelector('dialog[open] .qr-code svg')")
+    assert reader.wait_for("document.querySelector('[data-token-list]').textContent.includes('Phone or iPad')")

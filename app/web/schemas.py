@@ -509,3 +509,17 @@ class NewTokenOut(BaseModel):
     id: int
     token: str
     clientName: str
+
+
+class ConnectCodeIn(BaseModel):
+    clientName: str = Field(default="Phone or iPad", max_length=100)
+
+
+class ConnectCode(BaseModel):
+    server: str  # the address the app will use
+    url: str  # feedstash://connect?server=…&token=…, what the QR code holds
+    svg: str  # the QR code
+
+
+class ConnectCodeOut(NewTokenOut):
+    codes: list[ConnectCode]  # one per configured address, the one this browser uses first
