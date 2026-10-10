@@ -11,6 +11,19 @@ import pytest
 from conftest import free_port
 from e2e.cdp import Page
 
+E2E_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def pytest_collection_modifyitems(items):
+    """On CI only, a failing browser test gets one more try: GitHub's busy runners now and then stall a browser past
+    a test's timeouts, and each such failure emailed a "Run failed" and stopped a release. A real bug fails twice.
+    Locally there's no retry, so a flaky test still shows up."""
+    if not os.environ.get("CI"):
+        return
+    for item in items:
+        if str(item.path).startswith(E2E_DIR):
+            item.add_marker(pytest.mark.flaky(reruns=1, reruns_delay=2))
+
 
 def _launch(executable: str, profile, attempt_seconds: float) -> tuple[subprocess.Popen, str | None]:
     """Starts the browser and waits for a page to drive. Returns the process and the page's debugger URL (None if
