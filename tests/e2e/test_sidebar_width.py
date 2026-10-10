@@ -10,9 +10,12 @@ def test_the_sidebar_edge_drags_narrower_and_the_width_sticks(reader):
     })()""")
     assert reader.js(SIDEBAR_WIDTH) == 230
 
-    reader.js("location.reload()")
-    assert reader.wait_for("!!window.reader && document.querySelectorAll('.item').length > 0", timeout=20)
-    assert reader.js(SIDEBAR_WIDTH) == 230  # remembered
+    # Mark this page, so the wait below can't be satisfied by it before the reload has happened.
+    reader.js("window.beforeReload = true; location.reload()")
+    assert reader.wait_for(
+        "!window.beforeReload && !!window.reader && document.querySelectorAll('.item').length > 0", timeout=20
+    )
+    assert reader.wait_for(f"{SIDEBAR_WIDTH} === 230")  # remembered
 
     # It can't go below the minimum, and a double-click puts it back.
     reader.js("""(() => {
