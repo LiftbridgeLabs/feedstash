@@ -87,11 +87,12 @@ export function showSettings() {
 
     <h3>Connected apps</h3>
     <div class="org-head">
-      <p class="muted">The extension, email worker and phone apps sign in with a token. Make one each, so you can
-        revoke them separately. A token is shown only once.</p>
+      <p class="muted">Setting up the iPhone or iPad app? <b>Connect a phone or iPad</b> shows a code to scan, so
+        there's nothing to type. The extension, email worker and other apps sign in with a token: make one each, so
+        you can revoke them separately. A token is shown only once.</p>
       <div class="org-actions">
-        <button class="btn btn-sm" data-settings="connect-phone">Connect a phone or iPad</button>
-        <button class="btn btn-sm btn-primary" data-settings="new-token">${icon('plus')}New token</button>
+        <button class="btn btn-sm btn-primary" data-settings="connect-phone">Connect a phone or iPad</button>
+        <button class="btn btn-sm" data-settings="new-token">${icon('plus')}New token</button>
       </div>
     </div>
     <div data-token-list><p class="muted">Loading…</p></div>

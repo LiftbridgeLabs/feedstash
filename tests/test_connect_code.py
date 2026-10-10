@@ -11,9 +11,9 @@ def test_a_connect_code_holds_the_server_and_a_working_token(api, server):
     (code,) = created["codes"]
     assert code["server"] == server.base_url
     link = urlsplit(code["url"])
-    assert (link.scheme, link.netloc) == ("feedstash", "connect")
-    query = parse_qs(link.query)
-    assert query == {"server": [server.base_url], "token": [created["token"]]}
+    assert f"{link.scheme}://{link.netloc}{link.path}" == server.base_url + "/connect"
+    assert link.query == ""  # nothing a server would see or log
+    assert parse_qs(link.fragment) == {"server": [server.base_url], "token": [created["token"]]}
     assert code["svg"].lstrip().startswith("<svg")
     # The token in it signs in like any other, and it's listed for revoking.
     me = httpx.get(server.base_url + "/api/me", headers={"Authorization": f"Bearer {created['token']}"})
@@ -35,3 +35,10 @@ def test_a_token_cant_make_connect_codes(api, server):
         server.base_url + "/api/tokens/connect", json={}, headers={"Authorization": f"Bearer {token}"}
     )
     assert response.status_code == 403
+
+
+def test_the_connect_page_works_without_signing_in_and_never_holds_the_token(server):
+    page = httpx.get(server.base_url + "/connect")
+    assert page.status_code == 200
+    assert "Open in FeedStash" in page.text and 'src="/static/connect.js"' in page.text
+    assert page.headers["cache-control"] == "no-store"

@@ -90,6 +90,31 @@ def index(request: Request, error: str | None = None):
     ))
 
 
+APP_STORE_URL = "https://apps.apple.com/app/id6813737525"
+
+# What the "Connect a phone or iPad" QR code opens: the Camera app won't open an app's own link (feedstash://), but it
+# opens a web address, so the code holds this page's, with the server and token after the #. Browsers never send
+# that part to the server, so the token stays out of logs; connect.js reads it and builds the app link.
+CONNECT_PAGE = f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Connect the app · FeedStash</title><link rel="icon" href="/static/icon.svg"><link rel="stylesheet" href="/static/style.css"></head>
+<body class="login-body"><main class="login-card">
+<img src="/static/icon.svg" alt="" width="56" height="56"><h1>Connect the app</h1>
+<p class="muted" data-connect-text>Open this in the FeedStash app on your iPhone or iPad to connect it to this server.</p>
+<div class="login-options">
+  <a class="btn btn-primary btn-lg" href="#" data-connect-open hidden>Open in FeedStash</a>
+  <a class="btn btn-lg" href="{APP_STORE_URL}">Get FeedStash on the App Store</a>
+</div>
+<p class="muted">Already have it? If the button does nothing, update the app, then scan the code again.</p>
+</main><script type="module" src="/static/connect.js"></script></body></html>"""
+
+
+@router.get("/connect")
+def connect_page():
+    return HTMLResponse(CONNECT_PAGE, headers={"Cache-Control": "no-store"})
+
+
 @router.get("/healthz")
 def healthz(request: Request):
     """For container health checks: the app answers and can read its database."""

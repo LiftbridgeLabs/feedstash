@@ -32,3 +32,14 @@ def test_the_list_covers_every_key_the_app_answers_to():
     listed = {key for combo in combos for key in re.findall(r"'([^']+)'", combo)}
     listed |= {"Escape", "A"}  # shown as Esc and Shift + A
     assert handled <= listed, f"keys missing from the shortcuts sheet: {handled - listed}"
+
+
+def test_the_connect_page_hands_off_to_the_app_and_clears_the_token(browser_page, server):
+    page = browser_page
+    page.goto(server.base_url + "/connect#server=https%3A%2F%2Ffeeds.example.com&token=tok-123")
+    button = "document.querySelector('[data-connect-open]')"
+    assert page.wait_for(f"!!{button} && !{button}.hidden")
+    href = page.js(f"{button}.getAttribute('href')")
+    assert href == "feedstash://connect?server=https%3A%2F%2Ffeeds.example.com&token=tok-123"
+    assert page.js("location.hash") == ""
+    assert not page.errors, page.errors

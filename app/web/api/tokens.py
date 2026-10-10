@@ -28,8 +28,10 @@ def create_token(body: NewTokenIn, user: SessionUserDep, db: DatabaseDep) -> New
 
 
 def connect_url(server: str, token: str) -> str:
-    """The link the phone and iPad apps open to connect: scanned from a QR code, or tapped."""
-    return "feedstash://connect?" + urlencode({"server": server, "token": token})
+    """What the QR code holds: this server's /connect page with the server and token after the #. The Camera app
+    opens it (it won't open feedstash:// links), the page hands off to the app, and the app's own scanner reads it
+    directly. The part after # never reaches a server."""
+    return f"{server.rstrip('/')}/connect#" + urlencode({"server": server, "token": token})
 
 
 def qr_svg(text: str) -> str:

@@ -517,7 +517,7 @@ class ConnectCodeIn(BaseModel):
 
 class ConnectCode(BaseModel):
     server: str  # the address the app will use
-    url: str  # feedstash://connect?server=…&token=…, what the QR code holds
+    url: str  # <server>/connect#server=…&token=…, what the QR code holds
     svg: str  # the QR code
 
 
