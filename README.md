@@ -249,7 +249,8 @@ The clients use these endpoints (camelCase fields, `{"error": "..."}` on failure
 - `POST /api/articles/mark` with `{ids, read}` and `POST /api/articles/star` with `{ids, starred}` send up changes in one go, which is what a client queues while it's offline.
 
 Read state lives on the server, so every device sees the same thing; there's no peer-to-peer syncing. Two things worth doing in a client: keep read/starred state in its own table (it can learn a state for an article it hasn't downloaded, and the state should outlive the article), and keep unsent changes in a bounded, chunked queue that wins over the server's version when they disagree.
-- `GET /api/tags`, `GET /api/health`
+- `GET /api/tags` → `[{name, count}]`, most used first; `GET /api/health`
+- `POST /api/tags/rename` `{name, newName}` → `{name, items, merged}`: renames a tag on every item; naming an existing tag merges the two. Smart lists and rules that use the old name follow it.
 - `GET/POST /api/tokens`, `DELETE /api/tokens/{id}`
 - `GET /uploads/{name}`
 

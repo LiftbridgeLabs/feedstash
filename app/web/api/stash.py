@@ -29,6 +29,8 @@ from app.web.schemas import (
     StashItemOut,
     StashSummaryOut,
     TagCountOut,
+    TagRenameIn,
+    TagRenameOut,
     to_schema,
 )
 
@@ -133,6 +135,14 @@ def delete_item(item_id: int, user: UserDep, db: DatabaseDep, images: ImagesDep)
 def list_tags(user: UserDep, db: DatabaseDep) -> list[TagCountOut]:
     with db.transaction() as conn:
         return [TagCountOut(name=tag.name, count=tag.count) for tag in items_repo.tag_counts(conn, user.id)]
+
+
+@router.post("/tags/rename", response_model=TagRenameOut)
+def rename_tag(body: TagRenameIn, user: UserDep, db: DatabaseDep) -> TagRenameOut:
+    """Renames a tag on every item, or merges it into another tag that already has the new name."""
+    with db.transaction() as conn:
+        name, items, merged = items_repo.rename_tag(conn, user.id, body.name, body.newName, now=now())
+    return TagRenameOut(name=name, items=items, merged=merged)
 
 
 @router.get("/stash/summary", response_model=StashSummaryOut)

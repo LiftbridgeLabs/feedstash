@@ -425,6 +425,17 @@ class TagCountOut(BaseModel):
     count: int
 
 
+class TagRenameIn(BaseModel):
+    name: str = Field(max_length=200)
+    newName: str = Field(max_length=200)
+
+
+class TagRenameOut(BaseModel):
+    name: str  # the tag's name now
+    items: int  # how many items were changed
+    merged: bool  # True when the new name was already a tag, so the two became one
+
+
 class StashSummaryOut(BaseModel):
     inbox: int
     total: int

@@ -177,6 +177,37 @@ def find_link(conn: sqlite3.Connection, user_id: int, url: str) -> StashItem | N
     return _items(conn, rows)[0] if rows else None
 
 
+def rename_tag(conn: sqlite3.Connection, user_id: int, name: str, new_name: str, *, now: int) -> tuple[str, int, bool]:
+    """Renames a tag on every item; when the new name is already a tag, merges the two. Smart lists and rules that
+    name the old tag follow it. Returns (the tag's name, how many items were changed, whether it was a merge)."""
+    olds, news = normalize_tags([name]), normalize_tags([new_name])
+    if len(olds) != 1 or len(news) != 1:  # "#a #b" is two tags: say so rather than quietly use the first
+        raise InvalidInput("Give one tag and one new name")
+    old, new = olds[0], news[0]
+    if old == new:
+        raise InvalidInput(f"#{old} already has that name")
+    old_row = conn.execute("SELECT id FROM tags WHERE user_id = ? AND name = ?", (user_id, old)).fetchone()
+    if old_row is None:
+        raise NotFound(f"There's no #{old} tag")
+    old_id = old_row["id"]
+    item_ids = [row["item_id"] for row in conn.execute("SELECT item_id FROM item_tags WHERE tag_id = ?", (old_id,))]
+    new_row = conn.execute("SELECT id FROM tags WHERE user_id = ? AND name = ?", (user_id, new)).fetchone()
+    if new_row is None:
+        conn.execute("UPDATE tags SET name = ? WHERE id = ?", (new, old_id))
+    else:
+        conn.execute(
+            "INSERT OR IGNORE INTO item_tags (item_id, tag_id) SELECT item_id, ? FROM item_tags WHERE tag_id = ?",
+            (new_row["id"], old_id),
+        )
+        conn.execute("DELETE FROM tags WHERE id = ?", (old_id,))  # its item_tags rows go with it
+    conn.execute("UPDATE smart_lists SET tag = ? WHERE user_id = ? AND tag = ?", (new, user_id, old))
+    conn.execute("UPDATE stash_rules SET add_tag = ? WHERE user_id = ? AND add_tag = ?", (new, user_id, old))
+    for item_id in item_ids:
+        conn.execute("UPDATE items SET updated_at = ? WHERE id = ?", (now, item_id))  # so clients pick it up
+        search_index.index_item(conn, item_id)
+    return new, len(item_ids), new_row is not None
+
+
 def tag_counts(conn: sqlite3.Connection, user_id: int) -> list[TagCount]:
     """Tags on at least one active (non-archived) item, with how many."""
     rows = conn.execute(

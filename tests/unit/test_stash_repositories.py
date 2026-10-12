@@ -118,3 +118,41 @@ def test_tokens_are_stored_hashed_and_authenticate(conn, user_id):
     assert tokens.authenticate(conn, secret, now=400) is None
     with pytest.raises(NotFound):
         tokens.delete(conn, user_id, token.id)
+
+
+def test_renaming_a_tag_changes_it_everywhere(conn, user_id):
+    from app.db.repositories import smart_lists, stash_rules
+    first = add(conn, user_id, title="Vibe check", tags=["vibes", "music"], now=1)
+    add(conn, user_id, title="Late show", tags=["vibes"], now=2)
+    smart_list = smart_lists.create(conn, user_id, name="Good vibes", tag="vibes")
+    rule = stash_rules.create(conn, user_id, field="domain", value="example.com", add_tag="vibes", now=3)
+
+    assert items.rename_tag(conn, user_id, "#Vibes", "vibe", now=10) == ("vibe", 2, False)
+    assert [(t.name, t.count) for t in items.tag_counts(conn, user_id)] == [("vibe", 2), ("music", 1)]
+    assert items.get(conn, user_id, first.id).updated_at == 10
+    assert smart_lists.get(conn, user_id, smart_list.id).tag == "vibe"
+    assert stash_rules.get(conn, user_id, rule.id).add_tag == "vibe"
+    assert {i.title for i in items.search(conn, user_id, ItemFilter(query="vibe"))} == {"Vibe check", "Late show"}
+
+
+def test_renaming_to_an_existing_tag_merges_them(conn, user_id):
+    both = add(conn, user_id, title="Both", tags=["vibing", "vibe"], now=1)
+    add(conn, user_id, title="Only vibing", tags=["vibing"], now=2)
+    add(conn, user_id, title="Only vibe", tags=["vibe"], now=3)
+
+    assert items.rename_tag(conn, user_id, "vibing", "vibe", now=10) == ("vibe", 2, True)
+    assert [(t.name, t.count) for t in items.tag_counts(conn, user_id)] == [("vibe", 3)]
+    assert items.get(conn, user_id, both.id).tags == ["vibe"]  # once, not twice
+
+
+def test_renaming_a_tag_that_isnt_there_or_to_itself_is_refused(conn, user_id):
+    add(conn, user_id, tags=["code"])
+    with pytest.raises(NotFound):
+        items.rename_tag(conn, user_id, "coding", "code", now=1)
+    with pytest.raises(InvalidInput):
+        items.rename_tag(conn, user_id, "code", "#Code", now=1)
+    with pytest.raises(InvalidInput):
+        items.rename_tag(conn, user_id, "code", "  ", now=1)
+    with pytest.raises(InvalidInput):
+        items.rename_tag(conn, user_id, "code", "#a #b", now=1)  # two tags, not one
+    assert [t.name for t in items.tag_counts(conn, user_id)] == ["code"]

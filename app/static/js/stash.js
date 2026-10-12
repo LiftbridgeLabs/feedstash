@@ -2,7 +2,7 @@
 
 import { api } from './api.js';
 import { showNewBanner } from './autorefresh.js';
-import { modal, toast } from './dialogs.js';
+import { modal, promptDialog, toast } from './dialogs.js';
 import { icon } from './icons.js';
 import { collectLinks, linkRowsHTML, wireLinkRows } from './links.js';
 import { openMenu } from './menus.js';
@@ -11,6 +11,7 @@ import { sanitize } from './sanitize.js';
 import { renderHeader, renderNav } from './sidebar.js';
 import { editSmartList, fileItemInNewFolder, saveCurrentAsSmartList } from './stashlists.js';
 import { els, ITEM_TYPES, smartListById, stashFolderById, STASH_VIEWS, state, stashViewRef } from './state.js';
+import { attachTagPicker } from './tagpicker.js';
 import { $, $$, ago, esc, fullDate } from './util.js';
 
 const PAGE_SIZE = 50;
@@ -135,9 +136,12 @@ function toolsHTML(view) {
   }
   const filtered = Boolean(state.stash.query) || view.startsWith('tag:') || ITEM_TYPES.includes(view)
     || stashViewRef(view).kind === 'folder';
-  return filtered
-    ? `<button type="button" class="btn btn-sm" data-stash-action="save-list">${icon('search')}Save as smart list</button>`
+  const rename = view.startsWith('tag:')
+    ? `<button type="button" class="btn btn-sm" data-stash-action="rename-tag">${icon('tag')}Rename or merge #${esc(view.slice(4))}</button>`
     : '';
+  return (filtered
+    ? `<button type="button" class="btn btn-sm" data-stash-action="save-list">${icon('search')}Save as smart list</button>`
+    : '') + rename;
 }
 
 export function renderStashTools() {
@@ -473,6 +477,34 @@ export async function refreshStashCounts() {
 
 /* ---- actions */
 
+/** The tag picker under a dialog's tags field, with the page's tags at once and the server's current list after. */
+function attachFreshTagPicker(input) {
+  const update = attachTagPicker(input, state.stash.tags);
+  api('GET', '/api/tags').then((tags) => {
+    state.stash.tags = tags;
+    if (input.isConnected) update(tags);
+  }).catch(() => {}); // the page's own list is still there to suggest from
+}
+
+/** Renames a tag on every item; naming an existing tag merges the two (e.g. #vibes into #vibe). */
+async function renameTag(name) {
+  let result = null;
+  const value = await promptDialog({
+    title: `Rename or merge #${name}`,
+    label: 'New name (an existing tag merges them)',
+    value: name,
+    confirmText: 'Rename',
+    onSubmit: async (newName) => {
+      result = await api('POST', '/api/tags/rename', { name, newName });
+    },
+  });
+  if (!value || !result) return;
+  await refreshStashCounts();
+  navigate(`#/stash/tag/${encodeURIComponent(result.name)}`);
+  const items = `${result.items} item${result.items === 1 ? '' : 's'}`;
+  toast(result.merged ? `Merged #${name} into #${result.name} (${items})` : `Renamed #${name} to #${result.name} (${items})`);
+}
+
 async function changeItem(item, fields, { message, undo }) {
   try {
     applyUpdate(await api('PATCH', `/api/items/${item.id}`, fields));
@@ -544,6 +576,7 @@ async function editItem(item) {
       dialogEl = dialog;
       wireLinkRows(dialog);
       wireFolderField(dialog);
+      attachFreshTagPicker($('input[name=tags]', dialog));
     },
     onSubmit: async (fd) => api('PATCH', `/api/items/${item.id}`, {
       title: (fd.get('title') || '').trim() || null,
@@ -599,7 +632,7 @@ export async function captureDialog({ type = 'link' } = {}) {
         <img class="capture-preview" alt="" hidden>
       </div>
       <label>Title (optional)<input type="text" name="title" maxlength="1000" autocomplete="off"></label>
-      <label>Tags (optional)<input type="text" name="tags" placeholder="reading, later" autocomplete="off"></label>
+      <label><span>Tags (optional) <small>(separate with commas)</small></span><input type="text" name="tags" placeholder="reading, later" autocomplete="off"></label>
       ${folderFieldHTML(stashViewRef(state.route.id).kind === 'folder' ? stashViewRef(state.route.id).id : null)}`,
     onOpen: (dialog) => {
       dialogEl = dialog;
@@ -633,6 +666,7 @@ export async function captureDialog({ type = 'link' } = {}) {
         showPreview(file);
       });
       syncFields();
+      attachFreshTagPicker($('input[name=tags]', dialog));
     },
     onSubmit: async (fd) => {
       const kind = fd.get('type');
@@ -705,6 +739,7 @@ export function wireStash() {
     if (action === 'more') return loadMoreItems();
     if (action === 'capture') return captureDialog();
     if (action === 'save-list') return saveCurrentAsSmartList();
+    if (action === 'rename-tag') return renameTag(state.route.id.slice(4));
     if (action === 'edit-list') return editSmartList(stashViewRef(state.route.id).id);
     const item = state.stash.items?.byId.get(Number(e.target.closest('.item')?.dataset.id));
     if (!item) return;
