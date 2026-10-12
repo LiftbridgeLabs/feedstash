@@ -38,3 +38,20 @@ def test_rename_or_merge_a_tag_from_its_view(reader):
     assert reader.wait_for("location.hash === '#/stash/tag/vibe'")
     assert reader.wait_for("document.body.textContent.includes('Merged #code into #vibe')")
     assert reader.wait_for("JSON.stringify(reader.state.stash.tags.map(t => [t.name, t.count])) === '[[\"vibe\",2],[\"design\",1]]'")
+
+
+def test_manage_tags_offers_look_alikes_to_merge(reader):
+    for title, tags in (("One", ["vibe"]), ("Two", ["vibe"]), ("Three", ["vibes"]), ("Four", ["vibing"]), ("Five", ["design"])):
+        reader.js(f"reader.api('POST', '/api/items', {{type: 'snippet', title: '{title}', content: 'x', tags: {tags!r}}})")
+    reader.js("location.hash = '#/stash/all'")
+    assert reader.wait_for("document.querySelectorAll('#stash .item').length === 5")
+    reader.js("reader.api('GET', '/api/tags').then((t) => { reader.state.stash.tags = t; })")
+    reader.js("location.hash = '#/stash/inbox'; location.hash = '#/stash/all'")  # redraw the chips with the tags
+    assert reader.wait_for("!!document.querySelector('[data-stash-action=manage-tags]')")
+    reader.js("document.querySelector('[data-stash-action=manage-tags]').click()")
+    merge = "document.querySelector('dialog[open] [data-merge]')"
+    assert reader.wait_for(f"{merge}?.dataset.merge === '[\"vibes\",\"vibing\"]' && {merge}?.dataset.into === 'vibe'")
+    reader.js(f"{merge}.click()")  # one click merges the whole group
+    assert reader.wait_for("document.body.textContent.includes('Merged #vibes, #vibing into #vibe')")
+    assert reader.wait_for("!document.querySelector('dialog[open] [data-merge]')")  # nothing left that looks alike
+    assert reader.wait_for("JSON.stringify(reader.state.stash.tags.map(t => [t.name, t.count])) === '[[\"vibe\",4],[\"design\",1]]'")

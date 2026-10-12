@@ -11,7 +11,7 @@ import { sanitize } from './sanitize.js';
 import { renderHeader, renderNav } from './sidebar.js';
 import { editSmartList, fileItemInNewFolder, saveCurrentAsSmartList } from './stashlists.js';
 import { els, ITEM_TYPES, smartListById, stashFolderById, STASH_VIEWS, state, stashViewRef } from './state.js';
-import { attachTagPicker } from './tagpicker.js';
+import { attachTagPicker, lookAlikeGroups } from './tagpicker.js';
 import { $, $$, ago, esc, fullDate } from './util.js';
 
 const PAGE_SIZE = 50;
@@ -174,10 +174,11 @@ function typeChips(view) {
 
 function tagChips(view) {
   const active = view?.startsWith('tag:') ? view.slice(4) : null;
-  return state.stash.tags
+  const chips = state.stash.tags
     .filter((tag) => tag.count || tag.name === active)
     .map((tag) => `<button type="button" class="chip ${tag.name === active ? 'active' : ''}" data-tag="${esc(tag.name)}">#${esc(tag.name)} <span>${tag.count}</span></button>`)
     .join('');
+  return chips ? `${chips}<button type="button" class="chip chip-manage" data-stash-action="manage-tags">${icon('tag')}Manage tags</button>` : '';
 }
 
 async function loadMoreItems() {
@@ -487,7 +488,64 @@ function attachFreshTagPicker(input) {
 }
 
 /** Renames a tag on every item; naming an existing tag merges the two (e.g. #vibes into #vibe). */
-async function renameTag(name) {
+/** Every tag with its count, a way to rename or merge each, and look-alikes (#vibes and #vibe) to merge in one click. */
+async function manageTags() {
+  const render = (box) => {
+    const tags = state.stash.tags.filter((tag) => tag.count);
+    const groups = lookAlikeGroups(tags);
+    const tagText = (tag) => `#${esc(tag.name)} <small>${tag.count}</small>`;
+    box.innerHTML = `
+      ${groups.length ? `<h3 class="manage-heading">Look alike</h3>
+        <div class="manage-tags">${groups.map(({ into, from }) => `
+          <div class="manage-row"><span>${from.map(tagText).join(', ')} and ${tagText(into)}</span>
+            <button type="button" class="btn btn-sm btn-primary" data-merge="${esc(JSON.stringify(from.map((t) => t.name)))}" data-into="${esc(into.name)}">Merge into #${esc(into.name)}</button></div>`).join('')}
+        </div>` : ''}
+      <h3 class="manage-heading">All tags</h3>
+      <div class="manage-tags manage-all">${tags.map((tag) => `
+        <div class="manage-row"><span>#${esc(tag.name)} <small>${tag.count}</small></span>
+          <button type="button" class="btn btn-sm" data-rename="${esc(tag.name)}">Rename or merge</button></div>`).join('') || '<p class="muted">No tags yet.</p>'}
+      </div>`;
+  };
+  await modal({
+    title: 'Manage tags',
+    confirmText: 'Done',
+    html: '<div data-manage-tags></div>',
+    onOpen: (dialog) => {
+      const box = $('[data-manage-tags]', dialog);
+      render(box);
+      let busy = false; // one merge or rename at a time
+      box.addEventListener('click', async (e) => {
+        const merge = e.target.closest('[data-merge]');
+        const rename = e.target.closest('[data-rename]');
+        if (busy || !(merge || rename)) return;
+        busy = true;
+        box.querySelectorAll('button').forEach((button) => { button.disabled = true; });
+        try {
+          if (merge) await mergeTags(JSON.parse(merge.dataset.merge), merge.dataset.into);
+          else await renameTag(rename.dataset.rename, { go: false });
+        } catch (err) {
+          toast(err.message, { error: true });
+        } finally {
+          busy = false;
+          render(box); // fresh buttons, enabled
+        }
+      });
+    },
+  });
+}
+
+async function mergeTags(names, into) {
+  let items = 0;
+  try {
+    for (const name of names) items += (await api('POST', '/api/tags/rename', { name, newName: into })).items;
+    toast(`Merged ${names.map((n) => `#${n}`).join(', ')} into #${into} (${items} item${items === 1 ? '' : 's'})`);
+  } catch (err) {
+    toast(err.message, { error: true });
+  }
+  await refreshStashCounts();
+}
+
+async function renameTag(name, { go = true } = {}) {
   let result = null;
   const value = await promptDialog({
     title: `Rename or merge #${name}`,
@@ -500,7 +558,7 @@ async function renameTag(name) {
   });
   if (!value || !result) return;
   await refreshStashCounts();
-  navigate(`#/stash/tag/${encodeURIComponent(result.name)}`);
+  if (go) navigate(`#/stash/tag/${encodeURIComponent(result.name)}`);
   const items = `${result.items} item${result.items === 1 ? '' : 's'}`;
   toast(result.merged ? `Merged #${name} into #${result.name} (${items})` : `Renamed #${name} to #${result.name} (${items})`);
 }
@@ -740,6 +798,7 @@ export function wireStash() {
     if (action === 'capture') return captureDialog();
     if (action === 'save-list') return saveCurrentAsSmartList();
     if (action === 'rename-tag') return renameTag(state.route.id.slice(4));
+    if (action === 'manage-tags') return manageTags();
     if (action === 'edit-list') return editSmartList(stashViewRef(state.route.id).id);
     const item = state.stash.items?.byId.get(Number(e.target.closest('.item')?.dataset.id));
     if (!item) return;

@@ -46,6 +46,23 @@ export function looksLike(a, b) {
 const normalize = (text) => text.trim().replace(/^#+/, '').replace(/\s+/g, ' ').toLowerCase();
 const parts = (value) => value.split(',');
 
+/** Groups of tags that look like the same idea: each the most used of them (`into`) and the rest (`from`), which can be
+    merged into it, e.g. #vibes and #vibing into #vibe. A tag is in at most one group. `tags` is most-used first. */
+export function lookAlikeGroups(tags) {
+  const used = new Set();
+  const groups = [];
+  for (const into of tags) {
+    if (used.has(into.name)) continue;
+    const from = tags.filter((other) => other !== into && !used.has(other.name) && other.count <= into.count
+      && looksLike(other.name, into.name));
+    if (!from.length) continue;
+    used.add(into.name);
+    from.forEach((tag) => used.add(tag.name));
+    groups.push({ into, from });
+  }
+  return groups;
+}
+
 /** Tags for the row: matches for what's being typed (start of the name first, then look-alikes), else the most used. */
 export function suggestTags(typed, tags, exclude = []) {
   const skip = new Set(exclude);

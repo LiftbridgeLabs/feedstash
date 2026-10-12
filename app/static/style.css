@@ -378,13 +378,19 @@ body.resizing { cursor: col-resize; user-select: none; }
 /* Under a tags field: your tags in one sideways row, "All tags" in a box that scrolls, and a look-alike nudge. */
 .tag-picker { display: grid; gap: 8px; margin: -4px 0 12px; }
 .tag-picker:empty { display: none; }
-.tag-picker-row { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+.tag-picker-row { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 12px; scrollbar-width: thin; }  /* room for a scrollbar that takes space (Windows) */
 .tag-picker-row .chip { flex: none; }
 .tag-picker-all { display: flex; flex-wrap: wrap; gap: 6px; max-height: 170px; overflow-y: auto; padding: 8px;
   border: 1px solid var(--border); border-radius: 6px; }
 .tag-picker > .btn { justify-self: start; }
 .tag-nudge { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0; font-size: 14px; color: var(--text-muted); }
 .tag-nudge b { color: var(--text); }
+.chip-manage { color: var(--text-muted); }
+.manage-heading { margin: 4px 0 8px; font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+.manage-tags { display: grid; gap: 2px; margin-bottom: 14px; }
+.manage-all { max-height: 320px; overflow-y: auto; }
+.manage-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 2px; border-bottom: 1px solid var(--border); }
+.manage-row small { color: var(--text-muted); }
 .chip { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); background: var(--bg-elev); color: var(--text-muted); border-radius: 999px; padding: 3px 10px; font-size: 13px; cursor: pointer; }
 .chip .i { width: 13px; height: 13px; }
 .chip span { opacity: .7; font-variant-numeric: tabular-nums; }
