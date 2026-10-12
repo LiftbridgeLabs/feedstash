@@ -57,11 +57,21 @@ export function openMenu(items, anchor) {
   menu.style.top = `${r.bottom + h + 8 > window.innerHeight ? Math.max(8, r.top - h - 4) : r.bottom + 4}px`;
 }
 
+/** The same choices as the toolbar's Mark as read menu, for one folder or feed from its own menu. */
+function markItems(scope, id) {
+  return [
+    ['Mark all as read', () => markScope(scope, id, null)],
+    ['Mark read: older than 12 hours', () => markScope(scope, id, 12)],
+    ['Mark read: older than 1 day', () => markScope(scope, id, 24)],
+    ['Mark read: older than 1 week', () => markScope(scope, id, 168)],
+  ];
+}
+
 function folderMenuItems(id) {
   const order = state.tree.folders.map((f) => f.id);
   const at = order.indexOf(id);
   const items = [
-    ['Mark all as read', () => markScope('folder', id, null)],
+    ...markItems('folder', id),
     ['Rename', () => renameFolder(id)],
   ];
   if (at > 0) items.push(['Move up', () => moveFolderBy(id, -1)]);
@@ -76,7 +86,7 @@ function feedMenuItems(id) {
   const siblings = feedIdsIn(feed?.folder_id ?? null);
   const at = siblings.indexOf(id);
   const items = [
-    ['Mark all as read', () => markScope('feed', id, null)],
+    ...markItems('feed', id),
     ['Rename', () => renameFeed(id)],
     ['Move to folder…', () => moveFeedDialog(id)],
   ];

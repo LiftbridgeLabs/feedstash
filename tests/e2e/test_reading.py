@@ -66,6 +66,20 @@ def test_mark_older_than_one_day_from_the_menu(reader):
     assert reader.wait_for(f"{TOTAL_UNREAD} < 75")
 
 
+def test_a_folders_own_menu_marks_older_articles_read(reader, subscriptions):
+    folder_id = subscriptions.blogs_folder["id"]
+    before = reader.js(f"reader.state.tree.feeds.filter(f => f.folder_id === {folder_id}).reduce((n, f) => n + f.unread, 0)")
+    reader.js(f"reader.openContextMenu('folder', {folder_id}, document.querySelector('[data-folder-drag=\"{folder_id}\"]'))")
+    labels = reader.js("[...document.querySelectorAll('#context-menu button')].map(b => b.textContent)")
+    assert labels[:4] == ["Mark all as read", "Mark read: older than 12 hours", "Mark read: older than 1 day",
+                          "Mark read: older than 1 week"]
+    reader.js("[...document.querySelectorAll('#context-menu button')].find(b => b.textContent.endsWith('1 day')).click()")
+    assert reader.wait_for("""(() => { const t = document.getElementById('toast');
+      return !t.hidden && t.textContent.includes('older than 1 day as read'); })()""")
+    after = f"reader.state.tree.feeds.filter(f => f.folder_id === {folder_id}).reduce((n, f) => n + f.unread, 0)"
+    assert reader.wait_for(f"{after} < {before} && {after} > 0")  # older ones read, the newest left
+
+
 def test_titles_only_layout(reader):
     reader.js("reader.setPref('layout', 'titles')")
     assert reader.js("document.getElementById('articles').classList.contains('layout-titles')")
