@@ -325,7 +325,7 @@ def update(
     if sets or tags is not None:
         sets.append("updated_at = ?")
         params.append(now)
-        conn.execute(f"UPDATE items SET {', '.join(sets)} WHERE id = ?", [*params, item_id])
+        conn.execute(f"UPDATE items SET {', '.join(sets)} WHERE id = ? AND user_id = ?", [*params, item_id, user_id])
     if tags is not None:
         _set_tags(conn, user_id, item_id, tags)
     if new_links is not None:
