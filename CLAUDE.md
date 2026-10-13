@@ -67,7 +67,7 @@ Everything runs in **one process**: the feed scheduler, PageWorker and MailWorke
 - Never add names or importers for the scrapped predecessor apps. Generic imports (OPML, bookmark HTML, Feedly
   export folders) are fine.
 - Commit messages: a subject that says what changed for a person (releases end with the version, e.g. `(0.4.0)`),
-  a body that says why, and the trailer `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`.
+  and a body that says why. No `Co-Authored-By` or other AI attribution: commits carry only the maintainer's name.
 
 ## Testing
 
