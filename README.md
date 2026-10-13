@@ -107,7 +107,7 @@ All settings are environment variables (see `.env.example`).
 | `PUID`, `PGID` | `1000`, `1000` | The user and group the app runs as. The container makes `/data` theirs on start. |
 | `PORT` | `8672` | Port inside the container. |
 | `FORWARDED_ALLOW_IPS` | private networks in the Docker image, `127.0.0.1` otherwise | Addresses or ranges whose `X-Forwarded-*` headers are trusted. The default covers a reverse proxy on the same machine or network. Set it to your proxy's address if the proxy reaches FeedStash from a public one. Never `*`: anyone could then claim any address and get past the sign-in rate limit, and setup would need `SETUP_TOKEN`. |
-| `SETUP_TOKEN` | | Lets the first account be created from outside your own network, by entering this on the setup page. |
+| `SETUP_TOKEN` | | Lets the first account be created from outside your own network, by entering this on the setup page. When set, it is asked for everywhere, your own network included. |
 | `SECRET_KEY` | generated | Signs session cookies. Generated once into `/data/secret.key` when empty. |
 | `SESSION_DAYS` | `30` | How long you stay signed in. |
 | `REFRESH_INTERVAL_MINUTES` | `15` | How often feeds are fetched (5 or more). |

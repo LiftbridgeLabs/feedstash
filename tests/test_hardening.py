@@ -49,6 +49,16 @@ def test_setup_token_allows_setup_from_anywhere(start_server):
     assert client.get("/api/me").json()["is_admin"]
 
 
+def test_setup_token_is_required_even_from_the_own_network(start_server):
+    # A Docker gateway or NAT can make an outside visitor look local, so a set token is never skipped.
+    server = start_server(DEV_LOGIN="false", SETUP_TOKEN="only-the-owner-knows")
+    client = client_for(server)
+    body = {"email": "owner@example.com", "name": "Owner", "password": PASSWORD}
+    assert 'name="setup_token"' in httpx.get(server.base_url + "/").text
+    assert client.post("/auth/setup", json=body).status_code == 403
+    assert client.post("/auth/setup", json={**body, "setup_token": "only-the-owner-knows"}).status_code == 200
+
+
 def test_trusting_every_proxy_means_setup_needs_the_token(start_server):
     # With FORWARDED_ALLOW_IPS=* anyone can claim any address, so FeedStash can't tell who's on the network.
     server = start_server(DEV_LOGIN="false", FORWARDED_ALLOW_IPS="*")

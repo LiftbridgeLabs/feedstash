@@ -92,8 +92,9 @@ function senderAllowed(from, env) {
     .map((entry) => entry.trim().toLowerCase())
     .filter(Boolean);
   if (allowed.length === 0 || allowed.includes('*')) return true;
-  const domain = from.slice(from.indexOf('@'));
-  return allowed.includes(from) || allowed.includes(domain);
+  const at = from.indexOf('@');
+  const domain = at === -1 ? '' : from.slice(at);
+  return allowed.includes(from) || (domain !== '' && allowed.includes(domain));
 }
 
 // "Cool React library #dev #tocheck" -> { title: "Cool React library", tags: ["dev","tocheck"] }

@@ -308,7 +308,10 @@ def from_own_network(request: Request) -> bool:
 
 def setup_needs_token(request: Request) -> bool:
     """First-run setup is open on the server's own network. From anywhere else it needs SETUP_TOKEN, so whoever
-    finds a new server on the internet before its owner can't claim it."""
+    finds a new server on the internet before its owner can't claim it. Once SETUP_TOKEN is set it is always
+    required: a Docker gateway or NAT can make an outside visitor look like part of the own network."""
+    if request.app.state.settings.setup_token.get_secret_value():
+        return True
     return not from_own_network(request)
 
 
