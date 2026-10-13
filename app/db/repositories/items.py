@@ -208,6 +208,27 @@ def rename_tag(conn: sqlite3.Connection, user_id: int, name: str, new_name: str,
     return new, len(item_ids), new_row is not None
 
 
+def merge_tags(conn: sqlite3.Connection, user_id: int, names: Sequence[str], into: str, *, now: int) -> tuple[str, int, int]:
+    """Replaces several tags with one on every item, in one go: `into` can be one of them or a new name. Smart lists and
+    rules follow (see rename_tag). Returns (the tag's name, how many items carry it afterwards,
+    how many tags were folded in)."""
+    targets = normalize_tags([into])
+    if len(targets) != 1:
+        raise InvalidInput("Give one name to merge the tags into")
+    target = targets[0]
+    sources = [name for name in dict.fromkeys(tag for raw in names for tag in normalize_tags([raw])) if name != target]
+    if not sources:
+        raise InvalidInput("Choose at least one other tag to merge")
+    rows = conn.execute(
+        f"""SELECT DISTINCT it.item_id FROM item_tags it JOIN tags t ON t.id = it.tag_id
+            WHERE t.user_id = ? AND t.name IN ({",".join("?" * (len(sources) + 1))})""",
+        (user_id, *sources, target),
+    ).fetchall()
+    for name in sources:
+        rename_tag(conn, user_id, name, target, now=now)
+    return target, len(rows), len(sources)
+
+
 def tag_counts(conn: sqlite3.Connection, user_id: int) -> list[TagCount]:
     """Tags on at least one active (non-archived) item, with how many."""
     rows = conn.execute(

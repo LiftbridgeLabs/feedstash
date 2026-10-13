@@ -430,6 +430,17 @@ class TagRenameIn(BaseModel):
     newName: str = Field(max_length=200)
 
 
+class TagMergeIn(BaseModel):
+    names: list[str] = Field(min_length=1, max_length=500)
+    into: str = Field(max_length=200)
+
+
+class TagMergeOut(BaseModel):
+    name: str  # the tag they became
+    items: int  # how many items carry the tag afterwards
+    merged: int  # how many tags were folded into it
+
+
 class TagRenameOut(BaseModel):
     name: str  # the tag's name now
     items: int  # how many items were changed

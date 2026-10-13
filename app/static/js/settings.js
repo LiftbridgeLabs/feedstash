@@ -7,6 +7,7 @@ import { importSectionHTML, renderImportPlan, wireImport } from './importlinks.j
 import { loadMail, mailSectionHTML, wireMail } from './mailbox.js';
 import { setPref } from './menus.js';
 import { showShortcuts } from './shortcuts.js';
+import { loadTagSettings, tagsSectionHTML, wireTagSettings } from './tagsettings.js';
 import { loadRules, rulesSectionHTML, wireRules } from './rules.js';
 import { els, state } from './state.js';
 import { MODES, SCHEMES, setTheme, theme } from './theme.js';
@@ -67,6 +68,8 @@ export function showSettings() {
       <div class="org-actions"><a class="btn btn-sm" href="#/organize">${icon('sliders')}Organize feeds</a></div>
     </div>
 
+    ${tagsSectionHTML()}
+
     <div data-accounts-section hidden>
       <h3>Accounts</h3>
       <div class="org-head">
@@ -118,6 +121,7 @@ export function showSettings() {
   loadAccount();
   loadMail(els.settings);
   loadRules(els.settings);
+  loadTagSettings(els.settings);
   loadTokens();
 }
 
@@ -402,6 +406,7 @@ export function wireSettings() {
   wireImport(els.settings);
   wireMail(els.settings);
   wireRules(els.settings);
+  wireTagSettings(els.settings);
   els.settings.addEventListener('change', (e) => {
     if (e.target.matches('[data-settings-field=read-retention]')) saveReadRetention(e.target);
     if (e.target.matches('[data-settings-field=theme-mode]')) setTheme({ mode: e.target.value });

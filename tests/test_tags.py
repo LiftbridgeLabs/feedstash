@@ -25,3 +25,11 @@ def test_rename_and_merge_tags(api):
 def test_renaming_a_missing_tag_says_so(api):
     response = api.post("/api/tags/rename", json={"name": "nope", "newName": "yes"})
     assert response.status_code == 404 and "#nope" in response.json()["detail"]
+
+
+def test_merge_several_tags(api):
+    save(api, "One", ["vibes"])
+    save(api, "Two", ["vibing", "vibe"])
+    merged = api.post("/api/tags/merge", json={"names": ["vibes", "vibing", "vibe"], "into": "vibe"})
+    assert merged.status_code == 200 and merged.json() == {"name": "vibe", "items": 2, "merged": 2}
+    assert {t["name"]: t["count"] for t in api.get("/api/tags").json()} == {"vibe": 2}

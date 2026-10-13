@@ -11,7 +11,7 @@ import { sanitize } from './sanitize.js';
 import { renderHeader, renderNav } from './sidebar.js';
 import { editSmartList, fileItemInNewFolder, saveCurrentAsSmartList } from './stashlists.js';
 import { els, ITEM_TYPES, smartListById, stashFolderById, STASH_VIEWS, state, stashViewRef } from './state.js';
-import { attachTagPicker, lookAlikeGroups } from './tagpicker.js';
+import { attachTagPicker } from './tagpicker.js';
 import { $, $$, ago, esc, fullDate } from './util.js';
 
 const PAGE_SIZE = 50;
@@ -488,61 +488,17 @@ function attachFreshTagPicker(input) {
 }
 
 /** Renames a tag on every item; naming an existing tag merges the two (e.g. #vibes into #vibe). */
-/** Every tag with its count, a way to rename or merge each, and look-alikes (#vibes and #vibe) to merge in one click. */
+/** "Manage tags" goes to Settings → Tags, where tags are checked off and merged or renamed. */
 async function manageTags() {
-  const render = (box) => {
-    const tags = state.stash.tags.filter((tag) => tag.count);
-    const groups = lookAlikeGroups(tags);
-    const tagText = (tag) => `#${esc(tag.name)} <small>${tag.count}</small>`;
-    box.innerHTML = `
-      ${groups.length ? `<h3 class="manage-heading">Look alike</h3>
-        <div class="manage-tags">${groups.map(({ into, from }) => `
-          <div class="manage-row"><span>${from.map(tagText).join(', ')} and ${tagText(into)}</span>
-            <button type="button" class="btn btn-sm btn-primary" data-merge="${esc(JSON.stringify(from.map((t) => t.name)))}" data-into="${esc(into.name)}">Merge into #${esc(into.name)}</button></div>`).join('')}
-        </div>` : ''}
-      <h3 class="manage-heading">All tags</h3>
-      <div class="manage-tags manage-all">${tags.map((tag) => `
-        <div class="manage-row"><span>#${esc(tag.name)} <small>${tag.count}</small></span>
-          <button type="button" class="btn btn-sm" data-rename="${esc(tag.name)}">Rename or merge</button></div>`).join('') || '<p class="muted">No tags yet.</p>'}
-      </div>`;
-  };
-  await modal({
-    title: 'Manage tags',
-    confirmText: 'Done',
-    html: '<div data-manage-tags></div>',
-    onOpen: (dialog) => {
-      const box = $('[data-manage-tags]', dialog);
-      render(box);
-      let busy = false; // one merge or rename at a time
-      box.addEventListener('click', async (e) => {
-        const merge = e.target.closest('[data-merge]');
-        const rename = e.target.closest('[data-rename]');
-        if (busy || !(merge || rename)) return;
-        busy = true;
-        box.querySelectorAll('button').forEach((button) => { button.disabled = true; });
-        try {
-          if (merge) await mergeTags(JSON.parse(merge.dataset.merge), merge.dataset.into);
-          else await renameTag(rename.dataset.rename, { go: false });
-        } catch (err) {
-          toast(err.message, { error: true });
-        } finally {
-          busy = false;
-          render(box); // fresh buttons, enabled
-        }
-      });
-    },
-  });
-}
-
-async function mergeTags(names, into) {
-  let items = 0;
-  try {
-    for (const name of names) items += (await api('POST', '/api/tags/rename', { name, newName: into })).items;
-    toast(`Merged ${names.map((n) => `#${n}`).join(', ')} into #${into} (${items} item${items === 1 ? '' : 's'})`);
-  } catch (err) {
-    toast(err.message, { error: true });
+  navigate('#/settings');
+  for (let i = 0; i < 20; i += 1) {
+    const heading = document.querySelector('[data-tags-heading]');
+    if (heading) {
+      heading.scrollIntoView({ block: 'start' });
+      return;
+    }
+    await new Promise((resolve) => { setTimeout(resolve, 50); });
   }
-  await refreshStashCounts();
 }
 
 async function renameTag(name, { go = true } = {}) {

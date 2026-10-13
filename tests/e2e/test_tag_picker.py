@@ -40,18 +40,26 @@ def test_rename_or_merge_a_tag_from_its_view(reader):
     assert reader.wait_for("JSON.stringify(reader.state.stash.tags.map(t => [t.name, t.count])) === '[[\"vibe\",2],[\"design\",1]]'")
 
 
-def test_manage_tags_offers_look_alikes_to_merge(reader):
+def test_settings_tags_merge_the_checked_ones_into_one(reader):
     for title, tags in (("One", ["vibe"]), ("Two", ["vibe"]), ("Three", ["vibes"]), ("Four", ["vibing"]), ("Five", ["design"])):
         reader.js(f"reader.api('POST', '/api/items', {{type: 'snippet', title: '{title}', content: 'x', tags: {tags!r}}})")
+    reader.js("location.reload()")
+    assert reader.wait_for("!!window.reader && reader.state.stash.tags.length === 4", timeout=20)
     reader.js("location.hash = '#/stash/all'")
-    assert reader.wait_for("document.querySelectorAll('#stash .item').length === 5")
-    reader.js("reader.api('GET', '/api/tags').then((t) => { reader.state.stash.tags = t; })")
-    reader.js("location.hash = '#/stash/inbox'; location.hash = '#/stash/all'")  # redraw the chips with the tags
+    # The stash page's "Manage tags" goes to Settings → Tags.
     assert reader.wait_for("!!document.querySelector('[data-stash-action=manage-tags]')")
     reader.js("document.querySelector('[data-stash-action=manage-tags]').click()")
-    merge = "document.querySelector('dialog[open] [data-merge]')"
-    assert reader.wait_for(f"{merge}?.dataset.merge === '[\"vibes\",\"vibing\"]' && {merge}?.dataset.into === 'vibe'")
-    reader.js(f"{merge}.click()")  # one click merges the whole group
-    assert reader.wait_for("document.body.textContent.includes('Merged #vibes, #vibing into #vibe')")
-    assert reader.wait_for("!document.querySelector('dialog[open] [data-merge]')")  # nothing left that looks alike
-    assert reader.wait_for("JSON.stringify(reader.state.stash.tags.map(t => [t.name, t.count])) === '[[\"vibe\",4],[\"design\",1]]'")
+    assert reader.wait_for("location.hash === '#/settings' && !!document.querySelector('[data-tag-settings] [data-tag-name]')")
+
+    # Look-alikes are offered to check in one click.
+    reader.js("document.querySelector('[data-check-group]').click()")
+    checked = "[...document.querySelectorAll('[data-tag-name]:checked')].map(c => c.dataset.tagName).sort().join()"
+    assert reader.wait_for(f"{checked} === 'vibe,vibes,vibing'")
+    assert reader.js("document.querySelector('[data-tag-action=merge]').disabled") is False
+    reader.js("document.querySelector('[data-tag-action=merge]').click()")
+    assert reader.wait_for("document.querySelector('dialog[open] input[name=into]')?.value === 'vibe'")  # the most used
+    reader.js("document.querySelector('dialog[open] form').requestSubmit()")
+    assert reader.wait_for("document.body.textContent.includes('Merged 3 tags into #vibe (4 items)')")
+    rows = "[...document.querySelectorAll('[data-tag-name]')].map(c => c.dataset.tagName).join()"
+    assert reader.wait_for(f"{rows} === 'vibe,design'")
+    assert not reader.js("document.querySelector('[data-check-group]')")  # nothing left that looks alike

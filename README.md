@@ -251,6 +251,7 @@ The clients use these endpoints (camelCase fields, `{"error": "..."}` on failure
 Read state lives on the server, so every device sees the same thing; there's no peer-to-peer syncing. Two things worth doing in a client: keep read/starred state in its own table (it can learn a state for an article it hasn't downloaded, and the state should outlive the article), and keep unsent changes in a bounded, chunked queue that wins over the server's version when they disagree.
 - `GET /api/tags` → `[{name, count}]`, most used first; `GET /api/health`
 - `POST /api/tags/rename` `{name, newName}` → `{name, items, merged}`: renames a tag on every item; naming an existing tag merges the two. Smart lists and rules that use the old name follow it.
+- `POST /api/tags/merge` `{names, into}` → `{name, items, merged}`: replaces several tags with one on every item, in one go; `into` can be one of them or a new name.
 - `GET/POST /api/tokens`, `DELETE /api/tokens/{id}`
 - `GET /uploads/{name}`
 

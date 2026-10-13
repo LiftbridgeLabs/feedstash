@@ -29,6 +29,8 @@ from app.web.schemas import (
     StashItemOut,
     StashSummaryOut,
     TagCountOut,
+    TagMergeIn,
+    TagMergeOut,
     TagRenameIn,
     TagRenameOut,
     to_schema,
@@ -143,6 +145,14 @@ def rename_tag(body: TagRenameIn, user: UserDep, db: DatabaseDep) -> TagRenameOu
     with db.transaction() as conn:
         name, items, merged = items_repo.rename_tag(conn, user.id, body.name, body.newName, now=now())
     return TagRenameOut(name=name, items=items, merged=merged)
+
+
+@router.post("/tags/merge", response_model=TagMergeOut)
+def merge_tags(body: TagMergeIn, user: UserDep, db: DatabaseDep) -> TagMergeOut:
+    """Replaces several tags with one on every item, in one transaction; `into` can be one of them or a new name."""
+    with db.transaction() as conn:
+        name, items, merged = items_repo.merge_tags(conn, user.id, body.names, body.into, now=now())
+    return TagMergeOut(name=name, items=items, merged=merged)
 
 
 @router.get("/stash/summary", response_model=StashSummaryOut)

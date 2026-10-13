@@ -156,3 +156,21 @@ def test_renaming_a_tag_that_isnt_there_or_to_itself_is_refused(conn, user_id):
     with pytest.raises(InvalidInput):
         items.rename_tag(conn, user_id, "code", "#a #b", now=1)  # two tags, not one
     assert [t.name for t in items.tag_counts(conn, user_id)] == ["code"]
+
+
+def test_merging_several_tags_into_one_in_one_go(conn, user_id):
+    from app.db.repositories import smart_lists
+    both = add(conn, user_id, title="Both", tags=["vibes", "vibing"], now=1)
+    add(conn, user_id, title="One", tags=["vibe"], now=2)
+    add(conn, user_id, title="Two", tags=["vibing", "music"], now=3)
+    listed = smart_lists.create(conn, user_id, name="Vibes", tag="vibing")
+
+    assert items.merge_tags(conn, user_id, ["vibes", "#Vibing", "vibe"], "vibe", now=10) == ("vibe", 3, 2)
+    assert [(t.name, t.count) for t in items.tag_counts(conn, user_id)] == [("vibe", 3), ("music", 1)]
+    assert items.get(conn, user_id, both.id).tags == ["vibe"]
+    assert smart_lists.get(conn, user_id, listed.id).tag == "vibe"
+    # Into a new name.
+    assert items.merge_tags(conn, user_id, ["vibe", "music"], "listening", now=11) == ("listening", 3, 2)
+    assert [t.name for t in items.tag_counts(conn, user_id)] == ["listening"]
+    with pytest.raises(InvalidInput):
+        items.merge_tags(conn, user_id, ["listening"], "listening", now=12)  # nothing else to merge
