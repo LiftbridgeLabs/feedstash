@@ -51,7 +51,6 @@ function showWhatsNew({ current, unseen, releases_url: releasesUrl }) {
   dialog.innerHTML = `
     <form method="dialog">
       <h2>What's new in FeedStash ${esc(current)}</h2>
-      <p class="muted">Admins see this once after each update.</p>
       <div class="whats-new-notes">
         ${unseen.map((release) => `
           ${several ? `<h3>${esc(release.version)}</h3>` : ''}
