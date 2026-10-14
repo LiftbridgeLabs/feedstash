@@ -7,3 +7,4 @@ data/
 tests/
 clients/
 *.md
+!CHANGELOG.md

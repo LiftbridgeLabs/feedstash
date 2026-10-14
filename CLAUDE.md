@@ -100,15 +100,25 @@ READER_E2E_BROWSER="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 `main` is the release branch. A release:
 
 1. Full test run, including browser tests.
-2. Commit and push `main`.
-3. `git tag -a vX.Y.Z -m "…"` and `git push origin vX.Y.Z`.
-4. `gh run watch` on the Docker workflow — it runs the tests, builds an image, smoke-tests it (starts, drops root,
+2. In `CHANGELOG.md`, rename `## Unreleased` to `## X.Y.Z` (and start a new empty `## Unreleased` when work
+   resumes). Sections: **New**, **Fixed**, **Settings** (every new or changed env var and what it does) and
+   **Action needed** (back up for a schema change, redeploy the email worker, change a setting). Admins see this
+   text in the app after updating, so write it for them.
+3. Commit and push `main`.
+4. `git tag -a vX.Y.Z -m "…"` and `git push origin vX.Y.Z`.
+5. `gh run watch` on the Docker workflow — it runs the tests, builds an image, smoke-tests it (starts, drops root,
    serves the setup page), then pushes `linux/amd64` + `linux/arm64` to Docker Hub as `liftbridgelabs/feedstash`
    with tags `X.Y.Z`, `X.Y`, `latest` and `sha-…`.
-5. Confirm: `docker buildx imagetools inspect liftbridgelabs/feedstash:X.Y.Z` lists both platforms.
+6. Confirm: `docker buildx imagetools inspect liftbridgelabs/feedstash:X.Y.Z` lists both platforms.
+7. Only then publish the GitHub Release with that version's notes:
+   `awk '/^## X.Y.Z$/{f=1;next} /^## /{f=0} f' CHANGELOG.md > "$TMPDIR/notes.md"` and
+   `gh release create vX.Y.Z --title "X.Y.Z" --notes-file "$TMPDIR/notes.md" --latest`.
+   People watching the repo for releases hear about it, and admins' sidebars start saying "Update" (they ask
+   GitHub for the latest *release*, not tag), so it must not come before the image exists.
 
 Versioning: patch for fixes and polish, minor for a new capability. The tag becomes `FEEDSTASH_VERSION`, shown in
-the sidebar and `/api/health`. Mention schema changes in the release so people take a backup
+the sidebar and `/api/health`. Every change that's worth telling people about gets a line under `## Unreleased` in `CHANGELOG.md` as it lands.
+Mention schema changes under Action needed so people take a backup
 (`docker exec feedstash python -m app.cli backup /data/backups/feedstash-$(date +%F).db`).
 
 ## Traps we've already hit

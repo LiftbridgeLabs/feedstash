@@ -90,6 +90,16 @@ def list_all(conn: sqlite3.Connection) -> list[User]:
     return [_user(row) for row in conn.execute(f"{_SELECT} ORDER BY email, id")]
 
 
+def seen_version(conn: sqlite3.Connection, user_id: int) -> str | None:
+    """The newest release whose notes this person has seen, or None."""
+    row = conn.execute("SELECT seen_version FROM users WHERE id = ?", (user_id,)).fetchone()
+    return row["seen_version"] if row else None
+
+
+def set_seen_version(conn: sqlite3.Connection, user_id: int, version: str) -> None:
+    conn.execute("UPDATE users SET seen_version = ? WHERE id = ?", (version, user_id))
+
+
 def count(conn: sqlite3.Connection) -> int:
     return conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
 

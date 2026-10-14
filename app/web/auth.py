@@ -339,7 +339,8 @@ async def first_run_setup(body: SetupIn, request: Request) -> OkOut:
     async with PASSWORD_CHECKS:
         user = await run_in_threadpool(
             lambda: accounts.setup_first_account(
-                request.app.state.db, email=body.email, name=body.name, password=body.password
+                request.app.state.db, email=body.email, name=body.name, password=body.password,
+                version=settings.feedstash_version,
             )
         )
     await start_session(request, user.id)

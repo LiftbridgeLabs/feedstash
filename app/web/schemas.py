@@ -16,6 +16,25 @@ class OkOut(BaseModel):
     ok: bool = True
 
 
+class ReleaseSectionOut(BaseModel):
+    title: str
+    items: list[str]
+
+
+class ReleaseNotesOut(BaseModel):
+    version: str
+    url: str
+    sections: list[ReleaseSectionOut]
+
+
+class UpdatesOut(BaseModel):
+    current: str
+    latest: str | None  # set only when it's newer than the running release
+    latest_url: str | None
+    releases_url: str
+    unseen: list[ReleaseNotesOut]  # releases up to the running one whose notes this admin hasn't seen, newest first
+
+
 class UserOut(BaseModel):
     id: int
     email: str

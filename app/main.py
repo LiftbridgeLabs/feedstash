@@ -15,6 +15,7 @@ from app.feeds.scheduler import RefreshScheduler
 from app.images import ImageStore
 from app.services.mail import MailWorker
 from app.services.pages import PageWorker
+from app.services.updates import create_checker
 from app.settings import Settings, resolve_secret_key
 from app.web import auth, errors, pages, security
 from app.web.api import accounts as accounts_api
@@ -29,6 +30,7 @@ from app.web.api import stash as stash_api
 from app.web.api import stash_organize as stash_organize_api
 from app.web.api import tokens as tokens_api
 from app.web.api import tree as tree_api
+from app.web.api import updates as updates_api
 from app.web.ratelimit import LoginLimiter
 
 log = logging.getLogger("feedstash")
@@ -48,6 +50,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     scheduler = RefreshScheduler(db, settings)
     page_worker = PageWorker(db)
     mail_worker = MailWorker(db, images, secrets, settings.mail_poll_minutes)
+    update_checker = create_checker(enabled=settings.update_check, version=settings.feedstash_version)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -63,6 +66,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         await scheduler.stop()
         await mail_worker.stop()
         await page_worker.stop()
+        await update_checker.close()
         for task in list(app.state.background_tasks):
             task.cancel()
 
@@ -72,6 +76,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.images = images
     app.state.secrets = secrets
     app.state.mail_worker = mail_worker
+    app.state.update_checker = update_checker
     app.state.oauth = auth.build_oauth(settings)
     app.state.login_limiter = LoginLimiter()
     app.state.background_tasks = set()
@@ -94,7 +99,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     for router in (
         pages.router, auth.router, tree_api.router, articles_api.router, folders_api.router, feeds_api.router,
         opml_api.router, imports_api.router, stash_api.router, stash_api.uploads_router, stash_organize_api.router,
-        mail_api.router, tokens_api.router, accounts_api.router,
+        mail_api.router, tokens_api.router, accounts_api.router, updates_api.router,
     ):
         app.include_router(router)
     # The Google Reader API, for other reader apps. Clients disagree about the address: some take the server's

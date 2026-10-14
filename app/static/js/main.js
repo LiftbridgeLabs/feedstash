@@ -16,6 +16,7 @@ import { wireSidebarWidth } from './sidebarwidth.js';
 import { captureDialog, stashArticle, wireStash } from './stash.js';
 import { state } from './state.js';
 import { applyTheme } from './theme.js';
+import { watchForUpdates } from './updates.js';
 import { $ } from './util.js';
 
 async function init() {
@@ -40,6 +41,7 @@ async function init() {
     $('#user-name').title = me.email;
     const { version } = state.tree;
     $('#app-version').textContent = version === 'dev' ? 'dev' : `v${version}`;
+    if (me.is_admin) watchForUpdates();
     if (me.picture) {
       $('#user-avatar').src = me.picture;
       $('#user-avatar').hidden = false;

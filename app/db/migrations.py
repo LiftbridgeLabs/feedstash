@@ -251,6 +251,11 @@ MIGRATIONS: list[str] = [
     """
     ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0;
     """,
+    # 12: the newest release whose notes this person has seen (admins are shown what changed after an update).
+    # NULL until they first see some.
+    """
+    ALTER TABLE users ADD COLUMN seen_version TEXT;
+    """,
 ]
 
 

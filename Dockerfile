@@ -27,6 +27,7 @@ RUN pip install -r requirements.txt
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 COPY app ./app
+COPY CHANGELOG.md ./
 RUN chmod 755 /usr/local/bin/docker-entrypoint.sh && mkdir -p /data
 
 VOLUME ["/data"]

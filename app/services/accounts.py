@@ -13,8 +13,11 @@ from app.passwords import DUMMY_HASH, check_new_password, hash_password, verify_
 ALREADY_SET_UP = "FeedStash is already set up. Sign in instead."
 
 
-def setup_first_account(db: Database, *, email: str, name: str | None, password: str) -> User:
-    """Creates the first account, an admin. Fails once anyone exists."""
+def setup_first_account(
+    db: Database, *, email: str, name: str | None, password: str, version: str | None = None
+) -> User:
+    """Creates the first account, an admin. Fails once anyone exists. `version` is the running release: a new server
+    has nothing to announce, so its notes count as seen."""
     password_hash = hash_password(check_new_password(password))
     with db.transaction() as conn:
         if users_repo.count(conn):
@@ -22,6 +25,8 @@ def setup_first_account(db: Database, *, email: str, name: str | None, password:
         user = users_repo.create_local(conn, email=email, name=name, password_hash=password_hash, is_admin=True)
         if users_repo.count(conn) != 1:  # someone else finished setup at the same moment; roll this one back
             raise Conflict(ALREADY_SET_UP)
+        if version:
+            users_repo.set_seen_version(conn, user.id, version)
         return user
 
 

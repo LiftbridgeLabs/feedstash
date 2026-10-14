@@ -71,6 +71,8 @@ class Settings(BaseSettings):
     mail_poll_minutes: int = Field(default=5, ge=1, le=24 * 60)
     # Set by the Docker image from the release tag; shown in the sidebar and /api/health.
     feedstash_version: str = "dev"
+    # Ask GitHub (at most once a day, while an admin has the app open) whether a newer release is out.
+    update_check: bool = True
 
     @field_validator("base_urls", mode="before")
     @classmethod
