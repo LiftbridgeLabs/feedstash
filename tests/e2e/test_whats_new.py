@@ -22,7 +22,7 @@ def test_an_admin_sees_the_notes_once_after_an_update(browser_page, start_server
     updated = start_server(db_path=db_path, DEV_LOGIN="false", FEEDSTASH_VERSION="0.6.1")
     page.goto(updated.base_url + "/")  # still signed in: same database and key, and cookies ignore the port
     assert page.wait_for("!!document.querySelector('dialog.whats-new[open]')", timeout=20)
-    assert "updated to 0.6.1" in page.js("document.querySelector('dialog.whats-new h2').textContent")
+    assert "What's new in FeedStash 0.6.1" in page.js("document.querySelector('dialog.whats-new h2').textContent")
     assert page.js("document.querySelectorAll('dialog.whats-new li').length") >= 1
     assert page.js("document.querySelector('#app-version').textContent") == "v0.6.1"
 

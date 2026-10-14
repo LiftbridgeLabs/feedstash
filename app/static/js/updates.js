@@ -50,8 +50,8 @@ function showWhatsNew({ current, unseen, releases_url: releasesUrl }) {
   dialog.className = 'modal whats-new';
   dialog.innerHTML = `
     <form method="dialog">
-      <h2>FeedStash was updated to ${esc(current)}</h2>
-      <p class="muted">Only admins see this.</p>
+      <h2>What's new in FeedStash ${esc(current)}</h2>
+      <p class="muted">Admins see this once after each update.</p>
       <div class="whats-new-notes">
         ${unseen.map((release) => `
           ${several ? `<h3>${esc(release.version)}</h3>` : ''}
@@ -60,7 +60,7 @@ function showWhatsNew({ current, unseen, releases_url: releasesUrl }) {
             <ul>${section.items.map((item) => `<li>${inline(item)}</li>`).join('')}</ul>`).join('')}`).join('')}
       </div>
       <div class="modal-actions">
-        <a class="btn" href="${esc(releasesUrl)}" target="_blank" rel="noopener">All release notes</a>
+        <a class="btn" href="${esc(releasesUrl)}" target="_blank" rel="noopener">All releases</a>
         <button class="btn btn-primary" autofocus>Got it</button>
       </div>
     </form>`;

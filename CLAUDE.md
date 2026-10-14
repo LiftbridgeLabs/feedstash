@@ -101,9 +101,12 @@ READER_E2E_BROWSER="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 
 1. Full test run, including browser tests.
 2. In `CHANGELOG.md`, rename `## Unreleased` to `## X.Y.Z` (and start a new empty `## Unreleased` when work
-   resumes). Sections: **New**, **Fixed**, **Settings** (every new or changed env var and what it does) and
-   **Action needed** (back up for a schema change, redeploy the email worker, change a setting). Admins see this
-   text in the app after updating, so write it for them.
+   resumes). Sections, each only when it has something: **New**, **Fixes**, **Settings** (every new or changed
+   env var and what it does), **Before you update** (a backup for a schema change; not shown in the app, which
+   is already updated) and **After you update** (redeploy the email worker, change a setting). Write release
+   notes, not commit messages: what a person can now do, in plain words, bold lead-in for each new feature.
+   Leave out fixes nobody would notice and internal hardening. Recommend a backup; don't give commands for
+   it, since people run FeedStash in different ways. Jason reviews the notes before a release.
 3. Commit and push `main`.
 4. `git tag -a vX.Y.Z -m "…"` and `git push origin vX.Y.Z`.
 5. `gh run watch` on the Docker workflow — it runs the tests, builds an image, smoke-tests it (starts, drops root,
@@ -118,7 +121,7 @@ READER_E2E_BROWSER="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 
 Versioning: patch for fixes and polish, minor for a new capability. The tag becomes `FEEDSTASH_VERSION`, shown in
 the sidebar and `/api/health`. Every change that's worth telling people about gets a line under `## Unreleased` in `CHANGELOG.md` as it lands.
-Mention schema changes under Action needed so people take a backup
+Mention schema changes under Before you update so people take a backup
 (`docker exec feedstash python -m app.cli backup /data/backups/feedstash-$(date +%F).db`).
 
 ## Traps we've already hit

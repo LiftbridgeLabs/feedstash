@@ -1,42 +1,38 @@
 # Changelog
 
-What changed in each FeedStash release, newest first. Admins see the entries for the releases they haven't seen yet
-when they first open FeedStash after an update. Before updating, look under **Action needed**: it says when to take
-a backup or change a setting.
+What changed in each FeedStash release, newest first. Before you update, check **Before you update** for anything
+to do first, like taking a backup. Admins see the rest of a release's notes in FeedStash after updating.
 
-## Unreleased
+## 0.6.2
 
 ### New
-- **Settings → Tags:** check several tags and merge them into one, or rename one. Tags that look alike (#vibe and
-  #vibes) are grouped so you can check them in one click. The tag row in the Edit and Save dialogs ends with a
-  **Manage tags** chip that opens it.
-- Admins see what changed after an update, and the version in the sidebar says when a newer release is out.
-
-### Fixed
-- The scrollbar under the tag row no longer covers the tags.
-- Editing a saved item is checked against its owner in the database as well as in the app.
+- **Manage your tags in one place.** Settings → Tags lists every tag in use. You can now merge tags into one or
+  rename them. If you have #code, #codes and #coding, you can merge them into a single tag.
+- **Update notices for admins.** After an update you'll see what's new, and the version at the bottom of the
+  sidebar tells you when a newer release is out.
 
 ### Settings
-- `SETUP_TOKEN`: once it's set, the setup page asks for it from every network, your own included. It's only needed
-  until the first account exists, so you can remove it after setup.
-- `UPDATE_CHECK` (new, on by default): once a day, while an admin has FeedStash open, the server asks GitHub for
-  the latest release so the sidebar can say when there's an update. Nothing is sent but the request itself. Set it
-  to `false` to turn this off.
+- `SETUP_TOKEN` is now asked for on every network once you set it, your own included. You only need it until your
+  account exists, so you can remove it afterwards.
+- New: `UPDATE_CHECK`, on by default. Once a day, while an admin is using FeedStash, it asks GitHub whether there's
+  a newer release. Set it to `false` to turn that off.
 
-### Action needed
-- **Take a backup first:** this release changes the database (it remembers which release notes each admin has
-  seen).
-- **If you run the Cloudflare email worker,** build and deploy it again (`clients/email-worker`). A sender address
-  with no `@` could match a one-letter `ALLOWED_SENDERS` entry; now it never matches.
+### Before you update
+- As always, it's recommended to create a backup before updating. This release adds to the database.
+
+### After you update
+- If you use the Cloudflare email worker, deploy it again from `clients/email-worker`. It now turns away sender
+  addresses without an @.
 
 ## 0.6.1
 
 ### New
-- A folder's or feed's own menu marks it read by age: older than 12 hours, a day or a week, not only everything.
+- **Mark read by age.** A folder's or feed's menu can now mark articles older than 12 hours, a day or a week as
+  read, not just everything.
 
 ## 0.6.0
 
 ### New
-- See your existing tags while tagging: a row of your tags with counts, **All tags**, and a nudge when a new tag
-  looks like one you have (#vibes → #vibe).
-- Rename or merge a tag from its menu. Smart lists and stash rules that use it follow along.
+- **See your tags while you tag.** The tag field shows the tags you already use, with how often, and All tags
+  shows the rest. If a new tag looks like one you have (#vibes when you use #vibe), it suggests yours.
+- **Rename or merge a tag** from its menu. Smart lists and stash rules that use it are updated too.

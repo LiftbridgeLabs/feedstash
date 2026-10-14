@@ -68,6 +68,14 @@ def releases() -> list[Release]:
         return []
 
 
+BEFORE_UPDATING = "Before you update"
+
+
+def after_update(release: Release) -> list[Section]:
+    """What to show someone who has already updated: everything but the steps to take beforehand."""
+    return [section for section in release.sections if section.title != BEFORE_UPDATING]
+
+
 def unseen(all_releases: list[Release], *, current: str, seen: str | None) -> list[Release]:
     """The releases after `seen` up to and including `current`, newest first. With nothing seen yet, just the current
     one; on a development build, none."""

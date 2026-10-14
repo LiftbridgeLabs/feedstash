@@ -22,8 +22,11 @@ NOTES = """# Changelog
   continued here.
 - Second.
 
-### Action needed
+### Before you update
 - Back up.
+
+### After you update
+- Redeploy.
 
 ## 0.6.1
 - A loose item.
@@ -38,9 +41,11 @@ NOTES = """# Changelog
 def test_releases_parse_with_sections_and_continued_items():
     releases = changelog.parse(NOTES)
     assert [r.version for r in releases] == ["0.7.0", "0.6.1", "0.6.0"]
-    new, action = releases[0].sections
+    new, before, after = releases[0].sections
     assert new.title == "New" and new.items == ["**Bold** thing with `CODE`, continued here.", "Second."]
-    assert action.items == ["Back up."]
+    assert before.items == ["Back up."] and after.items == ["Redeploy."]
+    # After updating, the steps for beforehand are left out.
+    assert [s.title for s in changelog.after_update(releases[0])] == ["New", "After you update"]
     assert releases[1].sections[0].title == "" and releases[1].sections[0].items == ["A loose item."]
 
 

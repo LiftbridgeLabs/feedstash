@@ -180,7 +180,7 @@ Then copy `/data/backups/` and `/data/uploads/` somewhere safe. Or stop the cont
 
 To update, pull the new image and recreate the container (`docker compose pull && docker compose up -d`, or Force update on unRAID). Database changes are applied automatically on start; take a backup first.
 
-Each release's notes are in [`CHANGELOG.md`](CHANGELOG.md) and on the [Releases page](https://github.com/LiftbridgeLabs/feedstash/releases) (watch the repository for releases to hear about them). Its **Action needed** list says when a release changes the database or a setting. After an update, admins see what changed the first time they open FeedStash, and the version in the sidebar says when a newer release is out.
+Each release's notes are in [`CHANGELOG.md`](CHANGELOG.md) and on the [Releases page](https://github.com/LiftbridgeLabs/feedstash/releases) (watch the repository for releases to hear about them). Check **Before you update** for anything to do first, like taking a backup. After an update, admins see what changed the first time they open FeedStash, and the version in the sidebar says when a newer release is out.
 
 Other admin commands: `create-account`, `set-password`, `list-accounts` (`docker exec feedstash python -m app.cli --help`).
 

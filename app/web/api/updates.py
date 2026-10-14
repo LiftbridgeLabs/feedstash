@@ -40,7 +40,7 @@ async def updates(request: Request, user: UserDep, db: DatabaseDep, settings: Se
             {
                 "version": release.version,
                 "url": f"{RELEASES_URL}/tag/v{release.version}",
-                "sections": [{"title": s.title, "items": s.items} for s in release.sections],
+                "sections": [{"title": s.title, "items": s.items} for s in changelog.after_update(release)],
             }
             for release in changelog.unseen(changelog.releases(), current=current, seen=seen)
         ],
