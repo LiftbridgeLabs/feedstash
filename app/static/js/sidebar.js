@@ -142,7 +142,6 @@ function headerCount(scope, id) {
   if (scope === 'organize' || scope === 'settings') return '';
   if (scope === 'stash') {
     const { summary } = state.stash;
-    if (id === 'inbox') return `${summary.inbox} to review`;
     if (id === 'archived') return `${summary.archived} archived`;
     if (id === 'all') return `${summary.total} saved`;
     const ref = stashViewRef(id);

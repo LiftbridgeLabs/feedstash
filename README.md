@@ -1,6 +1,6 @@
 # FeedStash
 
-Everything you want to read, in one self-hosted app: the feeds you follow, and the links, notes, screenshots and emails you save from anywhere. It runs as one Docker container and keeps everything in SQLite. Sign in with a password, Google, or any OpenID Connect provider. The browser extension and email worker live in `clients/`; the Android and iOS apps are a separate project.
+Everything you want to read, in one self-hosted app: the feeds you follow, and the links, notes, screenshots and emails you save from anywhere. It runs as one Docker container and keeps everything in SQLite. Sign in with a password, Google, or any OpenID Connect provider. The browser extension and email worker live in `clients/`, and there's a free [iPhone and iPad app](https://apps.apple.com/us/app/feedstash-rss-read-later/id6813737525) that keeps read state in step with the web app.
 
 **[liftbridgelabs.app/products/feedstash](https://liftbridgelabs.app/products/feedstash)** · questions and bug reports: [GitHub issues](https://github.com/LiftbridgeLabs/feedstash/issues) or support@liftbridgelabs.app · [privacy](https://liftbridgelabs.app/products/feedstash/privacy)
 
@@ -16,20 +16,22 @@ Everything you want to read, in one self-hosted app: the feeds you follow, and t
 - **OPML import and export**, e.g. from Feedly.
 
 **Stash**
-- **Capture from anywhere.** The browser extension, forwarding an email, the share sheet on Android and iOS, or **+ Add → Save something** in the web app (you can paste an image straight into it). One note can hold several labeled links.
+- **Capture from anywhere.** The browser extension, forwarding an email, the share sheet on iPhone and iPad, or **+ Add → Save something** in the web app: one form for a title, notes, links and pictures (paste them straight in), and FeedStash works out whether it's a link, a note or a screenshot. An item can hold several labeled links and up to 20 pictures.
 - **Email to your stash.** Connect a mailbox under **Settings → Email** (Gmail, iCloud, Fastmail, Yahoo, Zoho or any IMAP server, with an app password) and anything you forward there is saved: subject as the title, `#hashtags` as tags, links saved with previews, and the first image attached. Write `$Folder` in the subject to file it (a folder that doesn't exist yet is created), or `$"Two words"` for a name with spaces — markers also work on a body line that holds nothing but markers, so `$5 off` in a newsletter stays text. FeedStash checks the mailbox itself, so this needs no open ports and works behind a proxy that asks for its own sign-in. For instant delivery on your own domain, `clients/email-worker/` is the Cloudflare alternative.
-- **Review.** Everything you save is in **Everything saved**; the **To review** filter shows what you haven't marked reviewed yet. Archive, edit, tag, search, or filter by type and tag.
+- **Come back to it.** Everything you save is in **Everything saved**. Show any view as a list, a Pinterest-style grid or even tiles; each folder, smart list and tag remembers its own. Edit, tag, search, filter by kind and tag, and archive or delete what you're done with.
 - **Link previews and saved copies.** When you save a link, FeedStash fetches the page in the background: the list shows its title, description and image, and opening the item shows a readable copy of the article that stays even if the site changes or goes away.
 - **Full-text search.** Stash search covers titles, notes, links, tags and the text of saved pages, and matches other forms of a word ("reefs" finds "reef").
 - **Folders.** Keep saved items together by project or topic: make a folder in the sidebar, then drag items onto it, pick it as you save, or use the folder picker on an open item. An item is in one folder at a time; tags still work across everything.
 - **Smart lists.** Any search or filter can be saved to the sidebar with **Save as smart list**. It always shows what matches now.
-- **Rules.** Under **Settings → Stash rules**, say what happens to something new: by website, address, title, feed or kind, it can be tagged, filed in a folder, marked reviewed or archived. Rules run on everything that arrives (except bulk imports), and **Run on everything saved** applies them to what's already there.
+- **Rules.** Under **Settings → Stash rules**, say what happens to something new: by website, address, title, feed or kind, it can be tagged, filed in a folder or archived. Rules run on everything that arrives (except bulk imports), and **Run on everything saved** applies them to what's already there.
 - **Save articles.** "Save to stash" on any feed article (or press `b`).
 - **Import saved links** from Feedly boards, browser bookmarks, Pocket or Raindrop, choosing for each file where its links go and how they're tagged.
 
 **Appearance.** Light, dark or following your system, in nine full color schemes — FeedStash, Slate, Nord, Solarized, Gruvbox, Dracula, Rosé, Forest and Sepia — under **Settings → Appearance**. Each one repaints the whole app, not just the accent color. List rows come in **compact**, **standard** or **comfortable** spacing (the view options menu in the toolbar). All of it is kept per browser, so each device can look however you like.
 
-**Accounts.** Several people can share one server; each has their own feeds and stash. Admins add and remove accounts in **Settings → Accounts**. Each person also chooses how long their read articles are kept (**Settings → Your account**, 30 days by default; Read later is never deleted).
+**Accounts.** Several people can share one server; each has their own feeds and stash. Admins add and remove accounts in **Settings → Accounts**. Each person also chooses how long their read articles are kept (**Settings → Your account**, 30 days by default; Read later is never deleted), and can hide the feeds or the stash if they only use one (**Use**).
+
+**Updates.** After an update, admins see what changed the first time they open FeedStash, and the version in the sidebar says when a newer release is out (`UPDATE_CHECK`). **Settings → About FeedStash** has the version and links for feature requests, problems and support.
 
 **Keyboard:** press `?` in the web app for the list (it's also under Settings → Reading). `j`/`k` open the next/previous article, `n`/`p` select without opening, `o` open, `v` open original, `m` toggle read, `s` read later, `b` save to stash, `c` save something, `/` search, `r` refresh, `Shift+A` mark all read, `Esc` close.
 
@@ -198,7 +200,7 @@ metadata services hand out credentials.
 Download your data from Feedly, unzip it, then in FeedStash open **Settings → Import & export** and choose that whole folder:
 
 - Your feeds and folders come in from `subscriptions.opml` straight away, and FeedStash starts fetching them.
-- Each board (`my boards/`) shows up as a row: tick whether to import it, pick To review, Everything saved or the Archive, and set a tag. Original save dates are kept, and links you already have are skipped.
+- Each board (`my boards/`) shows up as a row: tick whether to import it, pick Everything saved or the Archive, and set a tag. Original save dates are kept, and links you already have are skipped.
 - The **Unsaved** board (links you removed from Feedly) starts unticked, and the `read/` folder (every article you ever opened, titles only) is left out.
 
 If you only have the OPML, **Import OPML** in the same place takes it (and **Export OPML** gives you yours back). The bookmark-file import also takes bookmarks exported from Chrome, Firefox, Edge or Safari, and Pocket or Raindrop exports.
@@ -211,7 +213,7 @@ Each client signs in with its own API token, so you can revoke one without affec
 2. Configure the client with your `BASE_URL` and that token:
    - **Browser extension** (`clients/extension/`): load it unpacked, then set the server URL and token in its options.
    - **Email worker** (`clients/email-worker/`): set `FEEDSTASH_API_BASE` and `FEEDSTASH_API_TOKEN` for the Cloudflare Worker.
-   - **Android / iOS apps**: enter the server URL and token in the app's Settings tab.
+   - **iPhone and iPad app**: in the web app, **Settings → Connected apps → Connect a phone or iPad** shows a code to scan; or enter the server URL and a token in the app's Settings tab.
 
 See the extension's and email worker's READMEs for install steps.
 

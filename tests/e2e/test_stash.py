@@ -20,15 +20,15 @@ def test_sidebar_lists_feeds_before_the_stash(reader):
 
 
 def test_brand_goes_to_the_feeds(reader):
-    reader.js("location.hash = '#/stash/inbox'")
+    reader.js("location.hash = '#/stash/all'")
     assert reader.wait_for("reader.state.route.scope === 'stash'")
     reader.js("document.querySelector('.brand').click()")
     assert reader.wait_for("reader.state.route.scope === 'all' && !document.querySelector('#articles').hidden")
 
 
-def test_capture_review_filter_by_tag_and_archive(reader):
-    reader.js("location.hash = '#/stash/inbox'")
-    assert reader.wait_for("document.querySelector('[data-stash-end]')?.textContent.includes('Nothing to review')")
+def test_capture_filter_by_tag_and_archive(reader):
+    reader.js("location.hash = '#/stash/all'")
+    assert reader.wait_for("document.querySelector('[data-stash-end]')?.textContent.includes('Nothing saved yet')")
 
     reader.press("c")
     submit_dialog(reader, """
@@ -36,14 +36,11 @@ def test_capture_review_filter_by_tag_and_archive(reader):
       d.querySelector('input[name=title]').value = 'An idea';
       d.querySelector('input[name=tags]').value = 'ideas'""")
     assert reader.wait_for("[...document.querySelectorAll('#stash .item-title')].some(e => e.textContent === 'An idea')")
-    assert reader.wait_for("reader.state.stash.summary.inbox === 1")
-    assert reader.js("document.querySelector('#stash [data-review-filter]').textContent.replace(/\\s+/g, ' ').trim()") == "To review 1"
+    assert reader.wait_for("reader.state.stash.summary.total === 1")
+    assert "1" in reader.js("document.querySelector('#nav [data-href=\"#/stash/all\"] .nav-count').textContent")
+    # Nothing to mark reviewed: you're done with something when you archive or delete it.
+    assert not reader.js("!!document.querySelector('#stash [data-stash-action=review], #stash [data-review-filter]')")
 
-    reader.js("document.querySelector('#stash .item [data-stash-action=review]').click()")
-    assert reader.wait_for("document.querySelectorAll('#stash .item').length === 0 && reader.state.stash.summary.inbox === 0")
-
-    reader.js("location.hash = '#/stash/all'")
-    assert reader.wait_for("document.querySelectorAll('#stash .item').length === 1")
     reader.js("document.querySelector('#stash .tag-chips [data-tag=ideas]').click()")
     assert reader.wait_for("location.hash === '#/stash/tag/ideas' && document.querySelectorAll('#stash .item').length === 1")
 
@@ -54,8 +51,8 @@ def test_capture_review_filter_by_tag_and_archive(reader):
 
 
 def test_capture_a_note_with_several_links_and_reorder_them(reader):
-    reader.js("location.hash = '#/stash/inbox'")
-    assert reader.wait_for("document.querySelector('[data-stash-end]')?.textContent.includes('Nothing to review')")
+    reader.js("location.hash = '#/stash/all'")
+    assert reader.wait_for("document.querySelector('[data-stash-end]')?.textContent.includes('Nothing saved yet')")
     reader.press("c")
     submit_dialog(reader, """
       d.querySelector('input[name=title]').value = 'Research';
@@ -105,9 +102,9 @@ def test_save_a_feed_article_to_the_stash(reader):
       .find(e => e.textContent.includes('Tech story 0 ')).querySelector('.item-row').click()""")
     assert reader.wait_for("!!document.querySelector('#articles .item.open [data-action=stash]')")
     reader.js("document.querySelector('#articles .item.open [data-action=stash]').click()")
-    assert reader.wait_for("reader.state.stash.summary.inbox === 1")
+    assert reader.wait_for("reader.state.stash.summary.total === 1")
 
-    reader.js("location.hash = '#/stash/inbox'")
+    reader.js("location.hash = '#/stash/all'")
     assert reader.wait_for("[...document.querySelectorAll('#stash .item-title')].some(e => e.textContent.startsWith('Tech story 0 '))")
     assert "via feed" in reader.js("document.querySelector('#stash .item-meta').textContent")
 
@@ -195,18 +192,7 @@ def test_the_save_dialog_works_out_what_kind_of_item_it_is(reader):
     assert reader.wait_for(f"{DIALOG}.querySelector('.modal-error').textContent === 'Add a link, some notes or a picture'")
 
 
-def test_to_review_is_a_filter_in_everything_saved(reader):
-    reader.js("reader.api('POST', '/api/items', { type: 'snippet', content: 'Read me' })")
-    reader.js("reader.api('POST', '/api/items', { type: 'snippet', content: 'Done with this' })"
-              ".then((item) => reader.api('PATCH', `/api/items/${item.id}`, { reviewed: true }))")
-    assert reader.wait_for("reader.api('GET', '/api/items?reviewed=false').then((items) => items.length === 1)")
-    reader.js("location.reload()")
-    assert reader.wait_for("!!window.reader", timeout=20)
-    reader.js("location.hash = '#/stash/all'")
-    assert reader.wait_for("document.querySelectorAll('#stash .stash-item').length === 2")
-    assert not reader.js("!!document.querySelector('#nav [data-href=\"#/stash/inbox\"]')")
-    reader.js("document.querySelector('#stash [data-review-filter]').click()")
-    assert reader.wait_for("location.hash === '#/stash/inbox' && document.querySelectorAll('#stash .stash-item').length === 1")
+def test_an_old_inbox_link_opens_everything_saved(reader):
+    reader.js("location.hash = '#/stash/inbox'")
+    assert reader.wait_for("reader.state.route.scope === 'stash' && reader.state.route.id === 'all'")
     assert reader.js("document.querySelector('#nav [data-href=\"#/stash/all\"]').classList.contains('active')")
-    reader.js("document.querySelector('#stash [data-review-filter]').click()")
-    assert reader.wait_for("location.hash === '#/stash/all'")

@@ -1,7 +1,7 @@
 /* Hash routes:
    home     #/  (All articles, or Everything saved when no feeds are followed)
    feeds    #/all  #/starred  #/uncategorized  #/folder/3  #/feed/7  #/organize
-   stash    #/stash/all (inbox = to review, link, snippet = notes, screenshot, email, archived)  #/stash/tag/<name>
+   stash    #/stash/all (link, snippet = notes, screenshot, email, archived)  #/stash/tag/<name>
             #/stash/folder/2 (a stash folder)  #/stash/list/5 (a smart list)
    other    #/settings */
 
@@ -33,7 +33,8 @@ function parseRoute() {
       const id = parseInt(extra, 10);
       if (id > 0) return { scope, id: `${rawId}:${id}` };
     }
-    return { scope, id: Object.hasOwn(STASH_VIEWS, rawId ?? '') ? rawId : 'all' };
+    // The old Inbox (#/stash/inbox) is gone: it opens Everything saved.
+    return { scope, id: Object.hasOwn(STASH_VIEWS, rawId ?? '') && rawId !== 'inbox' ? rawId : 'all' };
   }
   if (['starred', 'uncategorized', 'organize', 'settings'].includes(scope)) return { scope, id: null };
   return { scope: 'all', id: null };

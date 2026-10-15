@@ -47,7 +47,7 @@ Example: emailing `stash@yourdomain.com` with the subject `Check this out #readi
 - **A network or 5xx error** — the worker can't reach `FEEDSTASH_API_BASE` from the internet.
 - **"only accepts mail from its owner"** — the sender isn't in `ALLOWED_SENDERS`.
 
-Stash rules (**Settings → Stash rules**) run on everything that arrives this way, so you can tag mail from a given domain, file it in a folder, or mark it reviewed straight away.
+Stash rules (**Settings → Stash rules**) run on everything that arrives this way, so you can tag mail from a given domain, file it in a folder, or archive it straight away.
 
 ## Limits
 

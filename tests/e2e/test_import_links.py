@@ -35,7 +35,7 @@ def test_import_feedly_board_files_from_settings(reader):
     assert reader.js(row.format(field="include", index=1) + ".checked") is False  # Unsaved starts unticked
     assert "Import 2 links" in reader.js("document.querySelector('[data-import-action=run]').textContent")
 
-    reader.js(row.format(field="destination", index=0) + ".value = 'inbox'")
+    reader.js(row.format(field="destination", index=0) + ".value = 'archive'")
     reader.js(row.format(field="destination", index=0) + ".dispatchEvent(new Event('change', { bubbles: true }))")
     reader.js("document.querySelector('[data-import-action=run]').click()")
-    assert reader.wait_for("reader.state.stash.summary.inbox === 2 && !document.querySelector('.import-plan')")
+    assert reader.wait_for("reader.state.stash.summary.archived === 2 && !document.querySelector('.import-plan')")

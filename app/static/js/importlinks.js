@@ -10,7 +10,7 @@ import { refreshStashCounts } from './stash.js';
 import { $, esc } from './util.js';
 
 const BATCH_SIZE = 500;
-const DESTINATIONS = { inbox: 'To review', saved: 'Everything saved', archive: 'Archive' };
+const DESTINATIONS = { saved: 'Everything saved', archive: 'Archive' };
 
 let groups = []; // one per file: { name, fileName, links, include, destination, tag, note }
 let skippedNote = ''; // what a folder import left out, shown above the plan
@@ -85,9 +85,8 @@ function parseBookmarks(text, fileName) {
 function suggestions(name) {
   if (/^unsaved$/i.test(name)) return { include: false, destination: 'archive', tag: 'feedly unsaved', note: 'Links you removed from Feedly' };
   if (/^read in \d{4}/i.test(name)) return { include: false, destination: 'archive', tag: 'feedly read', note: 'Feedly reading history' };
-  const toRead = /saved for later|read later|read it later|pocket/i.test(name);
   const generic = /^(saved for later|read later|bookmarks|pocket)$/i.test(name);
-  return { include: true, destination: toRead ? 'inbox' : 'saved', tag: generic ? '' : name.toLowerCase().slice(0, 50), note: '' };
+  return { include: true, destination: 'saved', tag: generic ? '' : name.toLowerCase().slice(0, 50), note: '' };
 }
 
 async function readFiles(root, files) {
@@ -150,7 +149,7 @@ async function runImport(root) {
   const links = groups.filter((group) => group.include).flatMap((group) => group.links.map((link) => ({
     ...link,
     tags: [...new Set([group.tag.trim(), ...link.tags].filter(Boolean))].slice(0, 20),
-    reviewed: group.destination !== 'inbox',
+    reviewed: true, // the stash no longer shows a reviewed state; older clients treat these as dealt with
     archived: group.destination === 'archive',
   })));
   if (!links.length) return;

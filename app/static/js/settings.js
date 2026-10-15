@@ -196,8 +196,8 @@ async function loadAccount() {
       <select id="sections" data-settings-field="sections">
         ${SECTION_CHOICES.map(([value, label]) => `<option value="${value}" ${value === (me.sections || 'both') ? 'selected' : ''}>${label}</option>`).join('')}
       </select>
-      <p class="muted">Only need one half of FeedStash? The other is hidden here and in the phone app. Nothing is
-        deleted, and feeds keep updating, so you can switch back any time.</p>
+      <p class="muted">Only need one half of FeedStash? The other is hidden. Nothing is deleted, and feeds keep
+        updating, so you can switch back any time.</p>
     </div>`;
   if (me.is_admin) {
     $('[data-accounts-section]', els.settings).hidden = false;

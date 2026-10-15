@@ -42,7 +42,6 @@ function whatItDoes(rule) {
   const chips = [];
   if (rule.addTag) chips.push(`#${esc(rule.addTag)}`);
   if (rule.folderId) chips.push(`${esc(stashFolderById(rule.folderId)?.name || 'a deleted folder')}`);
-  if (rule.markReviewed) chips.push('Mark reviewed');
   if (rule.archive) chips.push('Archive');
   return chips.map((text) => `<span class="chip">${text}</span>`).join('');
 }
@@ -61,7 +60,7 @@ export async function loadRules(root) {
             <td><div class="rule-then">${whatItDoes(rule)}</div></td>
             <td class="row-actions"><button class="btn btn-sm" data-rules="delete" data-id="${rule.id}">Delete</button></td>
           </tr>`).join('')}</tbody></table></div>`
-      : '<p class="muted">No rules yet. Rules can tag what you save, file it in a folder, or mark it reviewed.</p>';
+      : '<p class="muted">No rules yet. Rules can tag what you save, file it in a folder, or archive it.</p>';
   } catch (err) {
     box.innerHTML = `<p class="muted">${esc(err.message)}</p>`;
   }
@@ -80,7 +79,6 @@ function ruleFormHTML() {
     <div class="field-group"><span class="field-label">Then</span>
       <label>Add tag <small>(optional)</small><input type="text" name="addTag" maxlength="50" autocomplete="off"></label>
       <label>File in folder<select name="folderId">${folderOptionsHTML(null)}</select></label>
-      <label class="check"><input type="checkbox" name="markReviewed"> Mark reviewed (skip To review)</label>
       <label class="check"><input type="checkbox" name="archive"> Archive it</label>
     </div>`;
 }
@@ -107,7 +105,6 @@ async function newRule(root) {
         value,
         addTag: (fd.get('addTag') || '').trim() || null,
         folderId: fd.get('folderId') ? Number(fd.get('folderId')) : null,
-        markReviewed: fd.get('markReviewed') === 'on',
         archive: fd.get('archive') === 'on',
       });
     },
