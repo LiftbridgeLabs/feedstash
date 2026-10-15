@@ -6,20 +6,21 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
 ## 0.7.0
 
 ### New
-- **Grid view for the stash.** Show any folder, smart list or tag as a list, a Pinterest-style grid or even tiles,
-  with the switch at the top right. Cards show the picture or the link's preview, the title, tags and the start of
-  your notes. Each view remembers its own choice.
-- **Several pictures per item.** Save a few screenshots together, and add or remove pictures when you edit an
-  item. The first one shows on the card.
-- **One Save form.** Add a title, notes, links, pictures and tags in one place, and FeedStash works out what it is:
-  just a link is a Link, just pictures a Screenshot, anything else a Note.
-- **Snippets are now called Notes.** Nothing changes in what they do.
-- **No more Inbox.** The stash opens on Everything saved. When you're done with something, archive it or delete
-  it.
-- **Use only the feeds or only the stash.** Settings → Your account → Use hides the half you don't need. Nothing
-  is deleted, so you can switch back any time.
-- **About FeedStash** in Settings, for admins: your version, whether an update is out, and where to suggest a
-  feature, report a problem or get help.
+- Grid view for the stash. Show any folder, smart list or tag as a list, a Pinterest-style grid or tiles, with the
+  switch at the top right. Cards show the picture or the link's preview, the title, tags and the start of your
+  notes. Each view remembers its own choice.
+- Several pictures per item. Save a few screenshots together, and add or remove pictures when you edit an item.
+  The first one shows on the card.
+- Changed from Links, Notes, Screenshot to just one save form. The three were pretty much crossing over in usage.
+  Now you can add a title, notes, links, pictures and tags in one place, and FeedStash works out what it is: just
+  a link is a Link, just pictures a Screenshot, anything else a Note.
+- Snippets are now called Notes. Nothing changes in what they do.
+- No more Inbox since it was just a repeat of "Everything saved". The stash now opens on Everything saved. When
+  you're done with something, archive it or delete it.
+- Use only the feeds or only the stash. Settings → Your account → Use hides the half you don't need. Nothing is
+  deleted, so you can switch back any time.
+- Add an "About FeedStash" section in Settings, only shows for admins: including the version, whether an update
+  is out, and where to suggest a feature, report a problem or get help.
 
 ### Before you update
 - As always, it's recommended to create a backup before updating. This release adds to the database.
