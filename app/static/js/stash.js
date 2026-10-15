@@ -376,7 +376,7 @@ function readerHTML(item) {
       ${link ? `<a class="btn btn-sm" href="${esc(link)}" target="_blank" rel="noopener noreferrer">${icon('external')}Open link</a>` : ''}
       <label class="folder-pick">${icon('folder')}
         <select data-item-folder aria-label="Folder">${folderOptionsHTML(item.folderId)}</select></label>
-      <button class="btn btn-sm" data-stash-action="edit">${icon('text')}Edit</button>
+      <button class="btn btn-sm" data-stash-action="edit">${icon('pencil')}Edit</button>
       <button class="btn btn-sm" data-stash-action="delete">${icon('trash')}Delete</button>
       <button class="btn btn-sm" data-stash-action="close">${icon('x')}Close</button>
     </div>
