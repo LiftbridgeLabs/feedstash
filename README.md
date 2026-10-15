@@ -4,6 +4,12 @@ Everything you want to read, in one self-hosted app: the feeds you follow, and t
 
 **[liftbridgelabs.app/products/feedstash](https://liftbridgelabs.app/products/feedstash)** · questions and bug reports: [GitHub issues](https://github.com/LiftbridgeLabs/feedstash/issues) or support@liftbridgelabs.app · [privacy](https://liftbridgelabs.app/products/feedstash/privacy)
 
+![The feeds and the reader](docs/screenshots/feeds.png)
+
+| The stash as a grid | A saved copy, in Sepia | Tiles, in Nord dark |
+|---|---|---|
+| ![The stash as a grid](docs/screenshots/stash-grid.png) | ![A saved link's readable copy](docs/screenshots/saved-copy.png) | ![The stash as tiles in a dark scheme](docs/screenshots/dark.png) |
+
 ## Features
 
 **Feeds**
