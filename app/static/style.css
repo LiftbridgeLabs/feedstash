@@ -638,7 +638,8 @@ dialog.whats-new { width: min(560px, calc(100vw - 32px)); }
 .stash-list.cards .item-title { font-size: 15px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .stash-list.cards .item-meta { flex-wrap: wrap; row-gap: 2px; font-size: 12px; }
 .stash-list.cards .item-meta .dot, .stash-list.cards .item-meta .age, .stash-list.cards .item-meta .source,
-.stash-list.cards .item-meta .link-count, .stash-list.cards .item-meta .folder-name { display: none; }
+.stash-list.cards .item-meta .link-count, .stash-list.cards .item-meta .folder-name,
+.stash-list.cards .item-meta .type-badge { display: none; }
 .stash-list.cards .item-meta .feed-name { max-width: 100%; }
 .stash-list.cards .item-summary { display: -webkit-box; -webkit-line-clamp: 4; font-size: 13px; }
 .stash-list.cards-tiles .item-summary { -webkit-line-clamp: 3; }
