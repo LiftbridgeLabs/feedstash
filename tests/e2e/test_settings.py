@@ -65,7 +65,7 @@ def test_someone_can_hide_the_feeds_or_the_stash(reader):
     assert reader.js("document.querySelector('#add-menu [data-add=follow]').hidden")
     assert reader.js("document.querySelector('[data-only=feeds]').hidden && !document.querySelector('[data-only=stash]').hidden")
     reader.js("location.hash = '#/all'")  # an old link into the feeds
-    assert reader.wait_for("location.hash === '#/stash/inbox'")
+    assert reader.wait_for("location.hash === '#/stash/all'")
 
     use_from_anywhere = "reader.api('PATCH', '/api/account', { sections: 'feeds' })"
     reader.js(use_from_anywhere)

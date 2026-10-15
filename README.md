@@ -18,7 +18,7 @@ Everything you want to read, in one self-hosted app: the feeds you follow, and t
 **Stash**
 - **Capture from anywhere.** The browser extension, forwarding an email, the share sheet on Android and iOS, or **+ Add → Save something** in the web app (you can paste an image straight into it). One note can hold several labeled links.
 - **Email to your stash.** Connect a mailbox under **Settings → Email** (Gmail, iCloud, Fastmail, Yahoo, Zoho or any IMAP server, with an app password) and anything you forward there is saved: subject as the title, `#hashtags` as tags, links saved with previews, and the first image attached. Write `$Folder` in the subject to file it (a folder that doesn't exist yet is created), or `$"Two words"` for a name with spaces — markers also work on a body line that holds nothing but markers, so `$5 off` in a newsletter stays text. FeedStash checks the mailbox itself, so this needs no open ports and works behind a proxy that asks for its own sign-in. For instant delivery on your own domain, `clients/email-worker/` is the Cloudflare alternative.
-- **Review.** New items land in the **Inbox**. Mark them reviewed, archive, edit, tag, search, or filter by type and tag.
+- **Review.** Everything you save is in **Everything saved**; the **To review** filter shows what you haven't marked reviewed yet. Archive, edit, tag, search, or filter by type and tag.
 - **Link previews and saved copies.** When you save a link, FeedStash fetches the page in the background: the list shows its title, description and image, and opening the item shows a readable copy of the article that stays even if the site changes or goes away.
 - **Full-text search.** Stash search covers titles, notes, links, tags and the text of saved pages, and matches other forms of a word ("reefs" finds "reef").
 - **Folders.** Keep saved items together by project or topic: make a folder in the sidebar, then drag items onto it, pick it as you save, or use the folder picker on an open item. An item is in one folder at a time; tags still work across everything.
@@ -198,7 +198,7 @@ metadata services hand out credentials.
 Download your data from Feedly, unzip it, then in FeedStash open **Settings → Import & export** and choose that whole folder:
 
 - Your feeds and folders come in from `subscriptions.opml` straight away, and FeedStash starts fetching them.
-- Each board (`my boards/`) shows up as a row: tick whether to import it, pick the Inbox, Everything saved or the Archive, and set a tag. Original save dates are kept, and links you already have are skipped.
+- Each board (`my boards/`) shows up as a row: tick whether to import it, pick To review, Everything saved or the Archive, and set a tag. Original save dates are kept, and links you already have are skipped.
 - The **Unsaved** board (links you removed from Feedly) starts unticked, and the `read/` folder (every article you ever opened, titles only) is left out.
 
 If you only have the OPML, **Import OPML** in the same place takes it (and **Export OPML** gives you yours back). The bookmark-file import also takes bookmarks exported from Chrome, Firefox, Edge or Safari, and Pocket or Raindrop exports.

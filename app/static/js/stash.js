@@ -1,4 +1,4 @@
-/* The stash: links, notes, screenshots and emails saved from anywhere. New items wait in the Inbox.
+/* The stash: links, notes, screenshots and emails saved from anywhere. New items start out to review.
    (Notes are type "snippet" in the API, which clients depend on.) */
 
 import { api } from './api.js';
@@ -155,7 +155,7 @@ async function chosenFolderId(fd) {
   return existing ? existing.id : (await api('POST', '/api/stash/folders', { name })).id;
 }
 
-/** Whether an item still belongs in the view after a change (reviewing removes it from the Inbox, etc.). */
+/** Whether an item still belongs in the view after a change (reviewing takes it out of To review, etc.). */
 function belongsInView(item, view) {
   if (view === 'archived') return item.archived;
   if (item.archived) return false;
@@ -231,10 +231,13 @@ export function reloadItems() {
   loadMoreItems();
 }
 
-/** Type filters, for the types that have something saved. */
+/** To review (what you haven't marked reviewed yet), then type filters for the types that have something saved. */
 function typeChips(view) {
-  const counts = state.stash.summary.by_type;
-  return ITEM_TYPES
+  const { by_type: counts, inbox } = state.stash.summary;
+  const toReview = inbox || view === 'inbox'
+    ? `<button type="button" class="chip ${view === 'inbox' ? 'active' : ''}" data-review-filter>${icon('check')}To review <span>${inbox}</span></button>`
+    : '';
+  return toReview + ITEM_TYPES
     .filter((type) => counts[type] || type === view)
     .map((type) => `<button type="button" class="chip ${type === view ? 'active' : ''}" data-type-filter="${type}">${icon(TYPE_ICONS[type])}${STASH_VIEWS[type]} <span>${counts[type] || 0}</span></button>`)
     .join('');
@@ -304,14 +307,16 @@ function renderEnd() {
   if (state.stash.query) {
     title = 'Nothing matches your search';
   } else if (view === 'inbox') {
-    title = 'Inbox zero';
+    title = 'Nothing to review';
+  } else if (view === 'all') {
+    title = 'Nothing saved yet';
     sub = 'Save links, notes and screenshots with + Add, the browser extension, email, or your phone.';
   } else if (view === 'archived') {
     title = 'Nothing archived yet';
   }
   end.className = 'list-end done empty';
   end.innerHTML = `${icon('circle-check')}<div class="big">${esc(title)}</div><div>${esc(sub)}</div>
-    ${view === 'inbox' && !state.stash.query ? `<p><button class="btn btn-sm btn-primary" data-stash-action="capture">${icon('plus')}Save something</button></p>` : ''}`;
+    ${view === 'all' && !state.stash.query ? `<p><button class="btn btn-sm btn-primary" data-stash-action="capture">${icon('plus')}Save something</button></p>` : ''}`;
 }
 
 function itemHTML(item) {
@@ -338,7 +343,7 @@ function itemHTML(item) {
     : item.preview?.description ? `<p class="item-summary">${esc(item.preview.description)}</p>` : ''}
         </div>
         <div class="item-tools">
-          <button class="icon-btn" data-stash-action="review" title="${item.reviewed ? 'Back to Inbox' : 'Mark reviewed'}">${icon(item.reviewed ? 'inbox' : 'check')}</button>
+          <button class="icon-btn" data-stash-action="review" title="${item.reviewed ? 'Mark to review' : 'Mark reviewed'}">${icon(item.reviewed ? 'inbox' : 'check')}</button>
           <button class="icon-btn" data-stash-action="archive" title="${item.archived ? 'Unarchive' : 'Archive'}">${icon('archive')}</button>
           <button class="icon-btn" data-stash-action="menu" title="More">${icon('more')}</button>
         </div>
@@ -371,7 +376,7 @@ function readerHTML(item) {
       <span>·</span><span>via ${esc(item.source)}</span>
     </div>
     <div class="reader-bar">
-      <button class="btn btn-sm" data-stash-action="review">${icon(item.reviewed ? 'inbox' : 'check')}${item.reviewed ? 'Back to Inbox' : 'Mark reviewed'}</button>
+      <button class="btn btn-sm" data-stash-action="review">${icon(item.reviewed ? 'inbox' : 'check')}${item.reviewed ? 'Mark to review' : 'Mark reviewed'}</button>
       <button class="btn btn-sm" data-stash-action="archive">${icon('archive')}${item.archived ? 'Unarchive' : 'Archive'}</button>
       ${link ? `<a class="btn btn-sm" href="${esc(link)}" target="_blank" rel="noopener noreferrer">${icon('external')}Open link</a>` : ''}
       <label class="folder-pick">${icon('folder')}
@@ -612,7 +617,7 @@ async function changeItem(item, fields, { message, undo }) {
 }
 
 const toggleReviewed = (item) => changeItem(item, { reviewed: !item.reviewed }, {
-  message: item.reviewed ? 'Moved back to the Inbox' : 'Marked reviewed',
+  message: item.reviewed ? 'Marked to review' : 'Marked reviewed',
   undo: { reviewed: item.reviewed },
 });
 
@@ -624,7 +629,7 @@ const toggleArchived = (item) => changeItem(item, { archived: !item.archived }, 
 /** Everything you can do to a saved item without opening it. */
 function itemMenuItems(item) {
   const items = [
-    [item.reviewed ? 'Back to Inbox' : 'Mark reviewed', () => toggleReviewed(item)],
+    [item.reviewed ? 'Mark to review' : 'Mark reviewed', () => toggleReviewed(item)],
     ['Edit…', () => editItem(item)],
   ];
   for (const folder of state.stash.summary.folders || []) {
@@ -864,7 +869,7 @@ export async function captureDialog() {
     if (belongsInView(item, state.route.id)) reloadItems();
     toast('Saved to your stash');
   } else {
-    toast('Saved to your stash', { action: 'View', onAction: () => navigate('#/stash/inbox') });
+    toast('Saved to your stash', { action: 'View', onAction: () => navigate('#/stash/all') });
   }
 }
 
@@ -874,7 +879,7 @@ export async function stashArticle(article) {
     await refreshStashCounts();
     toast(res.created ? 'Saved to your stash' : 'Already in your stash', {
       action: 'View',
-      onAction: () => navigate(res.item.reviewed ? '#/stash/all' : '#/stash/inbox'),
+      onAction: () => navigate('#/stash/all'),
     });
   } catch (err) {
     toast(err.message, { error: true });
@@ -883,6 +888,10 @@ export async function stashArticle(article) {
 
 export function wireStash() {
   els.stash.addEventListener('click', (e) => {
+    if (e.target.closest('[data-review-filter]')) {
+      navigate(state.route.id === 'inbox' ? '#/stash/all' : '#/stash/inbox');
+      return;
+    }
     const typeChip = e.target.closest('[data-type-filter]');
     if (typeChip) {
       const type = typeChip.dataset.typeFilter;

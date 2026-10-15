@@ -10,7 +10,7 @@ import { refreshStashCounts } from './stash.js';
 import { $, esc } from './util.js';
 
 const BATCH_SIZE = 500;
-const DESTINATIONS = { inbox: 'Inbox', saved: 'Everything saved', archive: 'Archive' };
+const DESTINATIONS = { inbox: 'To review', saved: 'Everything saved', archive: 'Archive' };
 
 let groups = []; // one per file: { name, fileName, links, include, destination, tag, note }
 let skippedNote = ''; // what a folder import left out, shown above the plan

@@ -100,7 +100,7 @@ export function renderNav() {
   // or smart list is a place of its own.
   const elsewhere = stashViewRef(id).kind !== null;
   const stashActive = (view) => (scope === 'stash'
-    && (id === view || (view === 'all' && !elsewhere && id !== 'inbox' && id !== 'archived')) ? 'active' : '');
+    && (id === view || (view === 'all' && !elsewhere && id !== 'archived')) ? 'active' : '');
   const stashRow = (view, iconName, n) => `
     <div class="nav-row ${stashActive(view)} ${n ? '' : 'zero'}" role="link" tabindex="0" data-href="#/stash/${view}">
       <span class="nav-icon">${icon(iconName)}</span><span class="nav-label">${esc(STASH_VIEWS[view])}</span>${count(n)}
@@ -120,7 +120,6 @@ export function renderNav() {
     <div class="nav-section"><span>Stash</span>
       <button class="icon-btn" data-action="stash-menu" title="Save something or make a folder">${icon('plus')}</button>
     </div>
-    ${stashRow('inbox', 'inbox', stash.inbox)}
     ${(stash.folders || []).map(stashFolderRow).join('')}
     ${(stash.lists || []).map(smartListRow).join('')}
     ${stashRow('all', 'layers', stash.total)}

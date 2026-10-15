@@ -1,7 +1,7 @@
 /* Hash routes:
-   home     #/  (All articles, or the stash Inbox when no feeds are followed)
+   home     #/  (All articles, or Everything saved when no feeds are followed)
    feeds    #/all  #/starred  #/uncategorized  #/folder/3  #/feed/7  #/organize
-   stash    #/stash/inbox (all, link, snippet = notes, screenshot, email, archived)  #/stash/tag/<name>
+   stash    #/stash/all (inbox = to review, link, snippet = notes, screenshot, email, archived)  #/stash/tag/<name>
             #/stash/folder/2 (a stash folder)  #/stash/list/5 (a smart list)
    other    #/settings */
 
@@ -27,13 +27,13 @@ function parseRoute() {
     if (rawId === 'tag' && extra) {
       try {
         return { scope, id: `tag:${decodeURIComponent(extra)}` };
-      } catch { /* malformed escape: fall through to the inbox */ }
+      } catch { /* malformed escape: fall through to Everything saved */ }
     }
     if ((rawId === 'folder' || rawId === 'list') && extra) {
       const id = parseInt(extra, 10);
       if (id > 0) return { scope, id: `${rawId}:${id}` };
     }
-    return { scope, id: Object.hasOwn(STASH_VIEWS, rawId ?? '') ? rawId : 'inbox' };
+    return { scope, id: Object.hasOwn(STASH_VIEWS, rawId ?? '') ? rawId : 'all' };
   }
   if (['starred', 'uncategorized', 'organize', 'settings'].includes(scope)) return { scope, id: null };
   return { scope: 'all', id: null };
@@ -69,13 +69,13 @@ function showPanel(name) {
 export function applyRoute() {
   // Home (the brand link, or no hash) is All articles, unless nothing is followed yet: then it's the stash.
   if (/^#?\/?$/.test(location.hash) && showsStash() && (!state.tree.feeds.length || !showsFeeds())) {
-    navigate('#/stash/inbox');
+    navigate('#/stash/all');
     return;
   }
   const route = parseRoute();
   // Someone who only uses one half of the app never lands in the other (an old link, a bookmark).
   if (!showsFeeds() && (ARTICLE_SCOPES.has(route.scope) || route.scope === 'organize')) {
-    navigate('#/stash/inbox');
+    navigate('#/stash/all');
     return;
   }
   if (!showsStash() && route.scope === 'stash') {

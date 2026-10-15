@@ -22,10 +22,10 @@ def test_a_saved_link_shows_its_preview_and_saved_copy(browser_page, start_serve
     page = browser_page
     page.goto(server.base_url + "/auth/login")
     assert page.wait_for("!!window.reader && reader.state.tree.page_capture === true", timeout=20)
-    # With nothing followed the app opens on the (empty) Inbox, so go to another view once the link is saved.
+    # With nothing followed the app opens on Everything saved, so go to another view once the link is saved.
     page.js(f"reader.api('POST', '/api/items', {{ type: 'link', url: '{feed_server}/article.html' }})"
-            ".then(() => { location.hash = '#/stash/all'; })")
-    assert page.wait_for("location.hash === '#/stash/all'")
+            ".then(() => { location.hash = '#/stash/link'; })")
+    assert page.wait_for("location.hash === '#/stash/link'")
 
     # The row starts as a bare address and picks up the page's title and image once it's saved.
     title = "document.querySelector('#stash .item-title')?.textContent"

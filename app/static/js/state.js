@@ -22,7 +22,7 @@ export const ARTICLE_SCOPES = new Set(['all', 'starred', 'uncategorized', 'folde
 
 export const ITEM_TYPES = ['link', 'snippet', 'screenshot', 'email'];
 export const STASH_VIEWS = {
-  inbox: 'Inbox',
+  inbox: 'To review',
   all: 'Everything saved',
   link: 'Links',
   snippet: 'Notes',
