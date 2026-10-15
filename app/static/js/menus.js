@@ -13,7 +13,7 @@ import { captureDialog } from './stash.js';
 import {
   deleteSmartList, deleteStashFolder, editSmartList, moveStashFolderBy, renameStashFolder,
 } from './stashlists.js';
-import { PREF_DEFAULTS, els, feedById, feedIdsIn, smartListById, stashFolderById, state } from './state.js';
+import { PREF_DEFAULTS, els, feedById, feedIdsIn, showsFeeds, showsStash, smartListById, stashFolderById, state } from './state.js';
 import { $, $$, esc, saveJSON } from './util.js';
 
 // The button a menu was opened from: the same click bubbles on to the close-on-click-away handler below, which
@@ -232,6 +232,13 @@ export function setPref(key, value) {
   if (key === 'layout') applyLayout();
   if (key === 'density') applyDensity();
   if (key === 'order' || key === 'unreadOnly') resetList();
+}
+
+/** Hides the toolbar's ways into the half of the app this person doesn't use. */
+export function applySections() {
+  $('#add-menu [data-add="save"]').hidden = !showsStash();
+  $('#add-menu [data-add="follow"]').hidden = !showsFeeds();
+  $('#capture-btn').hidden = !showsStash();
 }
 
 export function applyLayout() {

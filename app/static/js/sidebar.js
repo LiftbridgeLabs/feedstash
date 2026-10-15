@@ -9,7 +9,8 @@ import { navigate } from './router.js';
 import { captureDialog, ITEM_DRAG, moveItemToFolder } from './stash.js';
 import { newStashFolder, reorderStashFolders } from './stashlists.js';
 import {
-  els, feedById, feedIdsIn, scopeTitle, stashFolderById, STASH_VIEWS, state, stashViewRef, sumUnread, unreadFor,
+  els, feedById, feedIdsIn, scopeTitle, showsFeeds, showsStash, stashFolderById, STASH_VIEWS, state, stashViewRef,
+  sumUnread, unreadFor,
 } from './state.js';
 import { $, $$, esc, favicon, saveJSON } from './util.js';
 
@@ -34,6 +35,13 @@ export function scheduleNavRender() {
     renderNav();
     renderHeader();
   }, 120);
+}
+
+function feedFoldersHTML(folders, feeds, folderBlock) {
+  let html = folders.map((folder) => folderBlock(folder, feeds.filter((f) => f.folder_id === folder.id))).join('');
+  const uncategorized = feeds.filter((f) => f.folder_id == null);
+  if (uncategorized.length) html += folderBlock(null, uncategorized);
+  return html;
 }
 
 export function renderNav() {
@@ -69,7 +77,8 @@ export function renderNav() {
       </div>`;
   };
 
-  let html = `
+  let html = '';
+  if (showsFeeds()) html += `
     <div class="nav-section"><span>Feeds</span>
       <button class="icon-btn" data-action="feeds-menu" title="Follow a feed or make a folder">${icon('plus')}</button>
     </div>
@@ -80,10 +89,8 @@ export function renderNav() {
       <span class="nav-icon">${icon('bookmark')}</span><span class="nav-label">Read later</span>${count(state.tree.starred_count)}
     </div>`;
 
-  for (const folder of folders) html += folderBlock(folder, feeds.filter((f) => f.folder_id === folder.id));
-  const uncategorized = feeds.filter((f) => f.folder_id == null);
-  if (uncategorized.length) html += folderBlock(null, uncategorized);
-  if (!feeds.length && !folders.length) {
+  if (showsFeeds()) html += feedFoldersHTML(folders, feeds, folderBlock);
+  if (showsFeeds() && !feeds.length && !folders.length) {
     html += `<div class="nav-empty">You're not following anything yet. Use <b>+ Add → Follow a feed</b>, or bring
       feeds in from Feedly or an OPML file under <a href="#/settings">Settings</a>.</div>`;
   }
@@ -109,7 +116,7 @@ export function renderNav() {
       <span class="nav-icon">${icon('search')}</span><span class="nav-label">${esc(list.name)}</span>
       <button class="icon-btn more" data-menu="smart-list" data-id="${list.id}" title="Smart list options">${icon('more')}</button>
     </div>`;
-  html += `
+  if (showsStash()) html += `
     <div class="nav-section"><span>Stash</span>
       <button class="icon-btn" data-action="stash-menu" title="Save something or make a folder">${icon('plus')}</button>
     </div>

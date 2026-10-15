@@ -12,7 +12,7 @@ import { syncSearchBox } from './search.js';
 import { showSettings } from './settings.js';
 import { renderHeader, renderNav } from './sidebar.js';
 import { showStash } from './stash.js';
-import { els, feedById, folderById, newList, STASH_VIEWS, state } from './state.js';
+import { ARTICLE_SCOPES, els, feedById, folderById, newList, showsFeeds, showsStash, STASH_VIEWS, state } from './state.js';
 import { $ } from './util.js';
 
 const PANELS = { organize: 'organize', stash: 'stash', settings: 'settings' };
@@ -68,11 +68,20 @@ function showPanel(name) {
 
 export function applyRoute() {
   // Home (the brand link, or no hash) is All articles, unless nothing is followed yet: then it's the stash.
-  if (/^#?\/?$/.test(location.hash) && !state.tree.feeds.length) {
+  if (/^#?\/?$/.test(location.hash) && showsStash() && (!state.tree.feeds.length || !showsFeeds())) {
     navigate('#/stash/inbox');
     return;
   }
   const route = parseRoute();
+  // Someone who only uses one half of the app never lands in the other (an old link, a bookmark).
+  if (!showsFeeds() && (ARTICLE_SCOPES.has(route.scope) || route.scope === 'organize')) {
+    navigate('#/stash/inbox');
+    return;
+  }
+  if (!showsStash() && route.scope === 'stash') {
+    navigate('#/all');
+    return;
+  }
   const missing =
     (route.scope === 'folder' && !folderById(route.id)) ||
     (route.scope === 'feed' && !feedById(route.id));

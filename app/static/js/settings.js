@@ -5,11 +5,12 @@ import { modal, toast } from './dialogs.js';
 import { icon } from './icons.js';
 import { importSectionHTML, renderImportPlan, wireImport } from './importlinks.js';
 import { loadMail, mailSectionHTML, wireMail } from './mailbox.js';
-import { setPref } from './menus.js';
+import { applySections, setPref } from './menus.js';
 import { showShortcuts } from './shortcuts.js';
+import { renderNav } from './sidebar.js';
 import { loadTagSettings, tagsSectionHTML, wireTagSettings } from './tagsettings.js';
 import { loadRules, rulesSectionHTML, wireRules } from './rules.js';
-import { els, state } from './state.js';
+import { els, showsFeeds, showsStash, state } from './state.js';
 import { MODES, SCHEMES, setTheme, theme } from './theme.js';
 import { $, $$, agoLong, esc, fullDate } from './util.js';
 
@@ -49,6 +50,7 @@ export function showSettings() {
       <div class="swatches" data-schemes>${schemeButtons()}</div>
     </div>
 
+    <div data-only="feeds">
     <h3>Reading</h3>
     <div class="setting-row">
       <label for="mark-on-scroll">Mark as read while scrolling</label>
@@ -70,8 +72,9 @@ export function showSettings() {
       <p class="muted">Rename, reorder and move feeds, fix a feed's address, or unfollow.</p>
       <div class="org-actions"><a class="btn btn-sm" href="#/organize">${icon('sliders')}Organize feeds</a></div>
     </div>
+    </div>
 
-    ${tagsSectionHTML()}
+    <div data-only="stash">${tagsSectionHTML()}</div>
 
     <div data-accounts-section hidden>
       <h3>Accounts</h3>
@@ -87,9 +90,11 @@ export function showSettings() {
 
     ${importSectionHTML()}
 
+    <div data-only="stash">
     ${mailSectionHTML()}
 
     ${rulesSectionHTML()}
+    </div>
 
     <h3>Connected apps</h3>
     <div class="org-head">
@@ -135,6 +140,7 @@ export function showSettings() {
         </div>
       </div>
     </div>`;
+  applySettingsSections();
   renderImportPlan(els.settings); // files chosen before leaving Settings are still listed
   loadAccount();
   loadMail(els.settings);
@@ -184,6 +190,14 @@ async function loadAccount() {
       <select id="read-retention" data-settings-field="read-retention">${readRetentionOptions(me.read_retention_days)}</select>
       <p class="muted">Counted from when you read them. Articles in Read later are always kept, and everything else
         is still cleared once it's older than this server keeps articles.</p>
+    </div>
+    <div class="setting-row">
+      <label for="sections">Use</label>
+      <select id="sections" data-settings-field="sections">
+        ${SECTION_CHOICES.map(([value, label]) => `<option value="${value}" ${value === (me.sections || 'both') ? 'selected' : ''}>${label}</option>`).join('')}
+      </select>
+      <p class="muted">Only need one half of FeedStash? The other is hidden here and in the phone app. Nothing is
+        deleted, and feeds keep updating, so you can switch back any time.</p>
     </div>`;
   if (me.is_admin) {
     $('[data-accounts-section]', els.settings).hidden = false;
@@ -434,6 +448,29 @@ async function revoke(id, name) {
   toast(`Revoked ${name}`);
 }
 
+const SECTION_CHOICES = [['both', 'Feeds and Stash'], ['feeds', 'Feeds only'], ['stash', 'Stash only']];
+
+/** Shows only the Settings sections for the halves of the app this person uses. */
+function applySettingsSections() {
+  $$('[data-only="feeds"]', els.settings).forEach((el) => { el.hidden = !showsFeeds(); });
+  $$('[data-only="stash"]', els.settings).forEach((el) => { el.hidden = !showsStash(); });
+}
+
+async function saveSections(select) {
+  try {
+    me = await api('PATCH', '/api/account', { sections: select.value });
+  } catch (err) {
+    toast(err.message, { error: true });
+    select.value = state.sections;
+    return;
+  }
+  state.sections = me.sections;
+  applySections();
+  applySettingsSections();
+  renderNav();
+  toast({ both: 'Showing feeds and the stash', feeds: 'Showing feeds only', stash: 'Showing the stash only' }[me.sections]);
+}
+
 async function saveReadRetention(select) {
   const days = Number(select.value);
   try {
@@ -452,6 +489,7 @@ export function wireSettings() {
   wireTagSettings(els.settings);
   els.settings.addEventListener('change', (e) => {
     if (e.target.matches('[data-settings-field=read-retention]')) saveReadRetention(e.target);
+    if (e.target.matches('[data-settings-field=sections]')) saveSections(e.target);
     if (e.target.matches('[data-settings-field=theme-mode]')) setTheme({ mode: e.target.value });
     if (e.target.matches('[data-settings-field=mark-on-scroll]')) setPref('markOnScroll', e.target.value === 'on');
   });

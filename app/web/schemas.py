@@ -43,10 +43,12 @@ class UserOut(BaseModel):
     is_admin: bool
     has_password: bool
     read_retention_days: int
+    sections: Literal["both", "feeds", "stash"] = "both"  # which halves of the app this person uses
 
 
 class AccountPrefsIn(BaseModel):
-    read_retention_days: int = Field(ge=0, le=3650)  # 0 keeps read articles until the server's own cleanup
+    read_retention_days: int | None = Field(default=None, ge=0, le=3650)  # 0: only the server's own cleanup
+    sections: Literal["both", "feeds", "stash"] | None = None
 
 
 class AccountOut(BaseModel):

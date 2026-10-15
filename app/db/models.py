@@ -26,6 +26,7 @@ class User:
     has_password: bool = False
     created_at: int = 0
     read_retention_days: int = 30  # read articles are deleted this long after reading; 0 = only the server's cleanup
+    sections: str = "both"  # which halves of the app they use: both, feeds or stash
 
 
 @dataclass(frozen=True, slots=True)

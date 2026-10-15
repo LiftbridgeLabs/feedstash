@@ -9,7 +9,8 @@ from app.db.models import User
 from app.errors import Conflict, InvalidInput, NotFound
 
 _SELECT = """SELECT id, sub, email, name, picture, is_admin, password_hash IS NOT NULL AS has_password, created_at,
-    read_retention_days FROM users"""
+    read_retention_days, sections FROM users"""
+SECTIONS = ("both", "feeds", "stash")
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+$")
 
 
@@ -23,12 +24,19 @@ def _user(row: sqlite3.Row | None) -> User | None:
     return User(
         id=row["id"], sub=row["sub"], email=row["email"], name=row["name"], picture=row["picture"],
         is_admin=bool(row["is_admin"]), has_password=bool(row["has_password"]), created_at=row["created_at"],
-        read_retention_days=row["read_retention_days"],
+        read_retention_days=row["read_retention_days"], sections=row["sections"],
     )
 
 
 def set_read_retention(conn: sqlite3.Connection, user_id: int, days: int) -> None:
     if conn.execute("UPDATE users SET read_retention_days = ? WHERE id = ?", (days, user_id)).rowcount == 0:
+        raise NotFound("No such account")
+
+
+def set_sections(conn: sqlite3.Connection, user_id: int, sections: str) -> None:
+    if sections not in SECTIONS:
+        raise InvalidInput(f"sections must be one of: {', '.join(SECTIONS)}")
+    if conn.execute("UPDATE users SET sections = ? WHERE id = ?", (sections, user_id)).rowcount == 0:
         raise NotFound("No such account")
 
 

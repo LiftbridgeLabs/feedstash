@@ -6,12 +6,12 @@ import { pollForNew, showNewBanner, startAutoRefresh } from './autorefresh.js';
 import { toast } from './dialogs.js';
 import { hydrateIcons } from './icons.js';
 import { wireKeyboard } from './keyboard.js';
-import { applyDensity, applyLayout, openContextMenu, setPref, wireToolbar } from './menus.js';
+import { applyDensity, applyLayout, applySections, openContextMenu, setPref, wireToolbar } from './menus.js';
 import { wireOrganize } from './organize.js';
 import { applyRoute } from './router.js';
 import { wireSearch } from './search.js';
 import { wireSettings } from './settings.js';
-import { loadTree, wireNav } from './sidebar.js';
+import { loadTree, renderNav, wireNav } from './sidebar.js';
 import { wireSidebarWidth } from './sidebarwidth.js';
 import { captureDialog, stashArticle, wireStash } from './stash.js';
 import { state } from './state.js';
@@ -37,6 +37,9 @@ async function init() {
 
   try {
     const [me] = await Promise.all([api('GET', '/api/me'), loadTree()]);
+    state.sections = me.sections || 'both';
+    applySections();
+    renderNav();
     $('#user-name').textContent = me.name || me.email;
     $('#user-name').title = me.email;
     const { version } = state.tree;

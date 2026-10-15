@@ -53,9 +53,13 @@ async def sign_out_other_browsers(request: Request, user: SessionUserDep, db: Da
 
 @router.patch("/account", response_model=UserOut)
 def update_preferences(body: AccountPrefsIn, user: SessionUserDep, db: DatabaseDep) -> UserOut:
-    """Your own preferences: how long read articles are kept."""
+    """Your own preferences, each only when sent: how long read articles are kept, and which halves of the app you
+    use (the other is hidden, never deleted)."""
     with db.transaction() as conn:
-        users_repo.set_read_retention(conn, user.id, body.read_retention_days)
+        if body.read_retention_days is not None:
+            users_repo.set_read_retention(conn, user.id, body.read_retention_days)
+        if body.sections is not None:
+            users_repo.set_sections(conn, user.id, body.sections)
         return to_schema(UserOut, users_repo.get(conn, user.id))
 
 

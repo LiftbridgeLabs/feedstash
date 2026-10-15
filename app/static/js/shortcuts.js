@@ -1,6 +1,7 @@
 /* The keyboard shortcuts, listed once: the sheet that ? opens (and Settings links to) is built from this, so it
    can't drift from keyboard.js. */
 
+import { showsFeeds, showsStash } from './state.js';
 import { esc } from './util.js';
 
 export const SHORTCUTS = [
@@ -23,6 +24,15 @@ export const SHORTCUTS = [
   ]],
 ];
 
+const STASH_KEYS = new Set(['c', 'b']);
+
+/** The shortcuts for the halves of the app this person uses. */
+function visibleShortcuts() {
+  return SHORTCUTS
+    .filter(([group]) => showsFeeds() || group !== 'In a list of articles')
+    .map(([group, rows]) => [group, rows.filter(([combo]) => showsStash() || !STASH_KEYS.has(combo[0]))]);
+}
+
 const keys = (list) => list.map((key) => `<kbd>${esc(key)}</kbd>`).join(list[0] === 'Shift' ? ' + ' : ' ');
 
 let open = null;
@@ -35,7 +45,7 @@ export function showShortcuts() {
   dialog.innerHTML = `
     <form method="dialog">
       <h2>Keyboard shortcuts</h2>
-      ${SHORTCUTS.map(([group, rows]) => `
+      ${visibleShortcuts().map(([group, rows]) => `
         <h3>${esc(group)}</h3>
         <dl>${rows.map(([combo, what]) => `<div><dt>${keys(combo)}</dt><dd>${esc(what)}</dd></div>`).join('')}</dl>`).join('')}
       <p class="muted">Shortcuts don't work while you're typing in a box.</p>

@@ -268,6 +268,10 @@ MIGRATIONS: list[str] = [
     INSERT INTO item_images (item_id, position, image_name)
         SELECT id, 0, image_name FROM items WHERE image_name IS NOT NULL;
     """,
+    # 14: which halves of the app someone uses: both, feeds or stash. The other half is hidden, not deleted.
+    """
+    ALTER TABLE users ADD COLUMN sections TEXT NOT NULL DEFAULT 'both';
+    """,
 ]
 
 

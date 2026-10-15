@@ -12,7 +12,7 @@ import { closeMenus } from './menus.js';
 import { focusSearch } from './search.js';
 import { showShortcuts } from './shortcuts.js';
 import { captureDialog, closeStashItem, stashArticle } from './stash.js';
-import { ARTICLE_SCOPES, state } from './state.js';
+import { ARTICLE_SCOPES, showsStash, state } from './state.js';
 import { $ } from './util.js';
 
 function step(dir, open) {
@@ -48,7 +48,7 @@ export function wireKeyboard() {
       closeStashItem();
       return;
     }
-    if (e.key === 'c') {
+    if (e.key === 'c' && showsStash()) {
       e.preventDefault();
       captureDialog();
       return;
@@ -80,7 +80,7 @@ export function wireKeyboard() {
         break;
       case 'm': if (a) toggleRead(a); break;
       case 's': if (a) toggleStar(a); break;
-      case 'b': if (a) stashArticle(a); break;
+      case 'b': if (a && showsStash()) stashArticle(a); break;
       case 'r': refresh(); break;
       case 'A': markScope(state.route.scope, state.route.id, null); break;
       default: return;

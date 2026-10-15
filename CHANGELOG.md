@@ -12,6 +12,12 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
 - **Several pictures per item.** Save a few screenshots together, and add or remove pictures when you edit an
   item. The first one shows on the card.
 - **Snippets are now called Notes.** Nothing changes in what they do.
+- **One Save form.** Add a title, notes, links, pictures and tags in one place, and FeedStash works out what it is:
+  just a link is a Link, just pictures a Screenshot, anything else a Note.
+- **Use only the feeds or only the stash.** Settings → Your account → Use hides the half you don't need, here and
+  in the phone app. Nothing is deleted, so you can switch back any time.
+- **About FeedStash** in Settings, for admins: your version, whether an update is out, and where to suggest a
+  feature, report a problem or get help.
 
 ### Before you update
 - As always, it's recommended to create a backup before updating. This release adds to the database.

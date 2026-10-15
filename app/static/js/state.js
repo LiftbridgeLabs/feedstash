@@ -45,6 +45,7 @@ export const state = {
   activeId: null,
   orgFilter: '',
   articleQuery: '', // the toolbar search, while you're in the feeds
+  sections: 'both', // which halves of the app this person uses: both, feeds or stash (Settings → Your account)
   stash: {
     summary: { inbox: 0, total: 0, archived: 0, by_type: {}, folders: [], lists: [] },
     tags: [],
@@ -112,3 +113,7 @@ export function scopeTitle(scope, id) {
     default: return 'All articles';
   }
 }
+
+/** Whether this person uses the feeds / the stash. The other half is hidden, not deleted. */
+export const showsFeeds = () => state.sections !== 'stash';
+export const showsStash = () => state.sections !== 'feeds';

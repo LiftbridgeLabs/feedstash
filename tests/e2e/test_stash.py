@@ -32,7 +32,6 @@ def test_capture_review_filter_by_tag_and_archive(reader):
 
     reader.press("c")
     submit_dialog(reader, """
-      d.querySelector('input[value=snippet]').click();
       d.querySelector('textarea[name=content]').value = 'Remember this line';
       d.querySelector('input[name=title]').value = 'An idea';
       d.querySelector('input[name=tags]').value = 'ideas'""")
@@ -88,7 +87,7 @@ def test_paste_a_screenshot_into_the_capture_dialog(reader):
       const d = document.querySelector('dialog[open]');
       d.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
     })()""".replace("PNG_BASE64", base64.b64encode(PNG).decode()))
-    assert reader.js(f"{DIALOG}.querySelector('input[value=screenshot]').checked")
+    assert reader.wait_for(f"{DIALOG}.querySelector('[data-save-kind]').textContent === 'Saves as a Screenshot'")
     assert reader.wait_for(f"{DIALOG}.querySelectorAll('.picture-thumb').length === 1")
     submit_dialog(reader, "d.querySelector('input[name=title]').value = 'Pasted shot'")
 
@@ -173,3 +172,24 @@ def test_an_item_holds_several_pictures(reader):
     assert reader.wait_for("reader.state.stash.items.items.length === 1")
     reader.js("location.reload()")
     assert reader.wait_for("!!window.reader && [...document.querySelectorAll('#stash [data-type-filter]')].map(e => e.textContent.replace(/\\s+/g, ' ').trim()).join('|') === 'Notes 1|Screenshots 1'")
+
+
+def test_the_save_dialog_works_out_what_kind_of_item_it_is(reader):
+    reader.press("c")
+    assert reader.wait_for(f"!!{DIALOG}")
+    kind = f"{DIALOG}.querySelector('[data-save-kind]').textContent"
+    assert reader.js(kind) == ""
+    reader.js(f"(() => {{ const u = {DIALOG}.querySelector('.link-url'); u.value = 'example.com/page'; u.dispatchEvent(new Event('input', {{ bubbles: true }})); }})()")
+    assert reader.wait_for(f"{kind} === 'Saves as a Link'")
+    paste_png(reader, 1)
+    assert reader.wait_for(f"{kind} === 'Saves as a Note'")  # a link with a picture
+    reader.js(f"{DIALOG}.querySelector('[data-remove-added=\"0\"]').click()")
+    assert reader.wait_for(f"{kind} === 'Saves as a Link'")
+    submit_dialog(reader)
+    assert reader.wait_for(f"!{DIALOG}")
+    assert reader.js("reader.api('GET', '/api/items').then((items) => items[0].type)") == "link"
+
+    reader.press("c")
+    assert reader.wait_for(f"!!{DIALOG}")
+    reader.js(f"{DIALOG}.querySelector('form').requestSubmit()")
+    assert reader.wait_for(f"{DIALOG}.querySelector('.modal-error').textContent === 'Add a link, some notes or a picture'")

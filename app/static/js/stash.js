@@ -663,7 +663,7 @@ function picturePickerHTML() {
 }
 
 /** Wires the picker in `dialog`. `existing` are the item's pictures (paths on the server). */
-function wirePicturePicker(dialog, existing = []) {
+function wirePicturePicker(dialog, existing = [], onChange = () => {}) {
   const kept = [...existing];
   const added = []; // { file, url }
   const strip = $('[data-picture-strip]', dialog);
@@ -675,6 +675,7 @@ function wirePicturePicker(dialog, existing = []) {
       ...added.map((picture, i) => thumb(picture.url, `data-remove-added="${i}"`)),
     ].join('');
     strip.hidden = !kept.length && !added.length;
+    onChange();
   };
   const addFiles = (files) => {
     for (const file of files) {
@@ -790,53 +791,60 @@ async function deleteItem(item) {
   toast('Deleted');
 }
 
-export async function captureDialog({ type = 'link' } = {}) {
+/** What a save becomes, from what was filled in: just links is a Link, just pictures a Screenshot, else a Note. */
+function kindOf({ notes, links, pictures }) {
+  if (!notes && !pictures && links) return 'link';
+  if (!notes && !links && pictures) return 'screenshot';
+  return 'snippet';
+}
+
+export async function captureDialog() {
   let dialogEl = null;
   let pictures = null;
+  const filled = () => ({
+    notes: Boolean(($('textarea[name=content]', dialogEl)?.value || '').trim()),
+    links: collectLinks(dialogEl).length > 0,
+    pictures: Boolean(pictures?.files().length),
+  });
   const item = await modal({
     title: 'Save to your stash',
     confirmText: 'Save',
     busyText: 'Saving…',
     html: `
-      <div class="type-switch" role="radiogroup" aria-label="What are you saving?">
-        ${['link', 'snippet', 'screenshot'].map((t) => `
-          <label class="type-option"><input type="radio" name="type" value="${t}" ${t === type ? 'checked' : ''}>${icon(TYPE_ICONS[t])}${TYPE_LABELS[t]}</label>`).join('')}
-      </div>
-      <label data-for="snippet">Notes<textarea name="content" rows="6" placeholder="Paste text, or write up what these links are about"></textarea></label>
-      <div data-for="link snippet" class="field-group"><span class="field-label" data-links-label>Links</span>${linkRowsHTML()}</div>
-      <div data-for="screenshot">${picturePickerHTML()}</div>
       <label>Title (optional)<input type="text" name="title" maxlength="1000" autocomplete="off"></label>
+      <label>Notes<textarea name="content" rows="5" placeholder="Paste text, or write something about what you're saving"></textarea></label>
+      <div class="field-group"><span class="field-label">Links</span>${linkRowsHTML()}</div>
+      ${picturePickerHTML()}
       <label><span>Tags (optional) <small>(separate with commas)</small></span><input type="text" name="tags" placeholder="reading, later" autocomplete="off"></label>
-      ${folderFieldHTML(stashViewRef(state.route.id).kind === 'folder' ? stashViewRef(state.route.id).id : null)}`,
+      ${folderFieldHTML(stashViewRef(state.route.id).kind === 'folder' ? stashViewRef(state.route.id).id : null)}
+      <p class="muted save-kind" data-save-kind></p>`,
     onOpen: (dialog) => {
       dialogEl = dialog;
       wireLinkRows(dialog);
       wireFolderField(dialog);
-      pictures = wirePicturePicker(dialog);
-      const syncFields = () => {
-        const current = $('input[name=type]:checked', dialog).value;
-        $$('[data-for]', dialog).forEach((el) => { el.hidden = !el.dataset.for.split(' ').includes(current); });
-        $('[data-links-label]', dialog).textContent = current === 'snippet' ? 'Links (optional)' : 'Links';
+      const hint = $('[data-save-kind]', dialog);
+      const showKind = () => {
+        const now = filled();
+        hint.textContent = now.notes || now.links || now.pictures ? `Saves as a ${TYPE_LABELS[kindOf(now)]}` : '';
       };
-      $$('input[name=type]', dialog).forEach((radio) => radio.addEventListener('change', () => {
-        syncFields();
-        $('[data-for]:not([hidden]) input, [data-for]:not([hidden]) textarea', dialog)?.focus();
-      }));
+      pictures = wirePicturePicker(dialog, [], showKind);
+      dialog.addEventListener('input', showKind);
+      dialog.addEventListener('click', () => setTimeout(showKind)); // adding or removing a link row
       dialog.addEventListener('paste', (e) => {
         const files = pastedPictures(e);
         if (!files.length) return; // plain text pastes normally into the focused field
         e.preventDefault();
-        $('input[name=type][value=screenshot]', dialog).checked = true;
-        syncFields();
         pictures.addFiles(files);
       });
-      syncFields();
       attachFreshTagPicker($('input[name=tags]', dialog));
     },
     onSubmit: async (fd) => {
-      const kind = fd.get('type');
+      const content = fd.get('content') || '';
+      const links = collectLinks(dialogEl);
+      const [first, ...rest] = pictures.files();
+      if (!content.trim() && !links.length && !first) throw new Error('Add a link, some notes or a picture');
       const body = new FormData();
-      body.set('type', kind);
+      body.set('type', kindOf(filled()));
       body.set('source', 'web');
       for (const key of ['title', 'tags']) {
         const value = (fd.get(key) || '').trim();
@@ -844,22 +852,10 @@ export async function captureDialog({ type = 'link' } = {}) {
       }
       const folderId = await chosenFolderId(fd);
       if (folderId) body.set('folderId', folderId);
-      const links = collectLinks(dialogEl);
-      if (kind === 'link') {
-        if (!links.length) throw new Error('Enter a URL');
-        body.set('links', JSON.stringify(links));
-      } else if (kind === 'snippet') {
-        const content = fd.get('content') || '';
-        if (!content.trim() && !links.length) throw new Error('Enter some text or a link');
-        if (content.trim()) body.set('content', content);
-        if (links.length) body.set('links', JSON.stringify(links));
-      } else {
-        const [first, ...rest] = pictures.files();
-        if (!first) throw new Error('Choose or paste a picture');
-        body.set('image', first, first.name || 'pasted.png');
-        return uploadRest(await api('POST', '/api/items', body), rest);
-      }
-      return api('POST', '/api/items', body);
+      if (content.trim()) body.set('content', content);
+      if (links.length) body.set('links', JSON.stringify(links));
+      if (first) body.set('image', first, first.name || 'pasted.png');
+      return uploadRest(await api('POST', '/api/items', body), rest);
     },
   });
   if (!item || item === true) return;

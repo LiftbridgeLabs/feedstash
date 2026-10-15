@@ -49,3 +49,34 @@ def test_admins_see_about_with_where_to_get_help(reader):
     links = reader.js("[...document.querySelectorAll('[data-about-section] a')].map(a => a.getAttribute('href'))")
     assert any(link.endswith("/issues/new") for link in links)
     assert any(link.startswith("mailto:support@") for link in links)
+
+
+def test_someone_can_hide_the_feeds_or_the_stash(reader):
+    sections = "[...document.querySelectorAll('#nav .nav-section span')].map(e => e.textContent).join(',')"
+    assert reader.js(sections) == "Feeds,Stash"
+    reader.js("location.hash = '#/settings'")
+    assert reader.wait_for("!!document.querySelector('[data-settings-field=sections]')")
+
+    def use(value):
+        reader.js(f"(() => {{ const s = document.querySelector('[data-settings-field=sections]'); s.value = '{value}'; s.dispatchEvent(new Event('change', {{ bubbles: true }})); }})()")
+
+    use("stash")
+    assert reader.wait_for(f"{sections} === 'Stash'")
+    assert reader.js("document.querySelector('#add-menu [data-add=follow]').hidden")
+    assert reader.js("document.querySelector('[data-only=feeds]').hidden && !document.querySelector('[data-only=stash]').hidden")
+    reader.js("location.hash = '#/all'")  # an old link into the feeds
+    assert reader.wait_for("location.hash === '#/stash/inbox'")
+
+    use_from_anywhere = "reader.api('PATCH', '/api/account', { sections: 'feeds' })"
+    reader.js(use_from_anywhere)
+    reader.js("location.reload()")
+    assert reader.wait_for(f"!!window.reader && {sections} === 'Feeds'", timeout=20)
+    assert reader.wait_for("location.hash === '#/all'")  # the stash link it was on redirects too
+    assert reader.js("document.querySelector('#capture-btn').hidden")
+    reader.press("c")
+    assert not reader.js("!!document.querySelector('dialog[open]')")
+
+    reader.js("location.hash = '#/settings'")
+    assert reader.wait_for("!!document.querySelector('[data-settings-field=sections]')")
+    use("both")
+    assert reader.wait_for(f"{sections} === 'Feeds,Stash'")

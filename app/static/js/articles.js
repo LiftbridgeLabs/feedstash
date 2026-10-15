@@ -7,7 +7,7 @@ import { icon } from './icons.js';
 import { sanitize } from './sanitize.js';
 import { scheduleNavRender } from './sidebar.js';
 import { stashArticle } from './stash.js';
-import { ARTICLE_SCOPES, els, feedById, newList, state, unreadFor } from './state.js';
+import { ARTICLE_SCOPES, els, feedById, newList, showsStash, state, unreadFor } from './state.js';
 import { $, $$, ago, esc, favicon, fullDate } from './util.js';
 
 const PAGE_SIZE = 40;
@@ -132,7 +132,7 @@ function articleHTML(a) {
 function readerBar(a) {
   return `
     <button class="btn btn-sm" data-action="star" title="Read later (s)">${icon('star', a.starred)}${a.starred ? 'Saved' : 'Read later'}</button>
-    <button class="btn btn-sm" data-action="stash" title="Save to stash (b)">${icon('inbox')}Save to stash</button>
+    ${showsStash() ? `<button class="btn btn-sm" data-action="stash" title="Save to stash (b)">${icon('inbox')}Save to stash</button>` : ''}
     <button class="btn btn-sm" data-action="toggle-read" title="${a.read ? 'Keep unread' : 'Mark as read'} (m)">${icon(a.read ? 'circle' : 'check')}${a.read ? 'Keep unread' : 'Mark as read'}</button>
     ${a.url && state.tree.page_capture ? `<button class="btn btn-sm" data-action="full-text" title="Switch between the feed's text and the article's own page">${icon('article')}${showingFull(a) ? 'Feed version' : 'Full article'}</button>` : ''}
     ${a.url ? `<a class="btn btn-sm" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer" title="Visit website (v)">${icon('external')}Visit website</a>` : ''}
