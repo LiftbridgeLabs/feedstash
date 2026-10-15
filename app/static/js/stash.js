@@ -1,4 +1,5 @@
-/* The stash: links, snippets, screenshots and emails saved from anywhere. New items wait in the Inbox. */
+/* The stash: links, notes, screenshots and emails saved from anywhere. New items wait in the Inbox.
+   (Notes are type "snippet" in the API, which clients depend on.) */
 
 import { api } from './api.js';
 import { showNewBanner } from './autorefresh.js';
@@ -17,7 +18,7 @@ import { $, $$, ago, esc, fullDate, loadJSON, saveJSON } from './util.js';
 const PAGE_SIZE = 50;
 /** Drag type for moving a saved item onto a folder in the sidebar. */
 export const ITEM_DRAG = 'application/x-feedstash-item';
-export const TYPE_LABELS = { link: 'Link', snippet: 'Snippet', screenshot: 'Screenshot', email: 'Email' };
+export const TYPE_LABELS = { link: 'Link', snippet: 'Note', screenshot: 'Screenshot', email: 'Email' };
 const TYPE_ICONS = { link: 'external', snippet: 'text', screenshot: 'image', email: 'mail' };
 
 /* ---- list, grid or tiles: chosen per view (folder, smart list, tag, kind…), kept in this browser */
@@ -84,6 +85,8 @@ const httpUrl = (url) => (/^https?:\/\//i.test(url || '') ? url : null);
 const firstLine = (text) => (text || '').trim().split('\n')[0].slice(0, 200);
 const itemTitle = (item) => item.title || (item.type === 'link' ? '' : firstLine(item.content))
   || item.links[0]?.label || item.preview?.title || item.url || '(untitled)';
+/** Every picture, for servers older than several pictures per item too. */
+const picturesOf = (item) => item.images || (item.imagePath ? [item.imagePath] : []);
 const isSaving = (item) => state.tree.page_capture && ['pending', 'working'].includes(item.preview?.status);
 
 function hostOf(url) {
@@ -302,7 +305,7 @@ function renderEnd() {
     title = 'Nothing matches your search';
   } else if (view === 'inbox') {
     title = 'Inbox zero';
-    sub = 'Save links, snippets and screenshots with + Add, the browser extension, email, or your phone.';
+    sub = 'Save links, notes and screenshots with + Add, the browser extension, email, or your phone.';
   } else if (view === 'archived') {
     title = 'Nothing archived yet';
   }
@@ -326,6 +329,7 @@ function itemHTML(item) {
             ${host ? `<span class="dot">·</span><span class="feed-name">${esc(host)}</span>` : ''}
             ${folder ? `<span class="dot">·</span><span class="folder-name">${icon('folder')}${esc(folder.name)}</span>` : ''}
             ${item.links.length > 1 ? `<span class="dot">·</span><span class="link-count">${item.links.length} links</span>` : ''}
+            ${picturesOf(item).length > 1 ? `<span class="dot">·</span><span class="picture-count">${icon('image')}${picturesOf(item).length}</span>` : ''}
             <span class="dot">·</span><span class="age" title="${esc(fullDate(ts))}">${ago(ts)}</span>
             <span class="dot">·</span><span class="source">via ${esc(item.source)}</span>
             ${item.tags.map((tag) => `<span class="tag">#${esc(tag)}</span>`).join('')}
@@ -377,7 +381,7 @@ function readerHTML(item) {
       <button class="btn btn-sm" data-stash-action="close">${icon('x')}Close</button>
     </div>
     <div class="reader-body stash-body">
-      ${item.imagePath ? `<a href="${esc(item.imagePath)}" target="_blank" rel="noopener"><img src="${esc(item.imagePath)}" alt=""></a>` : ''}
+      ${picturesOf(item).map((path) => `<a href="${esc(path)}" target="_blank" rel="noopener"><img src="${esc(path)}" alt=""></a>`).join('')}
       ${item.content ? `<div class="stash-text">${esc(item.content)}</div>` : ''}
       ${linksHTML(item)}
     </div>
@@ -644,8 +648,83 @@ export function moveItemToFolder(itemId, folderId) {
   });
 }
 
+/* ---- pictures in the Save and Edit dialogs: thumbnails with a remove button; more from a file picker or a paste */
+
+function picturePickerHTML() {
+  return `
+    <div class="field-group picture-picker">
+      <span class="field-label">Pictures</span>
+      <div class="picture-strip" data-picture-strip></div>
+      <div class="picture-actions">
+        <label class="btn btn-sm">${icon('plus')}Add pictures<input type="file" accept="image/*" multiple hidden data-picture-input></label>
+        <span class="muted">or paste one (Ctrl+V)</span>
+      </div>
+    </div>`;
+}
+
+/** Wires the picker in `dialog`. `existing` are the item's pictures (paths on the server). */
+function wirePicturePicker(dialog, existing = []) {
+  const kept = [...existing];
+  const added = []; // { file, url }
+  const strip = $('[data-picture-strip]', dialog);
+  const thumb = (src, attr) => `<figure class="picture-thumb"><img src="${esc(src)}" alt="">
+    <button type="button" class="icon-btn" ${attr} title="Remove">${icon('x')}</button></figure>`;
+  const render = () => {
+    strip.innerHTML = [
+      ...kept.map((path, i) => thumb(path, `data-remove-kept="${i}"`)),
+      ...added.map((picture, i) => thumb(picture.url, `data-remove-added="${i}"`)),
+    ].join('');
+    strip.hidden = !kept.length && !added.length;
+  };
+  const addFiles = (files) => {
+    for (const file of files) {
+      if (file.type.startsWith('image/')) added.push({ file, url: URL.createObjectURL(file) });
+    }
+    render();
+  };
+  strip.addEventListener('click', (e) => {
+    const button = e.target.closest('button');
+    if (!button) return;
+    if (button.dataset.removeKept != null) kept.splice(Number(button.dataset.removeKept), 1);
+    else added.splice(Number(button.dataset.removeAdded), 1);
+    render();
+  });
+  $('[data-picture-input]', dialog).addEventListener('change', (e) => {
+    addFiles([...e.target.files]);
+    e.target.value = '';
+  });
+  dialog.addEventListener('close', () => added.forEach((picture) => URL.revokeObjectURL(picture.url)));
+  render();
+  return { kept: () => [...kept], files: () => added.map((picture) => picture.file), addFiles };
+}
+
+const pastedPictures = (e) => [...(e.clipboardData?.files || [])].filter((file) => file.type.startsWith('image/'));
+
+/** Adds pictures one request at a time (a request's size is capped). Returns the updated item, or null. */
+async function uploadPictures(itemId, files) {
+  let item = null;
+  for (const file of files) {
+    const body = new FormData();
+    body.append('image', file, file.name || 'pasted.png');
+    item = await api('POST', `/api/items/${itemId}/images`, body);
+  }
+  return item;
+}
+
+/** Uploads the rest after the item is saved; a failure is reported without losing what was saved. */
+async function uploadRest(item, files) {
+  if (!files.length) return item;
+  try {
+    return (await uploadPictures(item.id, files)) || item;
+  } catch (err) {
+    toast(`Saved, but not every picture was added: ${err.message}`, { error: true });
+    return (await api('GET', `/api/items/${item.id}`).catch(() => null)) || item;
+  }
+}
+
 async function editItem(item) {
   let dialogEl = null;
+  let pictures = null;
   const updated = await modal({
     title: 'Edit',
     confirmText: 'Save',
@@ -654,20 +733,35 @@ async function editItem(item) {
       <label>Notes<textarea name="content" rows="4">${esc(item.content || '')}</textarea></label>
       <div class="field-group"><span class="field-label">Links <small>(the first is the primary link)</small></span>${linkRowsHTML(item.links)}</div>
       <label><span>Tags <small>(separate with commas)</small></span><input type="text" name="tags" value="${esc(item.tags.join(', '))}" placeholder="reading, later" autocomplete="off"></label>
+      ${picturePickerHTML()}
       ${folderFieldHTML(item.folderId)}`,
     onOpen: (dialog) => {
       dialogEl = dialog;
       wireLinkRows(dialog);
       wireFolderField(dialog);
+      pictures = wirePicturePicker(dialog, picturesOf(item));
+      dialog.addEventListener('paste', (e) => {
+        const files = pastedPictures(e);
+        if (!files.length) return;
+        e.preventDefault();
+        pictures.addFiles(files);
+      });
       attachFreshTagPicker($('input[name=tags]', dialog));
     },
-    onSubmit: async (fd) => api('PATCH', `/api/items/${item.id}`, {
-      title: (fd.get('title') || '').trim() || null,
-      content: fd.get('content') || null,
-      links: collectLinks(dialogEl),
-      tags: fd.get('tags') || '',
-      folderId: await chosenFolderId(fd),
-    }),
+    onSubmit: async (fd) => {
+      const fields = {
+        title: (fd.get('title') || '').trim() || null,
+        content: fd.get('content') || null,
+        links: collectLinks(dialogEl),
+        tags: fd.get('tags') || '',
+        folderId: await chosenFolderId(fd),
+      };
+      const before = picturesOf(item);
+      const kept = pictures.kept();
+      if (kept.length !== before.length || kept.some((path, i) => path !== before[i])) fields.images = kept;
+      const saved = await api('PATCH', `/api/items/${item.id}`, fields);
+      return uploadRest(saved, pictures.files());
+    },
   });
   if (!updated || updated === true) return;
   applyUpdate(updated);
@@ -679,7 +773,7 @@ async function deleteItem(item) {
     title: 'Delete this item?',
     confirmText: 'Delete',
     danger: true,
-    html: `<p>“${esc(itemTitle(item))}” will be removed for good${item.imagePath ? ', along with its image' : ''}.</p>`,
+    html: `<p>“${esc(itemTitle(item))}” will be removed for good${picturesOf(item).length ? `, along with its ${picturesOf(item).length > 1 ? 'pictures' : 'picture'}` : ''}.</p>`,
     onSubmit: () => api('DELETE', `/api/items/${item.id}`),
   });
   if (!ok) return;
@@ -697,8 +791,8 @@ async function deleteItem(item) {
 }
 
 export async function captureDialog({ type = 'link' } = {}) {
-  let pastedImage = null;
   let dialogEl = null;
+  let pictures = null;
   const item = await modal({
     title: 'Save to your stash',
     confirmText: 'Save',
@@ -710,11 +804,7 @@ export async function captureDialog({ type = 'link' } = {}) {
       </div>
       <label data-for="snippet">Notes<textarea name="content" rows="6" placeholder="Paste text, or write up what these links are about"></textarea></label>
       <div data-for="link snippet" class="field-group"><span class="field-label" data-links-label>Links</span>${linkRowsHTML()}</div>
-      <div data-for="screenshot" class="capture-image">
-        <label>Image<input type="file" name="image" accept="image/*"></label>
-        <p class="muted">Or paste an image (Ctrl+V) while this dialog is open.</p>
-        <img class="capture-preview" alt="" hidden>
-      </div>
+      <div data-for="screenshot">${picturePickerHTML()}</div>
       <label>Title (optional)<input type="text" name="title" maxlength="1000" autocomplete="off"></label>
       <label><span>Tags (optional) <small>(separate with commas)</small></span><input type="text" name="tags" placeholder="reading, later" autocomplete="off"></label>
       ${folderFieldHTML(stashViewRef(state.route.id).kind === 'folder' ? stashViewRef(state.route.id).id : null)}`,
@@ -722,11 +812,7 @@ export async function captureDialog({ type = 'link' } = {}) {
       dialogEl = dialog;
       wireLinkRows(dialog);
       wireFolderField(dialog);
-      const preview = $('.capture-preview', dialog);
-      const showPreview = (file) => {
-        preview.src = URL.createObjectURL(file);
-        preview.hidden = false;
-      };
+      pictures = wirePicturePicker(dialog);
       const syncFields = () => {
         const current = $('input[name=type]:checked', dialog).value;
         $$('[data-for]', dialog).forEach((el) => { el.hidden = !el.dataset.for.split(' ').includes(current); });
@@ -736,18 +822,13 @@ export async function captureDialog({ type = 'link' } = {}) {
         syncFields();
         $('[data-for]:not([hidden]) input, [data-for]:not([hidden]) textarea', dialog)?.focus();
       }));
-      $('input[name=image]', dialog).addEventListener('change', (e) => {
-        pastedImage = null;
-        if (e.target.files[0]) showPreview(e.target.files[0]);
-      });
       dialog.addEventListener('paste', (e) => {
-        const file = [...(e.clipboardData?.files || [])].find((f) => f.type.startsWith('image/'));
-        if (!file) return; // plain text pastes normally into the focused field
+        const files = pastedPictures(e);
+        if (!files.length) return; // plain text pastes normally into the focused field
         e.preventDefault();
-        pastedImage = file;
         $('input[name=type][value=screenshot]', dialog).checked = true;
         syncFields();
-        showPreview(file);
+        pictures.addFiles(files);
       });
       syncFields();
       attachFreshTagPicker($('input[name=tags]', dialog));
@@ -773,9 +854,10 @@ export async function captureDialog({ type = 'link' } = {}) {
         if (content.trim()) body.set('content', content);
         if (links.length) body.set('links', JSON.stringify(links));
       } else {
-        const file = pastedImage || fd.get('image');
-        if (!file || !file.size) throw new Error('Choose or paste an image');
-        body.set('image', file, file.name || 'pasted.png');
+        const [first, ...rest] = pictures.files();
+        if (!first) throw new Error('Choose or paste a picture');
+        body.set('image', first, first.name || 'pasted.png');
+        return uploadRest(await api('POST', '/api/items', body), rest);
       }
       return api('POST', '/api/items', body);
     },

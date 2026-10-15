@@ -20,7 +20,6 @@ def stash_article(conn: sqlite3.Connection, user_id: int, article: Article, *, n
         title=(article.title or "").strip()[:MAX_TITLE] or None,
         content=article.summary or (None if article.url else article.title),
         url=article.url,
-        image_name=None,
         source="feed",
         tags=[],
         now=now,

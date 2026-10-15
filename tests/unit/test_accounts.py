@@ -65,7 +65,7 @@ def test_admin_changes_keep_an_admin_and_removing_an_account_removes_its_images(
     images = ImageStore(tmp_path / "uploads")
     image_name = images.save(PNG)
     with db.transaction() as conn:
-        items.create(conn, kid.id, type="screenshot", title=None, content=None, url=None, image_name=image_name,
+        items.create(conn, kid.id, type="screenshot", title=None, content=None, url=None, image_names=[image_name],
                      source="test", tags=[], now=1)
     with pytest.raises(InvalidInput):
         accounts.delete_account(db, images, acting_user_id=kid.id, user_id=kid.id)

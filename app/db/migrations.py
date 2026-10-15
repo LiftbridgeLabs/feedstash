@@ -256,6 +256,18 @@ MIGRATIONS: list[str] = [
     """
     ALTER TABLE users ADD COLUMN seen_version TEXT;
     """,
+    # 13: several pictures per item, in order. items.image_name keeps mirroring the first, for clients that only
+    # know one (imagePath), the way items.url mirrors the first link.
+    """
+    CREATE TABLE item_images (
+        item_id    INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+        position   INTEGER NOT NULL,
+        image_name TEXT NOT NULL,
+        PRIMARY KEY (item_id, position)
+    );
+    INSERT INTO item_images (item_id, position, image_name)
+        SELECT id, 0, image_name FROM items WHERE image_name IS NOT NULL;
+    """,
 ]
 
 

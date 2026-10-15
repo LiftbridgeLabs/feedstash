@@ -57,7 +57,7 @@ def import_links(db: Database, user_id: int, links: list[ImportedLink]) -> Impor
             saved_at = link.saved_at if link.saved_at and EARLIEST_SAVE <= link.saved_at <= current else current
             items_repo.create(
                 conn, user_id, type="link", title=(link.title or "").strip()[:MAX_TITLE] or None, content=None,
-                url=url, image_name=None, source="import", tags=link.tags, now=saved_at,
+                url=url, source="import", tags=link.tags, now=saved_at,
                 reviewed=link.reviewed or link.archived, archived=link.archived,
             )
             added += 1

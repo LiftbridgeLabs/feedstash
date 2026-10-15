@@ -43,7 +43,7 @@ def save_message(db: Database, images: ImageStore, account: MailAccount, mail: P
             if mail_repo.already_saved(conn, account.id, mail.message_id):
                 return False
     capture = stash.Capture(
-        type="email", title=mail.subject, content=mail.body or None, image=mail.image,
+        type="email", title=mail.subject, content=mail.body or None, images=[mail.image] if mail.image else [],
         links=[ItemLink(url=url) for url in mail.links],
     )
     stash.capture(db, images, account.user_id, capture, default_source="email")

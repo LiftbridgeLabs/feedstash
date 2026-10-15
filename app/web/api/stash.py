@@ -42,15 +42,20 @@ router = APIRouter(prefix="/api")
 uploads_router = APIRouter(include_in_schema=False)
 
 
+async def _read_images(form) -> list[bytes]:
+    """Every `image` part, in order. The whole request is capped (MAX_REQUEST_BYTES), so several large pictures go
+    one per request to POST /api/items/{id}/images."""
+    return [await upload.read(MAX_IMAGE_BYTES + 1) for upload in form.getlist("image") if isinstance(upload, UploadFile)]
+
+
 async def _read_capture(request: Request) -> stash.Capture:
     """Items are posted as multipart/urlencoded forms (extension, phone apps, email worker) or as JSON."""
     content_type = request.headers.get("content-type", "")
     if content_type.startswith(("multipart/form-data", "application/x-www-form-urlencoded")):
-        async with request.form(max_part_size=MAX_FIELD_BYTES, max_files=1) as form:
+        async with request.form(max_part_size=MAX_FIELD_BYTES, max_files=items_repo.MAX_IMAGES) as form:
             fields = {key: value for key, value in form.items() if isinstance(value, str)}
-            upload = form.get("image")
-            image = await upload.read(MAX_IMAGE_BYTES + 1) if isinstance(upload, UploadFile) else None
-        return stash.Capture.from_fields(fields, image=image)
+            images = await _read_images(form)
+        return stash.Capture.from_fields(fields, images=images)
     try:
         fields = await request.json()
     except ValueError:
@@ -97,14 +102,25 @@ def get_item(item_id: int, user: UserDep, db: DatabaseDep) -> StashItemOut:
 
 
 @router.patch("/items/{item_id}", response_model=StashItemOut)
-async def update_item(item_id: int, request: Request, user: UserDep, db: DatabaseDep) -> StashItemOut:
+async def update_item(item_id: int, request: Request, user: UserDep, db: DatabaseDep, images: ImagesDep) -> StashItemOut:
     try:
         fields = await request.json()
     except ValueError:
         raise InvalidInput("Send the changes as a JSON object") from None
     if not isinstance(fields, dict):
         raise InvalidInput("Send the changes as a JSON object")
-    item = await run_in_threadpool(stash.update, db, user.id, item_id, fields)
+    item = await run_in_threadpool(stash.update, db, images, user.id, item_id, fields)
+    return StashItemOut.from_item(item)
+
+
+@router.post("/items/{item_id}/images", response_model=StashItemOut)
+async def add_item_images(item_id: int, request: Request, user: UserDep, db: DatabaseDep, images: ImagesDep) -> StashItemOut:
+    """Adds pictures (multipart `image` parts) after the item's others."""
+    if not request.headers.get("content-type", "").startswith("multipart/form-data"):
+        raise InvalidInput("Send the pictures as multipart form data")
+    async with request.form(max_part_size=MAX_FIELD_BYTES, max_files=items_repo.MAX_IMAGES) as form:
+        data = await _read_images(form)
+    item = await run_in_threadpool(stash.add_images, db, images, user.id, item_id, data)
     return StashItemOut.from_item(item)
 
 

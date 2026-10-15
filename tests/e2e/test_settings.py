@@ -39,3 +39,13 @@ def test_connect_a_phone_shows_a_qr_code(reader):
     reader.js(f"{button}.click()")
     assert reader.wait_for("!!document.querySelector('dialog[open] .qr-code svg')")
     assert reader.wait_for("document.querySelector('[data-token-list]').textContent.includes('Phone or iPad')")
+
+
+def test_admins_see_about_with_where_to_get_help(reader):
+    reader.js("location.hash = '#/settings'")
+    assert reader.wait_for("!document.querySelector('[data-about-section]')?.hidden")
+    about = reader.js("document.querySelector('[data-about-section]').textContent")
+    assert "Development build" in about and "Suggest a feature" in about
+    links = reader.js("[...document.querySelectorAll('[data-about-section] a')].map(a => a.getAttribute('href'))")
+    assert any(link.endswith("/issues/new") for link in links)
+    assert any(link.startswith("mailto:support@") for link in links)

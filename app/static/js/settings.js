@@ -25,6 +25,9 @@ function readRetentionOptions(current) {
   return choices.map(([days, label]) => `<option value="${days}" ${days === current ? 'selected' : ''}>${label}</option>`).join('');
 }
 
+const REPO = 'https://github.com/LiftbridgeLabs/feedstash';
+const SUPPORT_EMAIL = 'support@liftbridgelabs.app';
+
 let me = null;
 
 export function showSettings() {
@@ -116,6 +119,21 @@ export function showSettings() {
           <code>${esc(origin)}/api/greader.php</code> instead), your email as the username, and a token as the
           password. They show your feeds; the stash stays here.</li>
       </ul>
+    </div>
+
+    <div data-about-section hidden>
+      <h3>About FeedStash</h3>
+      <p data-about-version class="muted"></p>
+      <div class="org-head">
+        <p class="muted">FeedStash is open source. Suggest a feature or report a problem on GitHub, or email
+          support.</p>
+        <div class="org-actions">
+          <a class="btn btn-sm" href="${REPO}/issues/new" target="_blank" rel="noopener">Suggest a feature or report a problem</a>
+          <a class="btn btn-sm" href="${REPO}/releases" target="_blank" rel="noopener">Release notes</a>
+          <a class="btn btn-sm" href="${REPO}#readme" target="_blank" rel="noopener">Documentation</a>
+          <a class="btn btn-sm" data-about-mail href="mailto:${SUPPORT_EMAIL}">${icon('mail')}Email support</a>
+        </div>
+      </div>
     </div>`;
   renderImportPlan(els.settings); // files chosen before leaving Settings are still listed
   loadAccount();
@@ -170,6 +188,7 @@ async function loadAccount() {
   if (me.is_admin) {
     $('[data-accounts-section]', els.settings).hidden = false;
     loadAccounts();
+    loadAbout();
   }
 }
 
@@ -193,6 +212,30 @@ async function signOutOthers() {
     toast('Signed out of every other browser. Apps that use a token stay connected.');
   } catch (err) {
     toast(err.message, { error: true });
+  }
+}
+
+/* ---- about (admins): version, updates, where to get help */
+
+async function loadAbout() {
+  const section = $('[data-about-section]', els.settings);
+  if (!section) return;
+  section.hidden = false;
+  const { version } = state.tree;
+  const line = $('[data-about-version]', section);
+  line.textContent = version === 'dev' ? 'Development build' : `Version ${version}`;
+  $('[data-about-mail]', section).href = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`FeedStash ${version}`)}`;
+  let info;
+  try {
+    info = await api('GET', '/api/admin/updates');
+  } catch {
+    return;
+  }
+  if (!line.isConnected) return;
+  if (info.latest) {
+    line.innerHTML = `Version ${esc(version)} · <a href="${esc(info.latest_url)}" target="_blank" rel="noopener">${esc(info.latest)} is out</a>`;
+  } else if (version !== 'dev') {
+    line.textContent = `Version ${version} · up to date`;
   }
 }
 

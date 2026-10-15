@@ -421,6 +421,15 @@ body.resizing { cursor: col-resize; user-select: none; }
 
 /* stash folders, smart lists and rules */
 .stash-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.picture-strip { display: flex; flex-wrap: wrap; gap: 8px; }
+.picture-thumb { position: relative; margin: 0; width: 84px; height: 84px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: var(--bg-hover); }
+.picture-thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+.picture-thumb .icon-btn { position: absolute; top: 3px; right: 3px; width: 24px; height: 24px; background: var(--bg-elev); box-shadow: var(--shadow); }
+.picture-thumb .icon-btn .i { width: 14px; height: 14px; }
+.picture-actions { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.picture-count { display: inline-flex; align-items: center; gap: 3px; }
+.picture-count .i { width: 13px; height: 13px; }
+.stash-body img + a img, .stash-body a + a img { margin-top: 10px; }
 .stash-tool-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
 .layout-switch { margin-left: auto; display: flex; gap: 2px; padding: 2px; border: 1px solid var(--border); border-radius: 8px; }
 .layout-switch .icon-btn { width: 30px; height: 28px; color: var(--text-muted); }
@@ -498,8 +507,6 @@ dialog.modal { width: min(520px, calc(100vw - 32px)); }
 .type-option:has(input:focus-visible) { outline: 2px solid var(--accent); }
 .modal-body textarea { padding: 9px 11px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; font-weight: 400; resize: vertical; }
 .modal-body textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
-.capture-image { display: flex; flex-direction: column; gap: 6px; }
-.capture-preview { max-width: 100%; max-height: 200px; object-fit: contain; border-radius: 6px; border: 1px solid var(--border); align-self: flex-start; }
 
 /* settings */
 .setup { font-size: 14px; line-height: 1.6; }
@@ -640,6 +647,7 @@ dialog.whats-new { width: min(560px, calc(100vw - 32px)); }
 .stash-list.cards .item-meta .dot, .stash-list.cards .item-meta .age, .stash-list.cards .item-meta .source,
 .stash-list.cards .item-meta .link-count, .stash-list.cards .item-meta .folder-name,
 .stash-list.cards .item-meta .type-badge { display: none; }
+.stash-list.cards .item-meta .picture-count { order: -1; }
 .stash-list.cards .item-meta .feed-name { max-width: 100%; }
 .stash-list.cards .item-summary { display: -webkit-box; -webkit-line-clamp: 4; font-size: 13px; }
 .stash-list.cards-tiles .item-summary { -webkit-line-clamp: 3; }

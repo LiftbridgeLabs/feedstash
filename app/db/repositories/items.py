@@ -1,4 +1,4 @@
-"""Stash items (links, snippets, screenshots, emails) and their tags."""
+"""Stash items (links, notes, screenshots, emails), their tags, links and pictures."""
 
 import re
 import sqlite3
@@ -12,6 +12,7 @@ from app.errors import InvalidInput, NotFound
 ITEM_TYPES = ("link", "snippet", "screenshot", "email")
 MAX_PAGE_SIZE = 200
 MAX_TAG_LENGTH = 50
+MAX_IMAGES = 20
 
 _SELECT = """SELECT i.id, i.type, i.title, i.content, i.url, i.image_name, i.source, i.reviewed_at, i.archived_at,
     i.created_at, i.updated_at, i.folder_id, i.feed_id FROM items i"""
@@ -65,16 +66,31 @@ def _links_by_item(conn: sqlite3.Connection, item_ids: Sequence[int]) -> dict[in
     return links
 
 
+def _images_by_item(conn: sqlite3.Connection, item_ids: Sequence[int]) -> dict[int, list[str]]:
+    images: dict[int, list[str]] = {item_id: [] for item_id in item_ids}
+    if not item_ids:
+        return images
+    rows = conn.execute(
+        f"""SELECT item_id, image_name FROM item_images
+            WHERE item_id IN ({','.join('?' * len(item_ids))}) ORDER BY position""",
+        list(item_ids),
+    )
+    for row in rows:
+        images[row["item_id"]].append(row["image_name"])
+    return images
+
+
 def _items(conn: sqlite3.Connection, rows: Sequence[sqlite3.Row]) -> list[StashItem]:
     ids = [row["id"] for row in rows]
     tags, links, pages = _tags_by_item(conn, ids), _links_by_item(conn, ids), pages_repo.previews(conn, ids)
+    images = _images_by_item(conn, ids)
     return [
         StashItem(
             id=row["id"], type=row["type"], title=row["title"], content=row["content"], url=row["url"],
             image_name=row["image_name"], source=row["source"], reviewed=row["reviewed_at"] is not None,
             archived=row["archived_at"] is not None, created_at=row["created_at"], updated_at=row["updated_at"],
             tags=tags[row["id"]], links=links[row["id"]], page=pages.get(row["id"]), folder_id=row["folder_id"],
-            feed_id=row["feed_id"],
+            feed_id=row["feed_id"], image_names=images[row["id"]],
         )
         for row in rows
     ]
@@ -94,6 +110,18 @@ def _set_links(conn: sqlite3.Connection, item_id: int, links: Sequence[ItemLink]
         "INSERT INTO item_links (item_id, url, label, position) VALUES (?, ?, ?, ?)",
         [(item_id, link.url, link.label, position) for position, link in enumerate(links)],
     )
+
+
+def _set_images(conn: sqlite3.Connection, item_id: int, names: Sequence[str]) -> None:
+    """Replaces the item's pictures, in this order, and mirrors the first in items.image_name."""
+    if len(names) > MAX_IMAGES:
+        raise InvalidInput(f"An item can have at most {MAX_IMAGES} pictures")
+    conn.execute("DELETE FROM item_images WHERE item_id = ?", (item_id,))
+    conn.executemany(
+        "INSERT INTO item_images (item_id, position, image_name) VALUES (?, ?, ?)",
+        [(item_id, position, name) for position, name in enumerate(names)],
+    )
+    conn.execute("UPDATE items SET image_name = ? WHERE id = ?", (names[0] if names else None, item_id))
 
 
 def _set_tags(conn: sqlite3.Connection, user_id: int, item_id: int, tags: Iterable[str]) -> None:
@@ -270,10 +298,10 @@ def create(
     title: str | None,
     content: str | None,
     url: str | None,
-    image_name: str | None,
     source: str,
     tags: Iterable[str],
     now: int,
+    image_names: Sequence[str] = (),
     links: Iterable[ItemLink] = (),
     reviewed: bool = False,
     archived: bool = False,
@@ -288,11 +316,13 @@ def create(
     item_id = conn.execute(
         """INSERT INTO items (user_id, type, title, content, url, image_name, source, reviewed_at, archived_at,
                created_at, updated_at, folder_id, feed_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (user_id, type, title, content, links[0].url if links else None, image_name, source,
+        (user_id, type, title, content, links[0].url if links else None, image_names[0] if image_names else None, source,
          now if reviewed else None, now if archived else None, now, now, folder_id, feed_id),
     ).lastrowid
     _set_tags(conn, user_id, item_id, tags)
     _set_links(conn, item_id, links)
+    if image_names:
+        _set_images(conn, item_id, image_names)
     pages_repo.queue(conn, item_id, links[0].url if links else None, now=now)
     search_index.index_item(conn, item_id)
     return get(conn, user_id, item_id)
@@ -312,13 +342,19 @@ def update(
     tags: Iterable[str] | None = None,
     links: Iterable[ItemLink] | None = None,
     folder_id=_UNSET,
+    image_names: Sequence[str] | None = None,
 ) -> StashItem:
     """Changes only what is passed. Re-marking an item reviewed or archived keeps the original time.
 
     `links` replaces the whole list. `url` on its own swaps the primary (first) link and keeps the rest.
-    `folder_id=None` takes the item out of its folder.
+    `folder_id=None` takes the item out of its folder. `image_names` keeps those of the item's pictures, in that
+    order: it can remove and reorder them, never add (adding is `add_images`).
     """
     current = get(conn, user_id, item_id)
+    if image_names is not None:
+        image_names = list(dict.fromkeys(image_names))
+        if any(name not in current.image_names for name in image_names):
+            raise InvalidInput("That picture isn't part of this item")
     if folder_id is not _UNSET:
         _check_folder(conn, user_id, folder_id)
     new_links = None
@@ -343,7 +379,7 @@ def update(
         if flag is not None:
             sets.append(f"{column} = CASE WHEN ? THEN COALESCE({column}, ?) ELSE NULL END")
             params += [int(flag), now]
-    if sets or tags is not None:
+    if sets or tags is not None or image_names is not None:
         sets.append("updated_at = ?")
         params.append(now)
         conn.execute(f"UPDATE items SET {', '.join(sets)} WHERE id = ? AND user_id = ?", [*params, item_id, user_id])
@@ -352,7 +388,17 @@ def update(
     if new_links is not None:
         _set_links(conn, item_id, new_links)
         pages_repo.queue(conn, item_id, url, now=now)
+    if image_names is not None:
+        _set_images(conn, item_id, image_names)
     search_index.index_item(conn, item_id)
+    return get(conn, user_id, item_id)
+
+
+def add_images(conn: sqlite3.Connection, user_id: int, item_id: int, names: Sequence[str], *, now: int) -> StashItem:
+    """Adds pictures after the item's others."""
+    current = get(conn, user_id, item_id)
+    _set_images(conn, item_id, [*current.image_names, *names])
+    conn.execute("UPDATE items SET updated_at = ? WHERE id = ? AND user_id = ?", (now, item_id, user_id))
     return get(conn, user_id, item_id)
 
 
@@ -380,13 +426,17 @@ def existing_link_urls(conn: sqlite3.Connection, user_id: int, urls: Iterable[st
 
 
 def image_names_for_user(conn: sqlite3.Connection, user_id: int) -> list[str]:
-    rows = conn.execute("SELECT image_name FROM items WHERE user_id = ? AND image_name IS NOT NULL", (user_id,))
+    rows = conn.execute(
+        """SELECT image_name FROM items WHERE user_id = ? AND image_name IS NOT NULL
+           UNION SELECT ii.image_name FROM item_images ii JOIN items i ON i.id = ii.item_id WHERE i.user_id = ?""",
+        (user_id, user_id),
+    )
     return [row[0] for row in rows]
 
 
-def delete(conn: sqlite3.Connection, user_id: int, item_id: int) -> str | None:
-    """Deletes an item. Returns its image name so the caller can remove the file."""
+def delete(conn: sqlite3.Connection, user_id: int, item_id: int) -> list[str]:
+    """Deletes an item. Returns its pictures' names so the caller can remove the files."""
     item = get(conn, user_id, item_id)
-    conn.execute("DELETE FROM items WHERE id = ?", (item_id,))
+    conn.execute("DELETE FROM items WHERE id = ? AND user_id = ?", (item_id, user_id))
     _drop_unused_tags(conn, user_id)
-    return item.image_name
+    return item.image_names

@@ -1,6 +1,6 @@
 """Plain data objects passed between the repositories and the rest of the app."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 ScopeKind = Literal["all", "starred", "folder", "feed", "uncategorized"]
@@ -161,7 +161,7 @@ class StashItem:
     title: str | None
     content: str | None
     url: str | None
-    image_name: str | None
+    image_name: str | None  # the first picture
     source: str
     reviewed: bool
     archived: bool
@@ -172,6 +172,7 @@ class StashItem:
     page: PagePreview | None = None  # None when the item has no web address
     folder_id: int | None = None
     feed_id: int | None = None  # the feed it was saved from
+    image_names: list[str] = field(default_factory=list)  # every picture, in order; image_name is the first
 
 
 @dataclass(frozen=True, slots=True)

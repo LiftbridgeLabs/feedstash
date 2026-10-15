@@ -1,7 +1,7 @@
 /* Hash routes:
    home     #/  (All articles, or the stash Inbox when no feeds are followed)
    feeds    #/all  #/starred  #/uncategorized  #/folder/3  #/feed/7  #/organize
-   stash    #/stash/inbox (all, link, snippet, screenshot, email, archived)  #/stash/tag/<name>
+   stash    #/stash/inbox (all, link, snippet = notes, screenshot, email, archived)  #/stash/tag/<name>
             #/stash/folder/2 (a stash folder)  #/stash/list/5 (a smart list)
    other    #/settings */
 

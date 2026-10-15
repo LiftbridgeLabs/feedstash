@@ -20,7 +20,7 @@ def add_rule(conn, user_id, **fields):
 
 def test_rules_match_what_they_say_they_match(conn, user_id):
     item = items_repo.create(conn, user_id, type="link", title="Reef guide for divers", content=None,
-                             url="https://www.blog.example.com/reefs", image_name=None, source="web", tags=[], now=100)
+                             url="https://www.blog.example.com/reefs", source="web", tags=[], now=100)
     rules = {
         "domain": add_rule(conn, user_id, field="domain", value="blog.example.com", add_tag="a"),
         "subdomain": add_rule(conn, user_id, field="domain", value="example.com", add_tag="b"),
@@ -49,7 +49,7 @@ def test_rules_only_add_and_never_undo(conn, user_id):
     add_rule(conn, user_id, field="domain", value="example.com", add_tag="Blog", folder_id=folder.id,
              mark_reviewed=True)
     already = items_repo.create(conn, user_id, type="link", title=None, content=None, url="https://example.com/a",
-                                image_name=None, source="web", tags=["keep"], now=100, folder_id=other.id)
+                                source="web", tags=["keep"], now=100, folder_id=other.id)
 
     assert stash_rules.apply(conn, user_id, already.id, now=200)
     filed = items_repo.get(conn, user_id, already.id)
@@ -60,7 +60,7 @@ def test_rules_only_add_and_never_undo(conn, user_id):
     # Running again changes nothing, and an item the rules don't match is left alone.
     assert not stash_rules.apply(conn, user_id, already.id, now=300)
     elsewhere = items_repo.create(conn, user_id, type="link", title=None, content=None, url="https://other.example/a",
-                                  image_name=None, source="web", tags=[], now=100)
+                                  source="web", tags=[], now=100)
     assert not stash_rules.apply(conn, user_id, elsewhere.id, now=300)
 
 
@@ -128,7 +128,7 @@ def test_running_the_rules_on_everything_goes_in_batches(tmp_path, monkeypatch):
         add_rule(conn, user_id, field="domain", value="example.com", add_tag="blog")
         for i in range(450):
             items_repo.create(conn, user_id, type="link", title=None, content=None, url=f"https://example.com/{i}",
-                              image_name=None, source="web", tags=[], now=100)
+                              source="web", tags=[], now=100)
 
     transactions = []
     real = db.transaction

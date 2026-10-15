@@ -103,3 +103,18 @@ def test_a_failing_migration_rolls_back_completely(monkeypatch):
         migrations.apply(conn)
     assert version(conn) == len(migrations.MIGRATIONS) - 1
     assert not columns(conn, "extra")
+
+
+def test_existing_pictures_become_each_items_first_picture():
+    conn = memory_db()
+    for number, script in enumerate(migrations.MIGRATIONS[:12], start=1):  # a database from before several pictures
+        conn.executescript(f"BEGIN;\n{script}\nPRAGMA user_version = {number};\nCOMMIT;")
+    conn.execute("INSERT INTO users (id, sub, email, created_at) VALUES (1, 's', 'e@example.com', 0)")
+    conn.executemany(
+        "INSERT INTO items (user_id, type, image_name, content, created_at, updated_at) VALUES (1, ?, ?, 'x', 0, 0)",
+        [("screenshot", "a.png"), ("snippet", None)],
+    )
+    conn.commit()
+
+    migrations.apply(conn)
+    assert [tuple(row) for row in conn.execute("SELECT item_id, position, image_name FROM item_images")] == [(1, 0, "a.png")]

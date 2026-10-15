@@ -25,7 +25,7 @@ export const STASH_VIEWS = {
   inbox: 'Inbox',
   all: 'Everything saved',
   link: 'Links',
-  snippet: 'Snippets',
+  snippet: 'Notes',
   screenshot: 'Screenshots',
   email: 'Emails',
   archived: 'Archive',

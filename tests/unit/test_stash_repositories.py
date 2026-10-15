@@ -7,7 +7,7 @@ from app.services.stash import parse_links
 
 
 def add(conn, user_id, *, now=1000, **fields):
-    values = {"type": "link", "title": None, "content": None, "url": "https://example.com", "image_name": None,
+    values = {"type": "link", "title": None, "content": None, "url": "https://example.com",
               "source": "test", "tags": [], **fields}
     return items.create(conn, user_id, now=now, **values)
 

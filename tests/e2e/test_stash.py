@@ -89,7 +89,7 @@ def test_paste_a_screenshot_into_the_capture_dialog(reader):
       d.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
     })()""".replace("PNG_BASE64", base64.b64encode(PNG).decode()))
     assert reader.js(f"{DIALOG}.querySelector('input[value=screenshot]').checked")
-    assert reader.wait_for(f"!{DIALOG}.querySelector('.capture-preview').hidden")
+    assert reader.wait_for(f"{DIALOG}.querySelectorAll('.picture-thumb').length === 1")
     submit_dialog(reader, "d.querySelector('input[name=title]').value = 'Pasted shot'")
 
     assert reader.wait_for("reader.state.stash.summary.by_type.screenshot === 1")
@@ -130,3 +130,46 @@ def test_create_use_and_revoke_an_api_token(reader, server):
     submit_dialog(reader)
     assert reader.wait_for("document.querySelector('[data-token-list]').textContent.includes('No tokens yet')")
     assert httpx.get(server.base_url + "/api/items", headers=headers).status_code == 401
+
+
+def paste_png(reader, count: int) -> None:
+    reader.js("""(() => {
+      const bytes = Uint8Array.from(atob('PNG_BASE64'), c => c.charCodeAt(0));
+      const data = new DataTransfer();
+      for (let i = 0; i < COUNT; i++) data.items.add(new File([bytes], `clip${i}.png`, { type: 'image/png' }));
+      document.querySelector('dialog[open]').dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    })()""".replace("PNG_BASE64", base64.b64encode(PNG).decode()).replace("COUNT", str(count)))
+
+
+def test_an_item_holds_several_pictures(reader):
+    reader.js("void reader.captureDialog()")
+    assert reader.wait_for(f"!!{DIALOG}")
+    paste_png(reader, 3)
+    assert reader.wait_for(f"{DIALOG}.querySelectorAll('.picture-thumb').length === 3")
+    reader.js(f"{DIALOG}.querySelector('[data-remove-added=\"1\"]').click()")  # changed my mind about one
+    assert reader.js(f"{DIALOG}.querySelectorAll('.picture-thumb').length") == 2
+    submit_dialog(reader, "d.querySelector('input[name=title]').value = 'Two shots'")
+    assert reader.wait_for("reader.state.stash.summary.by_type.screenshot === 1")
+
+    reader.js("location.hash = '#/stash/all'")
+    assert reader.wait_for("[...document.querySelectorAll('#stash .item-title')].some(e => e.textContent === 'Two shots')")
+    assert reader.js("document.querySelector('#stash .picture-count').textContent.trim()") == "2"
+    reader.js("document.querySelector('#stash .item .item-row').click()")
+    assert reader.wait_for("document.querySelectorAll('#stash .item.open .stash-body img').length === 2")
+
+    # Edit: take one away and paste another in.
+    reader.js("document.querySelector('#stash .item.open [data-stash-action=edit]').click()")
+    assert reader.wait_for(f"{DIALOG}?.querySelectorAll('.picture-thumb').length === 2")
+    first = reader.js("reader.state.stash.items.items[0].images[0]")
+    reader.js(f"{DIALOG}.querySelector('[data-remove-kept=\"0\"]').click()")
+    paste_png(reader, 1)
+    assert reader.wait_for(f"{DIALOG}.querySelectorAll('.picture-thumb').length === 2")
+    submit_dialog(reader)
+    assert reader.wait_for(f"!{DIALOG}")
+    images = reader.js("reader.state.stash.items.items[0].images")
+    assert len(images) == 2 and first not in images
+    assert reader.wait_for("document.querySelectorAll('#stash .item.open .stash-body img').length === 2")
+    reader.js("reader.api('POST', '/api/items', { type: 'snippet', content: 'A note' })")
+    assert reader.wait_for("reader.state.stash.items.items.length === 1")
+    reader.js("location.reload()")
+    assert reader.wait_for("!!window.reader && [...document.querySelectorAll('#stash [data-type-filter]')].map(e => e.textContent.replace(/\\s+/g, ' ').trim()).join('|') === 'Notes 1|Screenshots 1'")

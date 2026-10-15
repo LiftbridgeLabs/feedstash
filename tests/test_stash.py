@@ -102,7 +102,7 @@ def test_invalid_captures_are_rejected_with_readable_errors(api):
     cases = [
         ({"json": {"type": "video"}}, "type must be one of"),
         ({"json": {"type": "link"}}, "url"),
-        ({"json": {"type": "snippet", "content": "   "}}, "content"),
+        ({"json": {"type": "snippet", "content": "   "}}, "needs some text"),
         ({"data": {"type": "screenshot"}}, "image"),
         ({"data": {"type": "screenshot"}, "files": {"image": ("x.png", b"<html><script>alert(1)</script>", "image/png")}}, "PNG"),
     ]

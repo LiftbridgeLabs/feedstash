@@ -122,7 +122,7 @@ class Capture:
     url: str | None = None
     source: str | None = None
     tags: list[str] = field(default_factory=list)
-    image: bytes | None = None
+    images: list[bytes] = field(default_factory=list)
     links: list[ItemLink] = field(default_factory=list)
     folder_id: int | None = None
     folder_name: str | None = None  # a folder by name, made if it doesn't exist yet
@@ -130,7 +130,7 @@ class Capture:
     page_html: str | None = None
 
     @classmethod
-    def from_fields(cls, fields: dict, *, image: bytes | None = None) -> "Capture":
+    def from_fields(cls, fields: dict, *, images: list[bytes] | None = None) -> "Capture":
         page_html = fields.get("pageHtml")
         return cls(
             folder_name=_line(fields.get("folder"), MAX_FOLDER_NAME),
@@ -141,7 +141,7 @@ class Capture:
             links=parse_links(fields.get("links")) or [],
             source=_line(fields.get("source"), MAX_SOURCE),
             tags=parse_tags(fields.get("tags")),
-            image=image or None,
+            images=[image for image in images or [] if image],
             folder_id=parse_folder_id(fields.get("folderId")),
             page_html=page_html[:MAX_PAGE_HTML] if isinstance(page_html, str) and page_html.strip() else None,
         )
@@ -153,9 +153,11 @@ def _check(capture: Capture) -> None:
     if capture.type == "link" and not (capture.url or capture.links):
         raise InvalidInput("A link needs a url")
     if capture.type == "snippet" and not (capture.content or capture.links):
-        raise InvalidInput("A snippet needs content or a link")
-    if capture.type == "screenshot" and not capture.image:
+        raise InvalidInput("A note needs some text or a link")
+    if capture.type == "screenshot" and not capture.images:
         raise InvalidInput("A screenshot needs an image")
+    if len(capture.images) > items_repo.MAX_IMAGES:
+        raise InvalidInput(f"An item can have at most {items_repo.MAX_IMAGES} pictures")
     if capture.type == "email" and not (capture.title or capture.content):
         raise InvalidInput("An email needs a subject or a body")
 
@@ -184,7 +186,7 @@ def capture(db: Database, images: ImageStore, user_id: int, item: Capture, *, de
         tags = [*item.tags, *(tag for tag in marked.tags if tag not in item.tags)]
         folder_name = folder_name or marked.folder
     page = _sent_page(item)  # before the transaction: extracting can take a moment
-    image_name = images.save(item.image) if item.image else None
+    image_names = save_images(images, item.images)
     try:
         with db.transaction() as conn:
             timestamp = now()
@@ -193,7 +195,7 @@ def capture(db: Database, images: ImageStore, user_id: int, item: Capture, *, de
                 folder_id = stash_folders.get_or_create(conn, user_id, folder_name).id
             created = items_repo.create(
                 conn, user_id, type=item.type, title=title, content=content, url=item.url,
-                links=item.links, image_name=image_name, source=source, tags=tags,
+                links=item.links, image_names=image_names, source=source, tags=tags,
                 now=timestamp, folder_id=folder_id,
             )
             stash_rules.apply(conn, user_id, created.id, now=timestamp)
@@ -201,12 +203,42 @@ def capture(db: Database, images: ImageStore, user_id: int, item: Capture, *, de
                 store_page(conn, PageJob(item_id=created.id, url=created.url, attempts=1), page, now=timestamp)
             return items_repo.get(conn, user_id, created.id)
     except BaseException:
-        images.delete(image_name)  # don't leave an orphaned file behind
+        delete_images(images, image_names)  # don't leave orphaned files behind
         raise
 
 
-def update(db: Database, user_id: int, item_id: int, fields: dict) -> StashItem:
-    """Applies the fields present in a PATCH body: title, content, url, links, reviewed, archived, tags, folderId."""
+def save_images(images: ImageStore, data: list[bytes]) -> list[str]:
+    """Stores the pictures; if one is refused, the ones already stored are removed again."""
+    names: list[str] = []
+    try:
+        for picture in data:
+            names.append(images.save(picture))
+    except BaseException:
+        delete_images(images, names)
+        raise
+    return names
+
+
+def delete_images(images: ImageStore, names: list[str]) -> None:
+    for name in names:
+        images.delete(name)
+
+
+def add_images(db: Database, images: ImageStore, user_id: int, item_id: int, data: list[bytes]) -> StashItem:
+    if not data:
+        raise InvalidInput("Choose a picture to add")
+    names = save_images(images, data)
+    try:
+        with db.transaction() as conn:
+            return items_repo.add_images(conn, user_id, item_id, names, now=now())
+    except BaseException:
+        delete_images(images, names)
+        raise
+
+
+def update(db: Database, images: ImageStore, user_id: int, item_id: int, fields: dict) -> StashItem:
+    """Applies the fields present in a PATCH body: title, content, url, links, reviewed, archived, tags, folderId,
+    images (the pictures to keep, in order, as their /uploads/ paths)."""
     changes: dict = {}
     if "title" in fields:
         changes["title"] = _line(fields["title"], MAX_TITLE)
@@ -223,14 +255,26 @@ def update(db: Database, user_id: int, item_id: int, fields: dict) -> StashItem:
         changes["links"] = links
     if "folderId" in fields:
         changes["folder_id"] = parse_folder_id(fields["folderId"])
+    if fields.get("images") is not None:
+        changes["image_names"] = parse_image_paths(fields["images"])
     with db.transaction() as conn:
-        return items_repo.update(conn, user_id, item_id, now=now(), **changes)
+        before = items_repo.get(conn, user_id, item_id).image_names
+        updated = items_repo.update(conn, user_id, item_id, now=now(), **changes)
+    delete_images(images, [name for name in before if name not in updated.image_names])
+    return updated
+
+
+def parse_image_paths(value) -> list[str]:
+    """["/uploads/abc.png", ...] (or bare names) -> ["abc.png", ...]."""
+    if not isinstance(value, list) or not all(isinstance(path, str) for path in value):
+        raise InvalidInput("images must be a list of picture paths")
+    return [path.removeprefix("/uploads/") for path in value]
 
 
 def remove(db: Database, images: ImageStore, user_id: int, item_id: int) -> None:
     with db.transaction() as conn:
-        image_name = items_repo.delete(conn, user_id, item_id)
-    images.delete(image_name)
+        image_names = items_repo.delete(conn, user_id, item_id)
+    delete_images(images, image_names)
 
 
 def stash_article(db: Database, user_id: int, article_id: int) -> tuple[StashItem, bool]:

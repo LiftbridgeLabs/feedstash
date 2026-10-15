@@ -5,7 +5,7 @@ from app.text import html_to_text
 
 
 def add_link(conn, user_id, url="https://example.com/reef"):
-    return items.create(conn, user_id, type="link", title=None, content=None, url=url, image_name=None,
+    return items.create(conn, user_id, type="link", title=None, content=None, url=url,
                         source="test", tags=[], now=100)
 
 
@@ -24,7 +24,7 @@ def test_html_becomes_searchable_text():
 def test_page_queue_retries_then_stores_the_page(conn, user_id):
     item = add_link(conn, user_id)
     assert item.page.status == "pending"
-    note = items.create(conn, user_id, type="snippet", title=None, content="No address", url=None, image_name=None,
+    note = items.create(conn, user_id, type="snippet", title=None, content="No address", url=None,
                         source="test", tags=[], now=100)
     assert note.page is None
 

@@ -1,6 +1,6 @@
 # FeedStash
 
-Everything you want to read, in one self-hosted app: the feeds you follow, and the links, snippets, screenshots and emails you save from anywhere. It runs as one Docker container and keeps everything in SQLite. Sign in with a password, Google, or any OpenID Connect provider. The browser extension and email worker live in `clients/`; the Android and iOS apps are a separate project.
+Everything you want to read, in one self-hosted app: the feeds you follow, and the links, notes, screenshots and emails you save from anywhere. It runs as one Docker container and keeps everything in SQLite. Sign in with a password, Google, or any OpenID Connect provider. The browser extension and email worker live in `clients/`; the Android and iOS apps are a separate project.
 
 **[liftbridgelabs.app/products/feedstash](https://liftbridgelabs.app/products/feedstash)** · questions and bug reports: [GitHub issues](https://github.com/LiftbridgeLabs/feedstash/issues) or support@liftbridgelabs.app · [privacy](https://liftbridgelabs.app/products/feedstash/privacy)
 
@@ -233,7 +233,8 @@ If a reverse proxy in front of FeedStash asks for its own sign-in, let `/reader/
 
 The clients use these endpoints (camelCase fields, `{"error": "..."}` on failures):
 
-- `POST /api/items` (JSON or multipart; `type`, `title`, `content`, `url`, `links`, `tags`, `image`, `source`, `folderId`, `pageHtml`)
+- `POST /api/items` (JSON or multipart; `type` (`link`, `snippet` for a note, `screenshot`, `email`), `title`, `content`, `url`, `links`, `tags`, `image` (repeat it for several pictures), `source`, `folderId`, `pageHtml`)
+- Pictures: an item's `images` lists them all and `imagePath` is the first. `POST /api/items/{id}/images` (multipart `image` parts) adds more; `PATCH /api/items/{id}` with `images` (a list of its own paths) removes or reorders them. Up to 20 per item, 20 MB each; a request is capped at 32 MB, so send large ones one per request.
 - `GET /api/items?type=&tag=&reviewed=&archived=&q=&folder=&limit=&offset=`, `GET/PATCH/DELETE /api/items/{id}`
 - `GET /api/items/{id}/page` (the saved readable copy: `{url, status, title, html, fetchedAt, error}`), `POST /api/items/{id}/page/refresh`
 - `GET/POST /api/stash/folders`, `PATCH/DELETE /api/stash/folders/{id}`, `POST /api/stash/folders/reorder`

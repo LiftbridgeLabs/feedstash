@@ -346,7 +346,8 @@ class StashItemOut(BaseModel):
     title: str | None
     content: str | None
     url: str | None  # mirrors links[0], for clients that only know one url
-    imagePath: str | None
+    imagePath: str | None  # the first of `images`, for clients that only show one
+    images: list[str] = []
     source: str
     reviewed: bool
     archived: bool
@@ -362,7 +363,8 @@ class StashItemOut(BaseModel):
     def from_item(cls, item: StashItem) -> "StashItemOut":
         return cls(
             id=item.id, type=item.type, title=item.title, content=item.content, url=item.url,
-            imagePath=f"/uploads/{item.image_name}" if item.image_name else None, source=item.source,
+            imagePath=f"/uploads/{item.image_name}" if item.image_name else None,
+            images=[f"/uploads/{name}" for name in item.image_names], source=item.source,
             reviewed=item.reviewed, archived=item.archived, createdAt=iso(item.created_at),
             updatedAt=iso(item.updated_at), tags=item.tags,
             links=[LinkOut(id=link.id, url=link.url, label=link.label) for link in item.links],
