@@ -420,7 +420,11 @@ body.resizing { cursor: col-resize; user-select: none; }
 .actions .btn:disabled { opacity: .5; cursor: default; }
 
 /* stash folders, smart lists and rules */
-.stash-tools { display: flex; gap: 8px; flex-wrap: wrap; }
+.stash-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.stash-tool-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.layout-switch { margin-left: auto; display: flex; gap: 2px; padding: 2px; border: 1px solid var(--border); border-radius: 8px; }
+.layout-switch .icon-btn { width: 30px; height: 28px; color: var(--text-muted); }
+.layout-switch .icon-btn.on { background: var(--bg-hover); color: var(--accent); }
 .folder-name { display: inline-flex; align-items: center; gap: 4px; }
 .folder-name .i { width: 14px; height: 14px; }
 .folder-pick { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); }
@@ -608,4 +612,45 @@ dialog.whats-new { width: min(560px, calc(100vw - 32px)); }
   .nav-row .more { display: inline-flex; }
   .nav-row:hover .nav-count { display: inline; }
   .stash-head { padding: 12px 16px 4px; }
+}
+
+/* ------------------------------------------------------------------ stash as a grid or tiles */
+/* Cards: the image (or the link's preview image) on top, then title, site, tags and a few lines of notes. In the
+   grid each card keeps its image's height (stash.js gives it the rows it needs); tiles are all the same shape. */
+.stash[data-stash-layout="grid"] .stash-head, .stash[data-stash-layout="tiles"] .stash-head,
+.stash[data-stash-layout="grid"] .list-end, .stash[data-stash-layout="tiles"] .list-end { max-width: 1240px; }
+.stash-list.cards {
+  max-width: 1240px; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); column-gap: 14px;
+  padding-top: 12px;
+}
+.stash-list.cards-grid { grid-auto-rows: 4px; row-gap: 0; }
+.stash-list.cards-tiles { row-gap: 14px; }
+.stash-list.cards-grid .stash-item { align-self: start; }
+.stash-list.cards .stash-item {
+  border: 1px solid var(--border); border-radius: 10px; background: var(--bg-elev); overflow: hidden; min-width: 0;
+}
+.stash-list.cards .stash-item.read { opacity: .85; }
+.stash-list.cards .item-row { flex-direction: column; gap: 0; padding: 0; height: 100%; }
+.stash-list.cards .item-row:hover { background: color-mix(in srgb, var(--bg-hover) 40%, var(--bg-elev)); }
+.stash-list.cards .thumb { width: 100%; height: auto; max-height: 560px; border-radius: 0; display: block; object-position: top; }
+.stash-list.cards-tiles .thumb { aspect-ratio: 4 / 3; max-height: none; }
+.stash-list.cards .item-main { padding: 10px 12px 12px; }
+.stash-list.cards .item-title { font-size: 15px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.stash-list.cards .item-meta { flex-wrap: wrap; row-gap: 2px; font-size: 12px; }
+.stash-list.cards .item-meta .dot, .stash-list.cards .item-meta .age, .stash-list.cards .item-meta .source,
+.stash-list.cards .item-meta .link-count, .stash-list.cards .item-meta .folder-name { display: none; }
+.stash-list.cards .item-meta .feed-name { max-width: 100%; }
+.stash-list.cards .item-summary { display: -webkit-box; -webkit-line-clamp: 4; font-size: 13px; }
+.stash-list.cards-tiles .item-summary { -webkit-line-clamp: 3; }
+.stash-list.cards .item-tools { top: 6px; right: 6px; box-shadow: var(--shadow); }
+/* An open card takes the whole row and shows the item as the list does. */
+.stash-list.cards .stash-item.open { grid-column: 1 / -1; }
+.stash-list.cards .stash-item.open .reader { padding: 22px 22px 30px; }
+
+@media (max-width: 820px) {
+  .stash-list.cards { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); column-gap: 10px; }
+  .stash-list.cards-tiles { row-gap: 10px; }
+  .stash-list.cards .item-main { padding: 8px 10px 10px; }
+  .stash-list.cards .item-summary { -webkit-line-clamp: 3; }
+  .stash-list.cards .thumb { max-height: 360px; }
 }

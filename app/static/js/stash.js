@@ -12,13 +12,72 @@ import { renderHeader, renderNav } from './sidebar.js';
 import { editSmartList, fileItemInNewFolder, saveCurrentAsSmartList } from './stashlists.js';
 import { els, ITEM_TYPES, smartListById, stashFolderById, STASH_VIEWS, state, stashViewRef } from './state.js';
 import { attachTagPicker } from './tagpicker.js';
-import { $, $$, ago, esc, fullDate } from './util.js';
+import { $, $$, ago, esc, fullDate, loadJSON, saveJSON } from './util.js';
 
 const PAGE_SIZE = 50;
 /** Drag type for moving a saved item onto a folder in the sidebar. */
 export const ITEM_DRAG = 'application/x-feedstash-item';
 export const TYPE_LABELS = { link: 'Link', snippet: 'Snippet', screenshot: 'Screenshot', email: 'Email' };
 const TYPE_ICONS = { link: 'external', snippet: 'text', screenshot: 'image', email: 'mail' };
+
+/* ---- list, grid or tiles: chosen per view (folder, smart list, tag, kind…), kept in this browser */
+
+const LAYOUTS = { list: 'List', grid: 'Grid', tiles: 'Tiles' };
+const LAYOUT_KEY = 'reader.stashLayouts';
+let layouts = loadJSON(LAYOUT_KEY, {});
+const layoutFor = (view) => (Object.hasOwn(LAYOUTS, layouts[view]) ? layouts[view] : 'list');
+
+function layoutSwitchHTML(view) {
+  const current = layoutFor(view);
+  return `<div class="layout-switch" role="group" aria-label="Layout">${Object.entries(LAYOUTS).map(([key, label]) => `
+    <button type="button" class="icon-btn ${key === current ? 'on' : ''}" data-stash-layout-choice="${key}"
+      title="${label}" aria-pressed="${key === current}">${icon(`view-${key}`)}</button>`).join('')}</div>`;
+}
+
+function setLayout(view, layout) {
+  if (layout === 'list') delete layouts[view];
+  else layouts[view] = layout;
+  saveJSON(LAYOUT_KEY, layouts);
+  closeStashItem();
+  applyStashLayout();
+  renderStashTools();
+}
+
+/* Grid cards keep their own height (a masonry layout): each spans as many of the grid's short rows as it needs,
+   measured again whenever it changes size (an image loads, the card opens, the window narrows). */
+const GRID_ROW = 4;
+const GRID_GAP = 14;
+const cardSizer = new ResizeObserver((entries) => entries.forEach((entry) => spanCard(entry.target)));
+
+function spanCard(card) {
+  if (layoutFor(state.route.id) !== 'grid' || !card.isConnected) {
+    card.style.gridRowEnd = '';
+    return;
+  }
+  const height = card.getBoundingClientRect().height;
+  card.style.gridRowEnd = `span ${Math.max(1, Math.ceil((height + GRID_GAP) / GRID_ROW))}`;
+}
+
+function watchCards() {
+  const container = $('[data-stash-items]', els.stash);
+  if (container) $$('.stash-item', container).forEach((card) => cardSizer.observe(card));
+}
+
+/** Stops measuring a card that is about to be replaced or removed. */
+function forgetCard(card) {
+  if (card) cardSizer.unobserve(card);
+}
+
+function applyStashLayout() {
+  const layout = layoutFor(state.route.id);
+  els.stash.dataset.stashLayout = layout;
+  const container = $('[data-stash-items]', els.stash);
+  if (!container) return;
+  container.classList.toggle('cards', layout !== 'list');
+  container.classList.toggle('cards-grid', layout === 'grid');
+  container.classList.toggle('cards-tiles', layout === 'tiles');
+  $$('.stash-item', container).forEach(spanCard);
+}
 
 const timestamp = (iso) => Math.floor(Date.parse(iso) / 1000);
 const httpUrl = (url) => (/^https?:\/\//i.test(url || '') ? url : null);
@@ -126,11 +185,16 @@ export function showStash() {
     </div>
     <div class="articles stash-list" data-stash-items></div>
     <div class="list-end" data-stash-end></div>`;
+  applyStashLayout();
   reloadItems();
 }
 
 /** Keeping a search or filter: turn it into a smart list. A smart list itself can be edited. */
 function toolsHTML(view) {
+  return `<div class="stash-tool-buttons">${toolButtonsHTML(view)}</div>${layoutSwitchHTML(view)}`;
+}
+
+function toolButtonsHTML(view) {
   if (stashViewRef(view).kind === 'list') {
     return `<button type="button" class="btn btn-sm" data-stash-action="edit-list">${icon('sliders')}Edit smart list</button>`;
   }
@@ -156,6 +220,7 @@ export function searchStash() {
 }
 
 export function reloadItems() {
+  cardSizer.disconnect();
   state.stash.items = { items: [], byId: new Map(), done: false, loading: false };
   state.stash.openId = null;
   const container = $('[data-stash-items]', els.stash);
@@ -211,6 +276,7 @@ async function loadMoreItems() {
     list.byId.set(item.id, item);
   }
   container.insertAdjacentHTML('beforeend', fresh.map(itemHTML).join(''));
+  watchCards();
   renderEnd();
   watchPending();
 }
@@ -427,6 +493,7 @@ function applyUpdate(updated) {
     list.byId.delete(updated.id);
     list.items = list.items.filter((item) => item.id !== updated.id);
     if (state.stash.openId === updated.id) state.stash.openId = null;
+    forgetCard(el);
     el?.remove();
     renderEnd();
     return;
@@ -435,7 +502,9 @@ function applyUpdate(updated) {
   list.items = list.items.map((item) => (item.id === updated.id ? updated : item));
   if (!el) return;
   const wasOpen = state.stash.openId === updated.id;
+  forgetCard(el);
   el.outerHTML = itemHTML(updated);
+  watchCards();
   if (wasOpen) {
     state.stash.openId = null;
     openItem(updated.id);
@@ -619,6 +688,7 @@ async function deleteItem(item) {
   if (list?.byId.has(item.id)) { // still shown (e.g. in Archive): remove it explicitly
     list.byId.delete(item.id);
     list.items = list.items.filter((i) => i.id !== item.id);
+    forgetCard(itemEl(item.id));
     itemEl(item.id)?.remove();
     renderEnd();
   }
@@ -745,6 +815,11 @@ export function wireStash() {
     if (chip) {
       const tag = chip.dataset.tag;
       navigate(state.route.id === `tag:${tag}` ? '#/stash/all' : `#/stash/tag/${encodeURIComponent(tag)}`);
+      return;
+    }
+    const layoutChoice = e.target.closest('[data-stash-layout-choice]');
+    if (layoutChoice) {
+      setLayout(state.route.id, layoutChoice.dataset.stashLayoutChoice);
       return;
     }
     const control = e.target.closest('[data-stash-action]');

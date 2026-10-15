@@ -3,6 +3,13 @@
 What changed in each FeedStash release, newest first. Before you update, check **Before you update** for anything
 to do first, like taking a backup. Admins see the rest of a release's notes in FeedStash after updating.
 
+## Unreleased
+
+### New
+- **Grid view for the stash.** Show any folder, smart list or tag as a list, a Pinterest-style grid or even tiles,
+  with the switch at the top right. Cards show the picture or the link's preview, the title, tags and the start of
+  your notes. Each view remembers its own choice.
+
 ## 0.6.2
 
 ### New
