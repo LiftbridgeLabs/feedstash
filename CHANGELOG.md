@@ -14,9 +14,10 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
   `none` logs no requests.
 
 ### After you update
-- On unRAID, an existing container keeps its own copy of the template, so add
-  `--log-opt max-size=10m --log-opt max-file=3` under Extra Parameters (advanced view), or turn on log rotation in
-  Settings → Docker.
+- On unRAID, make sure Settings → Docker → Docker LOG rotation is on. It keeps every container's log from growing
+  without limit, and an existing FeedStash container doesn't pick up the new template's log cap on its own.
+  (Docker's log size can't be set with a container variable; the other place for it is the container's Extra
+  Parameters, in Advanced View: `--log-opt max-size=10m --log-opt max-file=3`.)
 
 ## 0.7.0
 
