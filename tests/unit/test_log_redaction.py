@@ -36,7 +36,7 @@ def access(method: str, path: str, status: int) -> logging.LogRecord:
 
 
 def test_request_lines_follow_log_requests():
-    from app.main import QuietRequests
+    from app.logs import QuietRequests
     cases = [("GET", "/healthz", 200), ("GET", "/api/tree", 200), ("POST", "/api/items", 201), ("GET", "/api/x", 404),
              ("PATCH", "/api/items/1", 500)]
     kept = {level: [c for c in cases if QuietRequests(level).filter(access(*c))]

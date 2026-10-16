@@ -116,7 +116,7 @@ All settings are environment variables (see `.env.example`).
 | `PORT` | `8672` | Port inside the container. |
 | `FORWARDED_ALLOW_IPS` | private networks in the Docker image, `127.0.0.1` otherwise | Addresses or ranges whose `X-Forwarded-*` headers are trusted. The default covers a reverse proxy on the same machine or network. Set it to your proxy's address if the proxy reaches FeedStash from a public one. Never `*`: anyone could then claim any address and get past the sign-in rate limit, and setup would need `SETUP_TOKEN`. |
 | `SETUP_TOKEN` | | Lets the first account be created from outside your own network, by entering this on the setup page. When set, it is asked for everywhere, your own network included. Setup closes once the first account exists, so you can remove it afterwards. |
-| `LOG_REQUESTS` | `changes` | Which requests get a line in the log: `changes` (saves, edits and anything that failed), `errors` (only failures), `all` (every request, including health checks and page loads, thousands of lines a day) or `none`. |
+| `LOG_REQUESTS` | `changes` | Which requests get a line in the log, until an admin changes it under **Settings → Logs**: `changes` (saves, edits and anything that failed), `errors` (only failures), `all` (every request, including health checks and page loads, thousands of lines a day) or `none`. |
 | `UPDATE_CHECK` | `true` | Once a day, while an admin has FeedStash open, ask GitHub for the latest release so the sidebar can say when there's an update. Nothing is sent but the request itself. `false` turns it off. |
 | `SECRET_KEY` | generated | Signs session cookies. Generated once into `/data/secret.key` when empty. |
 | `SESSION_DAYS` | `30` | How long you stay signed in. |
@@ -189,7 +189,7 @@ Then copy `/data/backups/` and `/data/uploads/` somewhere safe. Or stop the cont
 
 To update, pull the new image and recreate the container (`docker compose pull && docker compose up -d`, or Force update on unRAID). Database changes are applied automatically on start; take a backup first.
 
-**Logs.** FeedStash logs to the container's output, so Docker keeps it. Out of the box only saves, edits, failures and the feed refreshes are logged (`LOG_REQUESTS`). To cap the log's size, the Compose file and unRAID template keep at most three 10 MB files; with a container of your own, add `--log-opt max-size=10m --log-opt max-file=3` (or turn on log rotation in unRAID's Docker settings).
+**Logs.** FeedStash keeps its own log files in `/data/logs`, rotated by size, and admins choose under **Settings → Logs** how detailed they are, which requests get a line, how big a file gets and how many old ones to keep; the latest lines can be read and the whole log downloaded there too. The container's own output (`docker logs`) only gets warnings, errors and start-up lines, so it stays small however Docker is set up.
 
 Each release's notes are in [`CHANGELOG.md`](CHANGELOG.md) and on the [Releases page](https://github.com/LiftbridgeLabs/feedstash/releases) (watch the repository for releases to hear about them). Check **Before you update** for anything to do first, like taking a backup. After an update, admins see what changed the first time they open FeedStash, and the version in the sidebar says when a newer release is out.
 

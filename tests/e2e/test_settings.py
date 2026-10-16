@@ -80,3 +80,13 @@ def test_someone_can_hide_the_feeds_or_the_stash(reader):
     assert reader.wait_for("!!document.querySelector('[data-settings-field=sections]')")
     use("both")
     assert reader.wait_for(f"{sections} === 'Feeds,Stash'")
+
+
+def test_admins_set_and_read_the_logs_in_settings(reader):
+    reader.js("reader.api('POST', '/api/items', { type: 'snippet', content: 'something to log' })")
+    reader.js("location.hash = '#/settings'")
+    assert reader.wait_for("!document.querySelector('[data-logs-section]')?.hidden && !!document.querySelector('[data-log-field=requests]')")
+    assert reader.wait_for("document.querySelector('[data-log-view]').textContent.includes('POST /api/items')")
+    reader.js("(() => { const s = document.querySelector('[data-log-field=max_mb]'); s.value = '25'; s.dispatchEvent(new Event('change', { bubbles: true })); })()")
+    assert reader.wait_for("reader.api('GET', '/api/admin/logs/settings').then((s) => s.max_mb === 25)")
+    assert reader.js("document.querySelector('[data-logs-section] a[download]').getAttribute('href')") == "/api/admin/logs/download"

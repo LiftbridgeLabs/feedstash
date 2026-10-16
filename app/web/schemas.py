@@ -27,6 +27,21 @@ class ReleaseNotesOut(BaseModel):
     sections: list[ReleaseSectionOut]
 
 
+class LogSettingsIn(BaseModel):
+    level: Literal["info", "debug"]
+    requests: Literal["all", "changes", "errors", "none"]
+    keep_files: int = Field(ge=1, le=20)
+    max_mb: int = Field(ge=1, le=100)
+
+
+class LogSettingsOut(LogSettingsIn):
+    directory: str  # where the files are, inside the container
+
+
+class LogLinesOut(BaseModel):
+    lines: list[str]  # the newest last
+
+
 class UpdatesOut(BaseModel):
     current: str
     latest: str | None  # set only when it's newer than the running release

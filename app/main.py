@@ -11,8 +11,10 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.crypto import SecretBox
 from app.db import Database
+from app.db.repositories import app_settings as app_settings_repo
 from app.feeds.scheduler import RefreshScheduler
 from app.images import ImageStore
+from app.logs import LogFiles, LogSettings
 from app.services.mail import MailWorker
 from app.services.pages import PageWorker
 from app.services.updates import create_checker
@@ -24,6 +26,7 @@ from app.web.api import feeds as feeds_api
 from app.web.api import folders as folders_api
 from app.web.api import greader as greader_api
 from app.web.api import imports as imports_api
+from app.web.api import logs as logs_api
 from app.web.api import mail as mail_api
 from app.web.api import opml as opml_api
 from app.web.api import stash as stash_api
@@ -43,7 +46,10 @@ MAX_REQUEST_BYTES = 32 * 1024 * 1024
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or load_settings()
-    _configure_logging(settings.log_requests)
+    _configure_logging()
+    log_files = LogFiles(settings.database_path.parent / "logs")
+    log_default = LogSettings(requests=settings.log_requests)
+    log_files.apply(log_default)
     db = Database(settings.database_path)
     secrets = SecretBox(resolve_secret_key(settings))
     images = ImageStore(settings.uploads_dir)
@@ -55,6 +61,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         db.initialize()
+        with db.transaction() as conn:
+            log_files.apply(LogSettings.from_strings(app_settings_repo.get_all(conn, "logs."), log_default))
         _warn_about_sign_in(settings)
         if settings.scheduler_enabled:
             scheduler.start()
@@ -77,6 +85,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.secrets = secrets
     app.state.mail_worker = mail_worker
     app.state.update_checker = update_checker
+    app.state.log_files = log_files
+    app.state.log_default = log_default
     app.state.oauth = auth.build_oauth(settings)
     app.state.login_limiter = LoginLimiter()
     app.state.background_tasks = set()
@@ -99,7 +109,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     for router in (
         pages.router, auth.router, tree_api.router, articles_api.router, folders_api.router, feeds_api.router,
         opml_api.router, imports_api.router, stash_api.router, stash_api.uploads_router, stash_organize_api.router,
-        mail_api.router, tokens_api.router, accounts_api.router, updates_api.router,
+        mail_api.router, tokens_api.router, accounts_api.router, updates_api.router, logs_api.router,
     ):
         app.include_router(router)
     # The Google Reader API, for other reader apps. Clients disagree about the address: some take the server's
@@ -141,38 +151,13 @@ class RedactCredentials(logging.Filter):
         return True
 
 
-class QuietRequests(logging.Filter):
-    """Keeps only the request lines LOG_REQUESTS asks for. `changes` (the default) keeps anything that isn't a plain
-    read, plus failures: what someone looking at the log after a problem wants, without health checks and page loads
-    piling up thousands of lines a day."""
-
-    def __init__(self, level: str):
-        super().__init__()
-        self.level = level
-
-    def filter(self, record: logging.LogRecord) -> bool:
-        if self.level == "all":
-            return True
-        if self.level == "none":
-            return False
-        args = record.args if isinstance(record.args, tuple) else ()
-        method = args[1] if len(args) > 1 else ""
-        status = args[4] if len(args) > 4 and isinstance(args[4], int) else 0
-        if status >= 400:
-            return True
-        return self.level == "changes" and method not in ("GET", "HEAD", "OPTIONS")
-
-
-def _configure_logging(log_requests: str = "changes") -> None:
-    if not logging.getLogger().handlers:
-        logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+def _configure_logging() -> None:
     logging.getLogger("httpx").setLevel(logging.WARNING)  # otherwise every feed fetch is logged
     access = logging.getLogger("uvicorn.access")
     if not any(isinstance(f, RedactCredentials) for f in access.filters):
         access.addFilter(RedactCredentials())
-    for old in [f for f in access.filters if isinstance(f, QuietRequests)]:
-        access.removeFilter(old)
-    access.addFilter(QuietRequests(log_requests))
+
+
 
 
 def _warn_about_sign_in(settings: Settings) -> None:

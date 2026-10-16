@@ -6,18 +6,18 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
 ## Unreleased
 
 ### New
-- Quieter logs. Out of the box only saves, edits, failures and feed refreshes are logged, instead of every health
-  check and page load. The unRAID template and the Compose file also cap the log at three 10 MB files.
+- Logs you control. FeedStash now keeps its own log files in its data folder and starts a new one when a file
+  gets too big. Admins pick how detailed the log is, which requests get a line, how big a file gets and how many
+  to keep under Settings → Logs, and can read the latest lines or download the whole log there.
+- Quieter logs. Out of the box only saves, edits, failures and feed refreshes are logged, and the container's own
+  log only gets warnings and errors, so it stays small without any Docker settings.
 
 ### Settings
-- New: `LOG_REQUESTS`, `changes` by default. `errors` logs only failures, `all` logs every request like before,
-  `none` logs no requests.
+- New: `LOG_REQUESTS`, `changes` by default: which requests are logged until an admin changes it in Settings →
+  Logs. `errors` logs only failures, `all` logs every request like before, `none` logs no requests.
 
-### After you update
-- On unRAID, make sure Settings → Docker → Docker LOG rotation is on. It keeps every container's log from growing
-  without limit, and an existing FeedStash container doesn't pick up the new template's log cap on its own.
-  (Docker's log size can't be set with a container variable; the other place for it is the container's Extra
-  Parameters, in Advanced View: `--log-opt max-size=10m --log-opt max-file=3`.)
+### Before you update
+- As always, it's recommended to create a backup before updating. This release adds to the database.
 
 ## 0.7.0
 

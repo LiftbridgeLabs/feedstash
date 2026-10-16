@@ -8,6 +8,7 @@ import { loadMail, mailSectionHTML, wireMail } from './mailbox.js';
 import { applySections, setPref } from './menus.js';
 import { showShortcuts } from './shortcuts.js';
 import { renderNav } from './sidebar.js';
+import { loadLogs, logsSectionHTML, wireLogs } from './logsettings.js';
 import { loadTagSettings, tagsSectionHTML, wireTagSettings } from './tagsettings.js';
 import { loadRules, rulesSectionHTML, wireRules } from './rules.js';
 import { els, showsFeeds, showsStash, state } from './state.js';
@@ -126,6 +127,8 @@ export function showSettings() {
       </ul>
     </div>
 
+    ${logsSectionHTML()}
+
     <div data-about-section hidden>
       <h3>About FeedStash</h3>
       <p data-about-version class="muted"></p>
@@ -203,6 +206,7 @@ async function loadAccount() {
     $('[data-accounts-section]', els.settings).hidden = false;
     loadAccounts();
     loadAbout();
+    loadLogs(els.settings);
   }
 }
 
@@ -485,6 +489,7 @@ async function saveReadRetention(select) {
 export function wireSettings() {
   wireImport(els.settings);
   wireMail(els.settings);
+  wireLogs(els.settings);
   wireRules(els.settings);
   wireTagSettings(els.settings);
   els.settings.addEventListener('change', (e) => {

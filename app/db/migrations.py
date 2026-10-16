@@ -272,6 +272,13 @@ MIGRATIONS: list[str] = [
     """
     ALTER TABLE users ADD COLUMN sections TEXT NOT NULL DEFAULT 'both';
     """,
+    # 15: server-wide settings an admin changes in the app (the log's level and size, for a start), as text.
+    """
+    CREATE TABLE app_settings (
+        key   TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+    );
+    """,
 ]
 
 
