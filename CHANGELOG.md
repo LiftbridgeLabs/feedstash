@@ -3,7 +3,7 @@
 What changed in each FeedStash release, newest first. Before you update, check **Before you update** for anything
 to do first, like taking a backup. Admins see the rest of a release's notes in FeedStash after updating.
 
-## Unreleased
+## 0.8.0
 
 ### New
 - Logs you control. FeedStash now keeps its own log files in its data folder and starts a new one when a file
