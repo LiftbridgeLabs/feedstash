@@ -10,6 +10,12 @@ services:
     ports:
       - "8672:8672"
     env_file: .env
+    # Keeps the container's log to three 10 MB files.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     volumes:
       - feedstash-data:/data
       # Or keep the data in a folder on the host, owned by PUID:PGID from .env:

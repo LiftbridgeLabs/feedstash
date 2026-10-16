@@ -42,8 +42,8 @@ MAX_REQUEST_BYTES = 32 * 1024 * 1024
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
-    _configure_logging()
     settings = settings or load_settings()
+    _configure_logging(settings.log_requests)
     db = Database(settings.database_path)
     secrets = SecretBox(resolve_secret_key(settings))
     images = ImageStore(settings.uploads_dir)
@@ -141,13 +141,38 @@ class RedactCredentials(logging.Filter):
         return True
 
 
-def _configure_logging() -> None:
+class QuietRequests(logging.Filter):
+    """Keeps only the request lines LOG_REQUESTS asks for. `changes` (the default) keeps anything that isn't a plain
+    read, plus failures: what someone looking at the log after a problem wants, without health checks and page loads
+    piling up thousands of lines a day."""
+
+    def __init__(self, level: str):
+        super().__init__()
+        self.level = level
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if self.level == "all":
+            return True
+        if self.level == "none":
+            return False
+        args = record.args if isinstance(record.args, tuple) else ()
+        method = args[1] if len(args) > 1 else ""
+        status = args[4] if len(args) > 4 and isinstance(args[4], int) else 0
+        if status >= 400:
+            return True
+        return self.level == "changes" and method not in ("GET", "HEAD", "OPTIONS")
+
+
+def _configure_logging(log_requests: str = "changes") -> None:
     if not logging.getLogger().handlers:
         logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)  # otherwise every feed fetch is logged
     access = logging.getLogger("uvicorn.access")
     if not any(isinstance(f, RedactCredentials) for f in access.filters):
         access.addFilter(RedactCredentials())
+    for old in [f for f in access.filters if isinstance(f, QuietRequests)]:
+        access.removeFilter(old)
+    access.addFilter(QuietRequests(log_requests))
 
 
 def _warn_about_sign_in(settings: Settings) -> None:

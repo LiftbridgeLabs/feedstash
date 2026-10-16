@@ -28,3 +28,20 @@ def test_reader_api_sign_in_passwords_are_hidden():
 
 def test_ordinary_paths_are_untouched():
     assert "/api/articles?scope=all&limit=40" in access_line("/api/articles?scope=all&limit=40")
+
+
+def access(method: str, path: str, status: int) -> logging.LogRecord:
+    return logging.LogRecord("uvicorn.access", logging.INFO, __file__, 1, '%s - "%s %s HTTP/%s" %d',
+                             ("10.0.0.1:5", method, path, "1.1", status), None)
+
+
+def test_request_lines_follow_log_requests():
+    from app.main import QuietRequests
+    cases = [("GET", "/healthz", 200), ("GET", "/api/tree", 200), ("POST", "/api/items", 201), ("GET", "/api/x", 404),
+             ("PATCH", "/api/items/1", 500)]
+    kept = {level: [c for c in cases if QuietRequests(level).filter(access(*c))]
+            for level in ("all", "changes", "errors", "none")}
+    assert kept["all"] == cases
+    assert kept["changes"] == [("POST", "/api/items", 201), ("GET", "/api/x", 404), ("PATCH", "/api/items/1", 500)]
+    assert kept["errors"] == [("GET", "/api/x", 404), ("PATCH", "/api/items/1", 500)]
+    assert kept["none"] == []

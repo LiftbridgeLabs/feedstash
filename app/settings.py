@@ -8,7 +8,7 @@ import logging
 import os
 import secrets
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, field_validator
@@ -73,6 +73,9 @@ class Settings(BaseSettings):
     feedstash_version: str = "dev"
     # Ask GitHub (at most once a day, while an admin has the app open) whether a newer release is out.
     update_check: bool = True
+    # Which requests get a line in the log: all, changes (saves, edits and failures; the default), errors or none.
+    # Health checks and page loads add up to thousands of lines a day, so only "all" logs them.
+    log_requests: Literal["all", "changes", "errors", "none"] = "changes"
 
     @field_validator("base_urls", mode="before")
     @classmethod
