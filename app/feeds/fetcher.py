@@ -118,7 +118,7 @@ class Fetcher:
         try:
             async with asyncio.timeout(DEADLINE_SECONDS), self._client.stream("GET", url, headers=headers) as response:
                 chunks, size = [], 0
-                if response.status_code == 200:
+                if response.is_success:  # 203 from a caching proxy has a feed in it too
                     async for chunk in response.aiter_bytes():
                         size += len(chunk)
                         if size > MAX_BYTES:

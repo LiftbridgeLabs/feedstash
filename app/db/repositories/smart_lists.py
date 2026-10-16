@@ -84,12 +84,12 @@ def update(
         folder_id=current.folder_id if folder_id is _UNSET else folder_id,
     )
     conn.execute(
-        "UPDATE smart_lists SET name = ?, query = ?, type = ?, tag = ?, folder_id = ? WHERE id = ?",
-        (name, *filters, list_id),
+        "UPDATE smart_lists SET name = ?, query = ?, type = ?, tag = ?, folder_id = ? WHERE id = ? AND user_id = ?",
+        (name, *filters, list_id, user_id),
     )
     return get(conn, user_id, list_id)
 
 
 def delete(conn: sqlite3.Connection, user_id: int, list_id: int) -> None:
     get(conn, user_id, list_id)
-    conn.execute("DELETE FROM smart_lists WHERE id = ?", (list_id,))
+    conn.execute("DELETE FROM smart_lists WHERE id = ? AND user_id = ?", (list_id, user_id))

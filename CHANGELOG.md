@@ -12,6 +12,10 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
 - Quieter logs. Out of the box only saves, edits, failures and feed refreshes are logged, and the container's own
   log only gets warnings and errors, so it stays small without any Docker settings.
 
+### Fixes
+- The unread list opens faster when you have thousands of unread articles.
+- Importing a big bookmarks file no longer holds up feed refreshes and saves while it runs.
+
 ### Settings
 - New: `LOG_REQUESTS`, `changes` by default: which requests are logged until an admin changes it in Settings →
   Logs. `errors` logs only failures, `all` logs every request like before, `none` logs no requests.

@@ -50,7 +50,7 @@ def _sends_api_credentials(request: Request) -> bool:
 
 def _is_client_login(request: Request) -> bool:
     """The Google Reader API's sign-in. It reads no cookie and changes nothing, so there's no session to forge."""
-    return request.url.path.endswith("/accounts/ClientLogin")
+    return request.url.path in ("/accounts/ClientLogin", "/api/greader.php/accounts/ClientLogin")
 
 
 class BodySizeLimit:

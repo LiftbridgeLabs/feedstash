@@ -4,12 +4,13 @@ import calendar
 import hashlib
 import html
 import re
-import time
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse
 
 import feedparser
+
+from app import clock
 
 MAX_ENTRIES = 250
 FEED_LINK_TYPES = frozenset({"application/rss+xml", "application/atom+xml", "application/rdf+xml"})
@@ -49,7 +50,7 @@ def parse_feed(content: bytes, url: str, content_type: str | None = None, *, now
     )
     if not (parsed.get("version") or parsed.entries):
         return None
-    now = int(time.time()) if now is None else now
+    now = clock.now() if now is None else now
     return ParsedFeed(
         title=plain_text(parsed.feed.get("title") or "", 200) or urlparse(url).netloc,
         site_url=http_url(parsed.feed.get("link")),

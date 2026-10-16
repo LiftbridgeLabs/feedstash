@@ -16,10 +16,10 @@ from app.db.models import ItemFilter
 from app.db.repositories import items as items_repo
 from app.db.repositories import pages as pages_repo
 from app.db.repositories import smart_lists, stash_folders
-from app.errors import InvalidInput, NotFound
+from app.errors import Conflict, InvalidInput, NotFound
 from app.images import MAX_IMAGE_BYTES
 from app.services import stash
-from app.web.deps import DatabaseDep, ImagesDep, UserDep, api_client_name
+from app.web.deps import DatabaseDep, ImagesDep, SettingsDep, UserDep, api_client_name
 from app.web.schemas import (
     OkOut,
     PageCopyOut,
@@ -82,7 +82,7 @@ def list_items(
     tag: str | None = None,
     reviewed: bool | None = None,
     archived: bool = False,
-    q: str | None = None,
+    q: Annotated[str | None, Query(max_length=500)] = None,
     folder: int | None = None,
     limit: int = 50,
     offset: int = 0,
@@ -136,8 +136,10 @@ def get_saved_page(item_id: int, user: UserDep, db: DatabaseDep) -> PageCopyOut:
 
 
 @router.post("/items/{item_id}/page/refresh", response_model=OkOut)
-def refresh_saved_page(item_id: int, user: UserDep, db: DatabaseDep) -> OkOut:
+def refresh_saved_page(item_id: int, user: UserDep, db: DatabaseDep, settings: SettingsDep) -> OkOut:
     """Saves the item's web page again."""
+    if not settings.page_capture:
+        raise Conflict("This server doesn't save web pages (PAGE_CAPTURE is off)")
     with db.transaction() as conn:
         pages_repo.requeue(conn, user.id, item_id, now=now())
     return OkOut()

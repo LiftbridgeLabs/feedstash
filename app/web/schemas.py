@@ -275,7 +275,7 @@ class StarIn(BaseModel):
 class MarkScopeIn(BaseModel):
     scope: ScopeKind
     id: int | None = None
-    older_than_hours: float | None = Field(default=None, gt=0)
+    older_than_hours: float | None = Field(default=None, gt=0, le=24 * 365 * 100, allow_inf_nan=False)
     max_id: int | None = None
 
 
@@ -422,7 +422,7 @@ class SmartListIn(BaseModel):
     """On PATCH, only the fields sent are changed."""
 
     name: str | None = Field(default=None, max_length=1000)
-    query: str | None = Field(default=None, max_length=2000)
+    query: str | None = Field(default=None, max_length=500)  # the repository keeps no more than this
     type: str | None = None
     tag: str | None = Field(default=None, max_length=200)
     folderId: int | None = None

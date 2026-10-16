@@ -279,6 +279,12 @@ MIGRATIONS: list[str] = [
         value TEXT NOT NULL
     );
     """,
+    # 16: indexes for the two queries that scanned whole tables: the unread list across all feeds (the default view,
+    # and what syncing apps poll), newest first; and the scheduler's "which feeds are due" every minute.
+    """
+    CREATE INDEX idx_articles_unread_pub ON articles(published_at DESC, id DESC) WHERE read_at IS NULL;
+    CREATE INDEX idx_feeds_last_fetched ON feeds(last_fetched_at);
+    """,
 ]
 
 

@@ -177,3 +177,14 @@ def test_oversized_requests_are_refused_before_they_are_read(api):
     response = api.post("/api/items", content=chunks(), headers={"Content-Type": "application/json"})
     assert response.status_code == 413
     assert api.post("/api/items", json={"type": "snippet", "content": "still fine"}).status_code == 201
+
+
+def test_inputs_that_used_to_crash_get_a_readable_400(api):
+    assert api.get("/api/items", params={"q": "x" * 501}).status_code == 400
+    infinite = api.post("/api/mark-read", content=b'{"scope": "all", "older_than_hours": 1e999}',
+                        headers={"content-type": "application/json"})
+    assert infinite.status_code == 400
+    item = api.post("/api/items", json={"type": "link", "url": "https://example.com/x"}).json()
+    # Tests run with PAGE_CAPTURE off: asking to save the page again says why it can't, instead of "ok".
+    refresh = api.post(f"/api/items/{item['id']}/page/refresh")
+    assert refresh.status_code == 409 and "PAGE_CAPTURE" in refresh.json()["error"]

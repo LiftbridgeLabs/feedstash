@@ -56,7 +56,7 @@ def rename(conn: sqlite3.Connection, user_id: int, folder_id: int, name: str) ->
     clash = find_by_name(conn, user_id, name)
     if clash and clash.id != folder_id:
         raise Conflict("A folder with that name already exists")
-    conn.execute("UPDATE folders SET name = ? WHERE id = ?", (name, folder_id))
+    conn.execute("UPDATE folders SET name = ? WHERE id = ? AND user_id = ?", (name, folder_id, user_id))
     return Folder(id=folder.id, name=name, position=folder.position)
 
 
@@ -68,13 +68,14 @@ def delete(conn: sqlite3.Connection, user_id: int, folder_id: int, *, unfollow_f
     else:
         start = next_position(conn, "feeds", "user_id = ? AND folder_id IS NULL", [user_id])
         moving = [row["id"] for row in conn.execute(
-            "SELECT id FROM feeds WHERE folder_id = ? ORDER BY position, title COLLATE NOCASE", (folder_id,)
+            "SELECT id FROM feeds WHERE folder_id = ? AND user_id = ? ORDER BY position, title COLLATE NOCASE",
+            (folder_id, user_id),
         )]
         conn.executemany(
-            "UPDATE feeds SET folder_id = NULL, position = ? WHERE id = ?",
-            [(start + offset, feed_id) for offset, feed_id in enumerate(moving)],
+            "UPDATE feeds SET folder_id = NULL, position = ? WHERE id = ? AND user_id = ?",
+            [(start + offset, feed_id, user_id) for offset, feed_id in enumerate(moving)],
         )
-    conn.execute("DELETE FROM folders WHERE id = ?", (folder_id,))
+    conn.execute("DELETE FROM folders WHERE id = ? AND user_id = ?", (folder_id, user_id))
 
 
 def reorder(conn: sqlite3.Connection, user_id: int, ids: Sequence[int]) -> list[int]:
@@ -82,5 +83,8 @@ def reorder(conn: sqlite3.Connection, user_id: int, ids: Sequence[int]) -> list[
         "SELECT id FROM folders WHERE user_id = ? ORDER BY position, name COLLATE NOCASE", (user_id,)
     )]
     order = ordered_ids(current, ids, set(current))
-    conn.executemany("UPDATE folders SET position = ? WHERE id = ?", list(enumerate(order)))
+    conn.executemany(
+        "UPDATE folders SET position = ? WHERE id = ? AND user_id = ?",
+        [(position, folder_id, user_id) for position, folder_id in enumerate(order)],
+    )
     return order

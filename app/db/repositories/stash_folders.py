@@ -63,7 +63,10 @@ def create(conn: sqlite3.Connection, user_id: int, name: str) -> StashFolder:
     at = next((index for index, (_, other) in enumerate(existing) if other.lower() > name.lower()), len(existing))
     order = [other_id for other_id, _ in existing]
     order.insert(at, folder_id)
-    conn.executemany("UPDATE stash_folders SET position = ? WHERE id = ?", list(enumerate(order)))
+    conn.executemany(
+        "UPDATE stash_folders SET position = ? WHERE id = ? AND user_id = ?",
+        [(position, folder_id, user_id) for position, folder_id in enumerate(order)],
+    )
     return get(conn, user_id, folder_id)
 
 
@@ -71,14 +74,14 @@ def rename(conn: sqlite3.Connection, user_id: int, folder_id: int, name: str) ->
     name = clean_name(name, "Folder name")
     get(conn, user_id, folder_id)
     _check_unique(conn, user_id, name, folder_id)
-    conn.execute("UPDATE stash_folders SET name = ? WHERE id = ?", (name, folder_id))
+    conn.execute("UPDATE stash_folders SET name = ? WHERE id = ? AND user_id = ?", (name, folder_id, user_id))
     return get(conn, user_id, folder_id)
 
 
 def delete(conn: sqlite3.Connection, user_id: int, folder_id: int) -> None:
     """Deletes a folder. Its items stay in the stash, in no folder; smart lists of the folder go with it."""
     get(conn, user_id, folder_id)
-    conn.execute("DELETE FROM stash_folders WHERE id = ?", (folder_id,))
+    conn.execute("DELETE FROM stash_folders WHERE id = ? AND user_id = ?", (folder_id, user_id))
 
 
 def reorder(conn: sqlite3.Connection, user_id: int, ids: Sequence[int]) -> list[int]:
@@ -86,5 +89,8 @@ def reorder(conn: sqlite3.Connection, user_id: int, ids: Sequence[int]) -> list[
         "SELECT id FROM stash_folders WHERE user_id = ? ORDER BY position, name COLLATE NOCASE", (user_id,)
     )]
     order = ordered_ids(current, ids, set(current))
-    conn.executemany("UPDATE stash_folders SET position = ? WHERE id = ?", list(enumerate(order)))
+    conn.executemany(
+        "UPDATE stash_folders SET position = ? WHERE id = ? AND user_id = ?",
+        [(position, folder_id, user_id) for position, folder_id in enumerate(order)],
+    )
     return order

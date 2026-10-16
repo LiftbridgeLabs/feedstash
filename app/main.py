@@ -1,5 +1,6 @@
 """Application factory. Run with:  python -m app   (or  uvicorn --factory app.main:create_app)"""
 
+import asyncio
 import logging
 import re
 from contextlib import asynccontextmanager
@@ -51,7 +52,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     log_default = LogSettings(requests=settings.log_requests)
     log_files.apply(log_default)
     db = Database(settings.database_path)
-    secrets = SecretBox(resolve_secret_key(settings))
+    secret_key = resolve_secret_key(settings)
+    secrets = SecretBox(secret_key)
     images = ImageStore(settings.uploads_dir)
     scheduler = RefreshScheduler(db, settings)
     page_worker = PageWorker(db)
@@ -75,8 +77,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         await mail_worker.stop()
         await page_worker.stop()
         await update_checker.close()
-        for task in list(app.state.background_tasks):
+        leftovers = list(app.state.background_tasks)
+        for task in leftovers:
             task.cancel()
+        await asyncio.gather(*leftovers, return_exceptions=True)  # let them unwind before the database closes
 
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.settings = settings
@@ -98,7 +102,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     errors.install(app)
     app.add_middleware(
         SessionMiddleware,
-        secret_key=resolve_secret_key(settings),
+        secret_key=secret_key,
         session_cookie=SESSION_COOKIE,
         max_age=settings.session_days * 86400,
         same_site="lax",

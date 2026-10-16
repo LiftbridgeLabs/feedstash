@@ -5,7 +5,7 @@ import logging
 import socket
 import ssl
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 log = logging.getLogger("feedstash.mail")
 
@@ -22,7 +22,7 @@ class MailboxConfig:
     host: str
     port: int
     username: str
-    password: str  # in the clear: decrypted by the caller
+    password: str = field(repr=False)  # in the clear: decrypted by the caller; never in a log line
     folder: str = "INBOX"
 
 

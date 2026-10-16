@@ -21,16 +21,21 @@ def parse_opml(data: bytes) -> list[tuple[str | None, str, str | None]]:
 
     results: list[tuple[str | None, str, str | None]] = []
 
-    def walk(node, folder: str | None) -> None:
-        for outline in node.findall("outline"):
-            url = outline.get("xmlUrl") or outline.get("xmlurl")
-            title = outline.get("title") or outline.get("text")
-            if url:
-                results.append((folder, url.strip(), title))
-            else:
-                walk(outline, folder or (title or "").strip() or None)
-
-    walk(body, None)
+    # An explicit stack of iterators, not recursion: a file nested thousands of levels deep would otherwise crash
+    # the import with a RecursionError. Same order as the file; the outermost named outline is the folder.
+    stack = [(iter(body.findall("outline")), None)]
+    while stack:
+        outlines, folder = stack[-1]
+        outline = next(outlines, None)
+        if outline is None:
+            stack.pop()
+            continue
+        url = outline.get("xmlUrl") or outline.get("xmlurl")
+        title = outline.get("title") or outline.get("text")
+        if url:
+            results.append((folder, url.strip(), title))
+        else:
+            stack.append((iter(outline.findall("outline")), folder or (title or "").strip() or None))
     return results
 
 

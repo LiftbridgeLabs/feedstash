@@ -55,6 +55,8 @@ def index_item(conn: sqlite3.Connection, item_id: int) -> None:
 
 
 def index_article(conn: sqlite3.Connection, article_id: int, title: str, text: str) -> None:
+    # FTS5 allows duplicate rowids, so indexing an article twice would show it twice in search.
+    conn.execute("DELETE FROM articles_fts WHERE rowid = ?", (article_id,))
     conn.execute(
         "INSERT INTO articles_fts (rowid, title, body) VALUES (?, ?, ?)", (article_id, title, (text or "")[:MAX_BODY])
     )

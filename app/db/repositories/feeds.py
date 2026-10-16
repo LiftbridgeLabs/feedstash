@@ -77,7 +77,7 @@ def create(
 
 def rename(conn: sqlite3.Connection, user_id: int, feed_id: int, title: str) -> None:
     get(conn, user_id, feed_id)
-    conn.execute("UPDATE feeds SET title = ? WHERE id = ?", (clean_name(title, "Name"), feed_id))
+    conn.execute("UPDATE feeds SET title = ? WHERE id = ? AND user_id = ?", (clean_name(title, "Name"), feed_id, user_id))
 
 
 def change_source(
@@ -90,8 +90,8 @@ def change_source(
         raise Conflict("You already follow that feed")
     conn.execute(
         """UPDATE feeds SET url = ?, site_url = COALESCE(?, site_url), etag = ?, last_modified = ?,
-               last_fetched_at = ?, last_error = NULL WHERE id = ?""",
-        (url, site_url, etag, last_modified, fetched_at, feed_id),
+               last_fetched_at = ?, last_error = NULL WHERE id = ? AND user_id = ?""",
+        (url, site_url, etag, last_modified, fetched_at, feed_id, user_id),
     )
 
 
@@ -103,21 +103,21 @@ def move(conn: sqlite3.Connection, user_id: int, feed_id: int, folder_id: int | 
     if folder_id is not None:
         folders_repo.get(conn, user_id, folder_id)
     conn.execute(
-        "UPDATE feeds SET folder_id = ?, position = ? WHERE id = ?",
-        (folder_id, _position_at_end(conn, user_id, folder_id), feed_id),
+        "UPDATE feeds SET folder_id = ?, position = ? WHERE id = ? AND user_id = ?",
+        (folder_id, _position_at_end(conn, user_id, folder_id), feed_id, user_id),
     )
 
 
 def set_auto_stash(conn: sqlite3.Connection, user_id: int, feed_id: int, enabled: bool) -> None:
     """Whether the feed's new articles go straight to the stash (and are marked read)."""
     get(conn, user_id, feed_id)
-    conn.execute("UPDATE feeds SET auto_stash = ? WHERE id = ?", (int(enabled), feed_id))
+    conn.execute("UPDATE feeds SET auto_stash = ? WHERE id = ? AND user_id = ?", (int(enabled), feed_id, user_id))
 
 
 def set_full_text(conn: sqlite3.Connection, user_id: int, feed_id: int, enabled: bool) -> None:
     """Whether the feed's unread articles get their full page fetched in the background."""
     get(conn, user_id, feed_id)
-    conn.execute("UPDATE feeds SET full_text = ? WHERE id = ?", (int(enabled), feed_id))
+    conn.execute("UPDATE feeds SET full_text = ? WHERE id = ? AND user_id = ?", (int(enabled), feed_id, user_id))
 
 
 def auto_stash_owner(conn: sqlite3.Connection, feed_id: int) -> int | None:
@@ -128,7 +128,7 @@ def auto_stash_owner(conn: sqlite3.Connection, feed_id: int) -> int | None:
 
 def delete(conn: sqlite3.Connection, user_id: int, feed_id: int) -> None:
     get(conn, user_id, feed_id)
-    conn.execute("DELETE FROM feeds WHERE id = ?", (feed_id,))
+    conn.execute("DELETE FROM feeds WHERE id = ? AND user_id = ?", (feed_id, user_id))
 
 
 def reorder(conn: sqlite3.Connection, user_id: int, folder_id: int | None, ids: Sequence[int]) -> list[int]:
@@ -142,8 +142,8 @@ def reorder(conn: sqlite3.Connection, user_id: int, folder_id: int | None, ids: 
     )]
     order = ordered_ids(current, ids, owned)
     conn.executemany(
-        "UPDATE feeds SET folder_id = ?, position = ? WHERE id = ?",
-        [(folder_id, position, feed_id) for position, feed_id in enumerate(order)],
+        "UPDATE feeds SET folder_id = ?, position = ? WHERE id = ? AND user_id = ?",
+        [(folder_id, position, feed_id, user_id) for position, feed_id in enumerate(order)],
     )
     return order
 

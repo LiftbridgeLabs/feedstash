@@ -112,7 +112,7 @@ def create(
 
 def delete(conn: sqlite3.Connection, user_id: int, rule_id: int) -> None:
     get(conn, user_id, rule_id)
-    conn.execute("DELETE FROM stash_rules WHERE id = ?", (rule_id,))
+    conn.execute("DELETE FROM stash_rules WHERE id = ? AND user_id = ?", (rule_id, user_id))
 
 
 # ------------------------------------------------------------------ applying

@@ -41,6 +41,10 @@ def _summary_fields(row: sqlite3.Row) -> dict:
     }
 
 
+def _only_account_with_feeds(conn: sqlite3.Connection, user_id: int) -> bool:
+    return conn.execute("SELECT 1 FROM feeds WHERE user_id != ? LIMIT 1", (user_id,)).fetchone() is None
+
+
 def _parse_cursor(cursor: str) -> tuple[int, int]:
     try:
         published_at, article_id = (int(part) for part in cursor.split(":"))
@@ -88,8 +92,16 @@ def page(
         where += f" AND (a.published_at {op} ? OR (a.published_at = ? AND a.id {op} ?))"
         params += [published_at, published_at, last_id]
     direction = "DESC" if order == "newest" else "ASC"
+    # Everything unread, across every feed, is the default view. SQLite has no statistics to go on (nothing runs
+    # ANALYZE), so left alone it gathers every unread article feed by feed and sorts them all for one page; walking
+    # the unread index in date order stops after the page instead. That index holds every account's articles, so
+    # it's only the faster way when nobody else has feeds here; otherwise someone with little unread would wait
+    # while it walked past everyone else's.
+    source = _FROM
+    if scope.kind == "all" and unread_only and not query and _only_account_with_feeds(conn, user_id):
+        source = _FROM.replace("articles a", "articles a INDEXED BY idx_articles_unread_pub")
     rows = conn.execute(
-        f"SELECT {_SUMMARY_COLUMNS} {_FROM} WHERE {where} "
+        f"SELECT {_SUMMARY_COLUMNS} {source} WHERE {where} "
         f"ORDER BY a.published_at {direction}, a.id {direction} LIMIT ?",
         [*params, limit + 1],
     ).fetchall()
