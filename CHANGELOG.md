@@ -3,7 +3,7 @@
 What changed in each FeedStash release, newest first. Before you update, check **Before you update** for anything
 to do first, like taking a backup. Admins see the rest of a release's notes in FeedStash after updating.
 
-## Unreleased
+## 0.8.1
 
 ### Fixes
 - Feeds that some sites turned away with HTTP 403 load again. FeedStash now introduces itself to sites as a feed
