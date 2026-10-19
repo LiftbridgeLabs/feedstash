@@ -83,7 +83,7 @@ docker exec -it feedstash python -m app.cli set-password --email you@example.com
 
 ### Google and single sign-on (Pocket ID, Authentik, Authelia…)
 
-The easiest way is in the app: an admin opens **Settings → Sign-in → Add sign-in**, picks Google or OpenID Connect, and pastes in the client ID and secret. The form shows the redirect URI to give the provider, `<BASE_URL>/auth/sso/callback` (one for each address in `BASE_URL`), so you can create the client there first. FeedStash checks the issuer address when you save, and you can add more than one provider, turn one off, or remove it. The client secret is stored encrypted with the server's `SECRET_KEY`.
+The easiest way is in the app: an admin opens **Settings → Sign-in → Add sign-in**, picks Google or OpenID Connect, and pastes in the client ID and secret. The form shows the redirect URI to give the provider, `<BASE_URL>/auth/sso/callback` (one for each address in `BASE_URL`), so you can create the client there first. FeedStash checks the issuer address when you save, and you can add more than one provider, turn one off, or remove it. Each button can have an icon (a built-in one, or an image link such as the logo your provider serves) and a color, with a preview as you choose; Google's button keeps Google's own look. **Sign-in buttons → All hidden** turns every Google and single sign-on button off at once, handy while testing; passwords keep working. The client secret is stored encrypted with the server's `SECRET_KEY`.
 
 Below the providers, **Who can sign in** keeps the allowed list: addresses, or whole domains. `*` lets in anyone your provider lets in.
 
@@ -92,7 +92,7 @@ Below the providers, **Who can sign in** keeps the allowed list: addresses, or w
 
 #### Or in the server's settings
 
-Google and one OIDC provider can also be set with environment variables, which suits setups kept in a compose file. These show in Settings → Sign-in but can only be changed in the server's settings. Their redirect URIs are `<BASE_URL>/auth/google/callback` and `<BASE_URL>/auth/oidc/callback`.
+Google and one OIDC provider can also be set with environment variables, which suits setups kept in a compose file. These show in Settings → Sign-in, where they can be turned off and on, but can only be changed in the server's settings. Their redirect URIs are `<BASE_URL>/auth/google/callback` and `<BASE_URL>/auth/oidc/callback`.
 
 | Variable | Example |
 |---|---|

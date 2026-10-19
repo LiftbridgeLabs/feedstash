@@ -107,10 +107,24 @@ def test_admins_add_a_single_sign_on_in_settings(reader, oidc_provider):
       d.querySelector('[name=issuer]').value = '{oidc_provider.issuer}';
       d.querySelector('[name=client_id]').value = 'feedstash-test';
       d.querySelector('[name=client_secret]').value = 'test-client-secret';
-      d.querySelector('[type=submit]').click();
+      const icon = d.querySelector('[name=icon_choice]'); icon.value = 'shield'; icon.dispatchEvent(new Event('change', {{ bubbles: true }}));
+      const use = d.querySelector('[name=use_color]'); use.checked = true; use.dispatchEvent(new Event('change', {{ bubbles: true }}));
+      const color = d.querySelector('[name=color]'); color.value = '#1e3a8a'; color.dispatchEvent(new Event('input', {{ bubbles: true }}));
     }})()""")
+    # The preview shows the button as it will look.
+    preview = reader.js("document.querySelector('dialog.modal [data-preview]').innerHTML")
+    assert "Sign in with Pocket ID" in preview and "shield.svg" in preview and "#1e3a8a" in preview
+    reader.js("document.querySelector('dialog.modal [type=submit]').click()")
     assert reader.wait_for("!document.querySelector('dialog.modal')")
     assert reader.wait_for("document.querySelector('[data-signin-list]').textContent.includes('Pocket ID')")
+    assert "shield.svg" in reader.js("document.querySelector('.sso-row-button').innerHTML")
+
+    # One switch hides every button, and shows them again.
+    reader.js("(() => { const s = document.querySelector('[data-signin-switch-field]'); s.value = 'off'; s.dispatchEvent(new Event('change', { bubbles: true })); })()")
+    assert reader.wait_for("reader.api('GET', '/api/admin/sign-in').then((s) => s.sso_enabled === false)")
+    assert reader.wait_for("document.querySelector('.sso-row').classList.contains('is-off')")
+    reader.js("(() => { const s = document.querySelector('[data-signin-switch-field]'); s.value = 'on'; s.dispatchEvent(new Event('change', { bubbles: true })); })()")
+    assert reader.wait_for("reader.api('GET', '/api/admin/sign-in').then((s) => s.sso_enabled === true)")
 
     # Choosing Google hides the issuer and name, and says where Google's setting is.
     reader.js("document.querySelector('[data-signin=add]').click()")

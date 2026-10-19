@@ -7,7 +7,9 @@ before saving anything here. The allowed list is the server's ALLOWED_EMAILS / A
 admin adds in Settings.
 """
 
+import html
 import logging
+import re
 import sqlite3
 from dataclasses import dataclass
 
@@ -28,6 +30,8 @@ DISCOVERY_SUFFIX = "/.well-known/openid-configuration"
 DEFAULT_SCOPES = "openid email profile"
 SETTINGS_PREFIX = "signin."
 SSO_CALLBACK_PATH = "/auth/sso/callback"
+BUILT_IN_ICONS = ("key", "shield", "lock", "none")  # app/static/sso/<name>.svg
+_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +43,8 @@ class Provider:
     client_id: str
     client_secret: str
     scopes: str
+    icon: str = "key"  # one of BUILT_IN_ICONS, or an image's address; Google's button always has its own look
+    color: str = ""  # "#rrggbb", or "" for the theme's
 
     @property
     def account_prefix(self) -> str:
@@ -83,6 +89,8 @@ class SignIn:
         self._unreadable: set[int] = set()  # saved providers whose secret this server's key can't open
         self._saved_emails: list[str] = []
         self._saved_domains: list[str] = []
+        self._sso_enabled = True  # the switch for every Google and OIDC button at once
+        self._server_off: set[str] = set()  # providers from the server's settings an admin turned off
         self._load_server_settings()
 
     def _load_server_settings(self) -> None:
@@ -112,16 +120,22 @@ class SignIn:
                 log.warning("Sign-in %r is skipped: its client secret can't be read with this SECRET_KEY", row.name)
                 continue
             saved.append(self._from_row(row, secret))
-        self._snapshot = ([*self._server_providers, *saved], {})
-        self._unreadable = unreadable
         values = app_settings_repo.get_all(conn, SETTINGS_PREFIX)
+        self._sso_enabled = values.get(f"{SETTINGS_PREFIX}sso", "on") != "off"
+        self._server_off = set(split_list(values.get(f"{SETTINGS_PREFIX}server_off", "")))
+        server = [provider for provider in self._server_providers if provider.key not in self._server_off]
+        self._snapshot = ([*server, *saved] if self._sso_enabled else [], {})
+        self._unreadable = unreadable
         self._saved_emails = split_list(values.get(f"{SETTINGS_PREFIX}allowed_emails", ""))
         self._saved_domains = split_list(values.get(f"{SETTINGS_PREFIX}allowed_domains", ""))
 
     @staticmethod
     def _from_row(row: SignInProvider, secret: str) -> Provider:
         url = GOOGLE_DISCOVERY_URL if row.kind == "google" else discovery_url(row.issuer)
-        return Provider(f"p{row.id}", row.kind, f"Sign in with {row.name}", url, row.client_id, secret, row.scopes)
+        return Provider(
+            f"p{row.id}", row.kind, f"Sign in with {row.name}", url, row.client_id, secret, row.scopes, row.icon,
+            row.color,
+        )
 
     # -------------------------------------------------------------- providers
 
@@ -129,7 +143,15 @@ class SignIn:
         return list(self._snapshot[0])
 
     def server_providers(self) -> list[Provider]:
+        """All of them, including ones turned off here."""
         return list(self._server_providers)
+
+    def server_provider_enabled(self, key: str) -> bool:
+        return key not in self._server_off
+
+    @property
+    def sso_enabled(self) -> bool:
+        return self._sso_enabled
 
     def secret_unreadable(self, provider_id: int) -> bool:
         return provider_id in self._unreadable
@@ -177,6 +199,50 @@ class SignIn:
     def has_allowed_list(self) -> bool:
         settings = self._settings
         return bool(settings.allowed_emails or settings.allowed_domains or self._saved_emails or self._saved_domains)
+
+
+def check_icon(value: str) -> str:
+    value = (value or "key").strip()
+    if value in BUILT_IN_ICONS:
+        return value
+    if value.lower().startswith(("https://", "http://")) and len(value) <= 500 and not re.search(r"[\s\"'<>]", value):
+        return value
+    raise InvalidInput("The icon has to be one of the built-in ones, or an image's address starting with https://")
+
+
+def check_color(value: str) -> str:
+    value = (value or "").strip()
+    if value and not _COLOR.match(value):
+        raise InvalidInput("The color has to look like #3355ff")
+    return value.lower()
+
+
+def text_color(background: str) -> str:
+    """Dark or light text, whichever reads better on the button's color (WCAG relative luminance)."""
+    def channel(hex_pair: str) -> float:
+        c = int(hex_pair, 16) / 255
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+    r, g, b = (channel(background[i:i + 2]) for i in (1, 3, 5))
+    luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+    return "#1f1f1f" if luminance > 0.179 else "#ffffff"
+
+
+def button_html(provider: Provider) -> str:
+    """A provider's button on the sign-in page. static/js/signinsettings.js draws the same for its preview."""
+    label = f"<span>{html.escape(provider.label)}</span>"
+    href = f"/auth/login/{html.escape(provider.key)}"
+    if provider.kind == "google":  # Google's rules: its own G on a white button
+        return f'<a class="btn btn-lg sso-btn sso-google" href="{href}"><img src="/static/sso/google.svg" alt="" width="18" height="18">{label}</a>'
+    if provider.icon == "none":
+        icon = ""
+    elif provider.icon in BUILT_IN_ICONS:
+        icon = f'<span class="sso-icon" style="--icon: url(/static/sso/{provider.icon}.svg)"></span>'
+    else:
+        icon = f'<img src="{html.escape(provider.icon)}" alt="" width="18" height="18" referrerpolicy="no-referrer">'
+    style = f' style="--sso-bg: {provider.color}; --sso-fg: {text_color(provider.color)}"' if provider.color else ""
+    colored = " sso-colored" if provider.color else ""
+    return f'<a class="btn btn-lg sso-btn{colored}" href="{href}"{style}>{icon}{label}</a>'
 
 
 async def check_issuer(issuer: str) -> str:

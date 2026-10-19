@@ -40,6 +40,8 @@ class SignInProvider:
     client_id: str
     client_secret: str
     scopes: str
+    icon: str  # "key", "shield", "lock", "none", or an image's address
+    color: str  # "#rrggbb", or "" for the theme's
     enabled: bool
     position: int
     updated_at: int

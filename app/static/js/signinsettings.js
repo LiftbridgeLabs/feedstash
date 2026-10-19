@@ -19,6 +19,7 @@ export function signInSectionHTML() {
           <button class="btn btn-sm btn-primary" data-signin="add">${icon('plus')}Add sign-in</button>
         </div>
       </div>
+      <div data-signin-switch></div>
       <div data-signin-list><p class="muted">Loading…</p></div>
       <div data-signin-allowed></div>
     </div>`;
@@ -46,26 +47,76 @@ const host = (url) => {
   }
 };
 
+const BUILT_IN = ['key', 'shield', 'lock', 'none'];
+
+/** Dark or light text, whichever reads better on the color (as app/web/sso.py's text_color). */
+function textColor(hex) {
+  const channel = (i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const luminance = 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
+  return luminance > 0.179 ? '#1f1f1f' : '#ffffff';
+}
+
+/** The button as the sign-in page draws it (app/web/sso.py's button_html), for the list and the preview. */
+function buttonHTML({ kind, name, icon: iconName, color }) {
+  const label = `<span>Sign in with ${esc(kind === 'google' ? 'Google' : name || '…')}</span>`;
+  if (kind === 'google') {
+    return `<span class="btn btn-lg sso-btn sso-google"><img src="/static/sso/google.svg" alt="" width="18" height="18">${label}</span>`;
+  }
+  let picture = '';
+  if (BUILT_IN.includes(iconName || 'key')) {
+    if ((iconName || 'key') !== 'none') picture = `<span class="sso-icon" style="--icon: url(/static/sso/${iconName || 'key'}.svg)"></span>`;
+  } else if (/^https?:\/\//i.test(iconName)) {
+    picture = `<img src="${esc(iconName)}" alt="" width="18" height="18" referrerpolicy="no-referrer">`;
+  }
+  const colored = /^#[0-9a-f]{6}$/i.test(color || '');
+  const style = colored ? ` style="--sso-bg: ${color}; --sso-fg: ${textColor(color)}"` : '';
+  return `<span class="btn btn-lg sso-btn${colored ? ' sso-colored' : ''}"${style}>${picture}${label}</span>`;
+}
+
 function providerRow(provider) {
   const kind = provider.kind === 'google' ? 'Google' : `OpenID Connect · ${esc(host(provider.issuer))}`;
-  let status = provider.enabled ? '' : 'Turned off.';
+  let status = provider.enabled ? '' : 'Turned off: its button is hidden.';
   if (provider.secret_unreadable) status = '<span class="status-err">Enter the client secret again: it was saved with a different SECRET_KEY.</span>';
-  if (provider.from_server_settings) status = 'Set in the server\'s settings, so it can only be changed there.';
-  const actions = provider.from_server_settings ? '' : `
+  if (provider.from_server_settings) {
+    status = `Set in the server's settings, so it can only be changed there. ${provider.enabled ? '' : 'Turned off here.'}`;
+  }
+  const toggle = `<button class="btn btn-sm" data-signin="toggle" data-key="${esc(provider.key)}">${provider.enabled ? 'Turn off' : 'Turn on'}</button>`;
+  const actions = provider.from_server_settings ? `<div class="org-actions">${toggle}</div>` : `
       <div class="org-actions">
-        <button class="btn btn-sm" data-signin="edit" data-id="${provider.id}">${icon('sliders')}Edit</button>
-        <button class="btn btn-sm" data-signin="toggle" data-id="${provider.id}">${provider.enabled ? 'Turn off' : 'Turn on'}</button>
-        <button class="btn btn-sm" data-signin="remove" data-id="${provider.id}">Remove</button>
+        <button class="btn btn-sm" data-signin="edit" data-key="${esc(provider.key)}">${icon('sliders')}Edit</button>
+        ${toggle}
+        <button class="btn btn-sm" data-signin="remove" data-key="${esc(provider.key)}">Remove</button>
       </div>`;
   return `
-    <div class="setting-row">
-      <span><b>${esc(provider.name)}</b> <span class="muted">${kind}</span></span>
+    <div class="sso-row ${provider.enabled && overview.sso_enabled ? '' : 'is-off'}">
+      <div class="sso-row-main">
+        <div class="sso-row-button">${buttonHTML(provider)}</div>
+        <span class="sso-row-kind">${kind}</span>
+      </div>
       ${actions}
-      ${status ? `<p class="muted">${status}</p>` : ''}
+      ${status ? `<p class="sso-row-status">${status}</p>` : ''}
+    </div>`;
+}
+
+function switchHTML() {
+  if (!overview.providers.length) return '';
+  return `
+    <div class="setting-row">
+      <label for="sso-switch">Sign-in buttons</label>
+      <select id="sso-switch" data-signin-switch-field>
+        <option value="on" ${overview.sso_enabled ? 'selected' : ''}>Shown</option>
+        <option value="off" ${overview.sso_enabled ? '' : 'selected'}>All hidden</option>
+      </select>
+      <p class="muted">Hide every Google and single sign-on button at once, keeping how each is set up. Handy while
+        testing; passwords keep working.</p>
     </div>`;
 }
 
 function render(section) {
+  $('[data-signin-switch]', section).innerHTML = switchHTML();
   $('[data-signin-list]', section).innerHTML = overview.providers.length
     ? overview.providers.map(providerRow).join('')
     : '<p class="muted">Only passwords so far.</p>';
@@ -111,6 +162,33 @@ function callbackHTML(urls, kind) {
         <button type="button" class="btn btn-sm" data-copy="${esc(url)}">${icon('copy')}Copy</button></p>`).join('')}`;
 }
 
+const ICON_CHOICES = [['key', 'Key'], ['shield', 'Shield'], ['lock', 'Lock'], ['none', 'No icon'], ['link', 'An image from a link…']];
+
+function lookHTML(provider) {
+  const current = provider?.icon || 'key';
+  const choice = BUILT_IN.includes(current) ? current : 'link';
+  const color = provider?.color || '';
+  return `
+    <div data-look ${provider?.kind === 'google' ? 'hidden' : ''}>
+      <label>Icon<select name="icon_choice">
+        ${ICON_CHOICES.map(([value, label]) => `<option value="${value}" ${value === choice ? 'selected' : ''}>${label}</option>`).join('')}
+      </select></label>
+      <label data-icon-link ${choice === 'link' ? '' : 'hidden'}>Image address <small>(Pocket ID, Authentik and others serve their logo)</small>
+        <input type="url" name="icon_url" value="${choice === 'link' ? esc(current) : ''}" placeholder="https://id.example.com/logo.png" autocomplete="off"></label>
+      <label class="check"><input type="checkbox" name="use_color" ${color ? 'checked' : ''}> Give the button a color</label>
+      <input type="color" name="color" value="${esc(color || '#3b5bdb')}" aria-label="Button color" ${color ? '' : 'hidden'}>
+    </div>
+    <p class="muted" data-google-look ${provider?.kind === 'google' ? '' : 'hidden'}>Google's button keeps Google's own look, as its rules ask.</p>
+    <div class="sso-preview"><span class="muted">Preview</span><div data-preview></div></div>`;
+}
+
+/** What the form says about the button's look, as the API wants it. */
+function lookFrom(form) {
+  const choice = form.elements.icon_choice?.value || 'key';
+  const iconValue = choice === 'link' ? (form.elements.icon_url?.value || '').trim() || 'key' : choice;
+  return { icon: iconValue, color: form.elements.use_color?.checked ? form.elements.color.value : '' };
+}
+
 /** The add / edit form. `provider` is null when adding. */
 async function editProvider(section, provider) {
   const editing = Boolean(provider);
@@ -135,8 +213,30 @@ async function editProvider(section, provider) {
         data-1p-ignore data-lpignore="true"></label>
       <label>Client secret<input type="password" name="client_secret" autocomplete="off"
         placeholder="${editing ? 'Leave empty to keep the saved one' : ''}"></label>
-      <div data-callbacks>${callbackHTML(provider?.callback_urls || overview.callback_urls, kind)}</div>`,
+      <div data-callbacks>${callbackHTML(provider?.callback_urls || overview.callback_urls, kind)}</div>
+      ${lookHTML(provider)}`,
     onOpen: (dialog) => {
+      const form = $('form', dialog);
+      const currentKind = () => form.elements.kind?.value || kind;
+      const preview = () => {
+        $('[data-preview]', dialog).innerHTML = buttonHTML({
+          kind: currentKind(), name: (form.elements.name.value || '').trim(), ...lookFrom(form),
+        });
+      };
+      preview();
+      dialog.addEventListener('input', preview);
+      dialog.addEventListener('change', (e) => {
+        if (e.target.name === 'icon_choice') $('[data-icon-link]', dialog).hidden = e.target.value !== 'link';
+        if (e.target.name === 'use_color') form.elements.color.hidden = !e.target.checked;
+        if (e.target.name === 'kind') {
+          const google = e.target.value === 'google';
+          dialog.querySelectorAll('[data-oidc-only]').forEach((el) => { el.hidden = google; });
+          $('[data-look]', dialog).hidden = google;
+          $('[data-google-look]', dialog).hidden = !google;
+          $('[data-callbacks]', dialog).innerHTML = callbackHTML(overview.callback_urls, e.target.value);
+        }
+        preview();
+      });
       dialog.addEventListener('click', async (e) => {
         const button = e.target.closest('[data-copy]');
         if (!button) return;
@@ -147,18 +247,15 @@ async function editProvider(section, provider) {
           button.textContent = 'Select and copy it';
         }
       });
-      $('select[name=kind]', dialog)?.addEventListener('change', (e) => {
-        const google = e.target.value === 'google';
-        dialog.querySelectorAll('[data-oidc-only]').forEach((el) => { el.hidden = google; });
-        $('[data-callbacks]', dialog).innerHTML = callbackHTML(overview.callback_urls, e.target.value);
-      });
     },
     onSubmit: async (fd) => {
+      const form = $('dialog.modal form');
       const body = {
         name: (fd.get('name') || '').trim(),
         issuer: (fd.get('issuer') || '').trim(),
         client_id: (fd.get('client_id') || '').trim(),
         client_secret: fd.get('client_secret') || '',
+        ...lookFrom(form),
       };
       if (!body.client_id) throw new Error('Enter the client ID from your provider');
       if (editing) {
@@ -178,11 +275,25 @@ async function editProvider(section, provider) {
 }
 
 async function toggle(section, provider) {
+  const url = provider.from_server_settings
+    ? `/api/admin/sign-in/server/${encodeURIComponent(provider.key)}`
+    : `/api/admin/sign-in/providers/${provider.id}`;
   try {
-    overview = await api('PATCH', `/api/admin/sign-in/providers/${provider.id}`, { enabled: !provider.enabled });
+    overview = await api('PATCH', url, { enabled: !provider.enabled });
     render(section);
   } catch (err) {
     toast(err.message, { error: true });
+  }
+}
+
+async function setSwitch(section, select) {
+  try {
+    overview = await api('PUT', '/api/admin/sign-in/switch', { enabled: select.value === 'on' });
+    render(section);
+    toast(overview.sso_enabled ? 'Sign-in buttons are shown again' : 'Sign-in buttons are hidden. Passwords still work.');
+  } catch (err) {
+    toast(err.message, { error: true });
+    render(section);
   }
 }
 
@@ -209,12 +320,15 @@ export function wireSignIn(root) {
     const button = e.target.closest('[data-signin]');
     const section = button?.closest('[data-signin-section]');
     if (!section || !overview) return;
-    const provider = overview.providers.find((p) => String(p.id) === button.dataset.id);
+    const provider = overview.providers.find((p) => p.key === button.dataset.key);
     if (button.dataset.signin === 'add') editProvider(section, null);
     else if (!provider) return;
     else if (button.dataset.signin === 'edit') editProvider(section, provider);
     else if (button.dataset.signin === 'toggle') toggle(section, provider);
     else if (button.dataset.signin === 'remove') remove(section, provider);
+  });
+  root.addEventListener('change', (e) => {
+    if (e.target.matches('[data-signin-switch-field]')) setSwitch(e.target.closest('[data-signin-section]'), e.target);
   });
   root.addEventListener('submit', (e) => {
     if (!e.target.matches('[data-signin-allowed-form]')) return;

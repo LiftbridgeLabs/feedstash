@@ -49,6 +49,8 @@ class SignInProviderIn(BaseModel):
     client_id: str = Field(min_length=1, max_length=500)
     client_secret: str = Field(min_length=1, max_length=2000)
     scopes: str = Field(default="openid email profile", max_length=300)
+    icon: str = Field(default="key", max_length=500)  # key, shield, lock, none, or an image's address
+    color: str = Field(default="", max_length=7)  # #rrggbb, or empty for the theme's
 
 
 class SignInProviderPatch(BaseModel):
@@ -57,16 +59,25 @@ class SignInProviderPatch(BaseModel):
     client_id: str | None = Field(default=None, min_length=1, max_length=500)
     client_secret: str | None = Field(default=None, max_length=2000)  # empty or left out keeps the saved one
     scopes: str | None = Field(default=None, max_length=300)
+    icon: str | None = Field(default=None, max_length=500)
+    color: str | None = Field(default=None, max_length=7)
     enabled: bool | None = None
 
 
+class SignInSwitchIn(BaseModel):
+    enabled: bool
+
+
 class SignInProviderOut(BaseModel):
-    id: int | None  # None for the ones set in the server's settings, which can't be changed here
+    id: int | None  # None for the ones set in the server's settings, which can only be turned off or on here
+    key: str  # in its sign-in address, /auth/login/<key>
     kind: str
     name: str
     issuer: str
     client_id: str
     scopes: str
+    icon: str
+    color: str
     enabled: bool
     from_server_settings: bool
     secret_unreadable: bool = False  # saved with a different SECRET_KEY: the secret has to be entered again
@@ -74,6 +85,7 @@ class SignInProviderOut(BaseModel):
 
 
 class SignInOut(BaseModel):
+    sso_enabled: bool  # the switch for every Google and OIDC button at once
     providers: list[SignInProviderOut]
     callback_urls: list[str]  # for a provider added here, before it's saved
     allowed_emails: list[str]  # the allowed list kept here

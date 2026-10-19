@@ -303,6 +303,12 @@ MIGRATIONS: list[str] = [
         updated_at INTEGER NOT NULL
     );
     """,
+    # 18: a sign-in button's look: its icon (key, shield, lock, none, or an image's address) and color (#rrggbb, or ''
+    # for the theme's).
+    """
+    ALTER TABLE sign_in_providers ADD COLUMN icon TEXT NOT NULL DEFAULT 'key';
+    ALTER TABLE sign_in_providers ADD COLUMN color TEXT NOT NULL DEFAULT '';
+    """,
 ]
 
 

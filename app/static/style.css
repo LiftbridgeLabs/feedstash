@@ -571,6 +571,23 @@ dialog.whats-new { width: min(560px, calc(100vw - 32px)); }
 .login-form .login-error { margin: 0; }
 .login-options { display: flex; flex-direction: column; gap: 10px; }
 .login-options:empty { display: none; }
+.sso-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; }
+.sso-btn img { flex: none; object-fit: contain; }
+.sso-icon { flex: none; width: 18px; height: 18px; background: currentColor; -webkit-mask: var(--icon) center / contain no-repeat; mask: var(--icon) center / contain no-repeat; }
+.sso-colored { background: var(--sso-bg); color: var(--sso-fg); border-color: transparent; }
+.sso-colored:hover { background: color-mix(in srgb, var(--sso-bg) 88%, var(--sso-fg)); }
+/* Google's sign-in branding: white button, gray outline, its own G. */
+.sso-google { background: #fff; color: #1f1f1f; border: 1px solid #747775; }
+.sso-google:hover { background: #f2f2f2; }
+.sso-preview { display: flex; flex-direction: column; gap: 6px; }
+.sso-preview .btn { align-self: stretch; }
+.sso-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 14px 0 0; }
+.sso-row-main { display: flex; flex-direction: column; gap: 4px; }
+.sso-row-button .btn { pointer-events: none; min-width: 230px; }
+.sso-row.is-off .sso-row-button { opacity: .45; }
+.sso-row-kind, .sso-row-status { color: var(--text-muted); font-size: 13px; }
+.sso-row-status { flex-basis: 100%; margin: 0; }
+.modal-body input[type=color] { width: 64px; height: 34px; padding: 2px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); }
 .login-or { display: flex; align-items: center; gap: 10px; margin: 18px 0; color: var(--text-muted); font-size: 13px; }
 .login-or::before, .login-or::after { content: ""; flex: 1; border-top: 1px solid var(--border); }
 

@@ -3,6 +3,8 @@
 Session-only, like the other admin settings: a phone's token can't add a way in.
 """
 
+import threading
+
 from fastapi import APIRouter, HTTPException, Request, Response
 from starlette.concurrency import run_in_threadpool
 
@@ -13,12 +15,19 @@ from app.db.repositories import app_settings as app_settings_repo
 from app.db.repositories import sign_in_providers as providers_repo
 from app.errors import InvalidInput
 from app.web.deps import DatabaseDep, SessionUserDep
-from app.web.schemas import AllowedListIn, SignInOut, SignInProviderIn, SignInProviderOut, SignInProviderPatch
+from app.web.schemas import (
+    AllowedListIn, SignInOut, SignInProviderIn, SignInProviderOut, SignInProviderPatch, SignInSwitchIn,
+)
 from app.web.sso import (
-    DEFAULT_SCOPES, GOOGLE_DISCOVERY_URL, SETTINGS_PREFIX, SSO_CALLBACK_PATH, SignIn, check_issuer, split_list,
+    DEFAULT_SCOPES, GOOGLE_DISCOVERY_URL, SETTINGS_PREFIX, SSO_CALLBACK_PATH, SignIn, check_color, check_icon,
+    check_issuer, split_list,
 )
 
 router = APIRouter(prefix="/api/admin/sign-in")
+
+# Changes here run one at a time, each checking and writing under this lock: two admins turning off the last two
+# providers at once mustn't each see the other's as still on (with passwords off, that leaves no way in).
+_CHANGES = threading.Lock()
 
 
 def _admin(user: User) -> None:
@@ -35,9 +44,10 @@ def _overview(request: Request, db: Database) -> SignInOut:
     sign_in: SignIn = request.app.state.sign_in
     providers = [
         SignInProviderOut(
-            id=None, kind=provider.kind, name=provider.label.removeprefix("Sign in with "),
+            id=None, key=provider.key, kind=provider.kind, name=provider.label.removeprefix("Sign in with "),
             issuer="" if provider.kind == "google" else provider.discovery_url, client_id=provider.client_id,
-            scopes=provider.scopes, enabled=True, from_server_settings=True,
+            scopes=provider.scopes, icon=provider.icon, color=provider.color,
+            enabled=sign_in.server_provider_enabled(provider.key), from_server_settings=True,
             callback_urls=_urls(request, provider.callback_path),
         )
         for provider in sign_in.server_providers()
@@ -46,18 +56,46 @@ def _overview(request: Request, db: Database) -> SignInOut:
         saved = providers_repo.list_all(conn)
     providers += [
         SignInProviderOut(
-            id=row.id, kind=row.kind, name=row.name, issuer="" if row.kind == "google" else row.issuer,
-            client_id=row.client_id, scopes=row.scopes, enabled=row.enabled, from_server_settings=False,
+            id=row.id, key=f"p{row.id}", kind=row.kind, name=row.name, issuer="" if row.kind == "google" else row.issuer,
+            client_id=row.client_id, scopes=row.scopes, icon=row.icon, color=row.color, enabled=row.enabled,
+            from_server_settings=False,
             secret_unreadable=sign_in.secret_unreadable(row.id), callback_urls=_urls(request, SSO_CALLBACK_PATH),
         )
         for row in saved
     ]
     return SignInOut(
-        providers=providers, callback_urls=_urls(request, SSO_CALLBACK_PATH),
+        sso_enabled=sign_in.sso_enabled, providers=providers, callback_urls=_urls(request, SSO_CALLBACK_PATH),
         allowed_emails=sign_in.saved_emails, allowed_domains=sign_in.saved_domains,
         server_allowed_emails=list(settings.allowed_emails), server_allowed_domains=list(settings.allowed_domains),
         password_login=settings.password_login,
     )
+
+
+NO_WAY_IN = (
+    "Password sign-in is off on this server (PASSWORD_LOGIN=false), so that would leave nobody a way to sign in. "
+    "Keep at least one sign-in on."
+)
+
+
+def _ways_in_left(
+    request: Request, db: Database, *, sso: bool | None = None, server_off: set[str] | None = None,
+    saved: dict[int, bool] | None = None,
+) -> bool:
+    """Whether someone could still sign in after a change: always, with passwords on; otherwise only while some
+    provider stays on. `saved` gives saved providers' new on/off (False for one being removed)."""
+    settings = request.app.state.settings
+    if settings.password_login or settings.dev_login:
+        return True
+    sign_in: SignIn = request.app.state.sign_in
+    if not (sign_in.sso_enabled if sso is None else sso):
+        return False
+    if server_off is None:
+        server_off = {p.key for p in sign_in.server_providers() if not sign_in.server_provider_enabled(p.key)}
+    if any(provider.key not in server_off for provider in sign_in.server_providers()):
+        return True
+    with db.transaction() as conn:
+        rows = providers_repo.list_all(conn)
+    return any((saved or {}).get(row.id, row.enabled) and not sign_in.secret_unreadable(row.id) for row in rows)
 
 
 def _reload(request: Request, db: Database) -> None:
@@ -91,6 +129,7 @@ async def overview(request: Request, user: SessionUserDep, db: DatabaseDep) -> S
 async def add_provider(body: SignInProviderIn, request: Request, user: SessionUserDep, db: DatabaseDep) -> SignInOut:
     _admin(user)
     name = _name(body.kind, body.name)
+    icon, color = check_icon(body.icon), check_color(body.color)
     issuer = GOOGLE_DISCOVERY_URL if body.kind == "google" else await check_issuer(body.issuer)
     secret = request.app.state.secrets.encrypt(body.client_secret.strip())
 
@@ -98,7 +137,7 @@ async def add_provider(body: SignInProviderIn, request: Request, user: SessionUs
         with db.transaction() as conn:
             providers_repo.create(
                 conn, kind=body.kind, name=name, issuer=issuer, client_id=body.client_id.strip(),
-                client_secret=secret, scopes=_scopes(body.scopes), now=now(),
+                client_secret=secret, scopes=_scopes(body.scopes), icon=icon, color=color, now=now(),
             )
         _reload(request, db)
         return _overview(request, db)
@@ -124,14 +163,21 @@ async def change_provider(
         changes["client_secret"] = request.app.state.secrets.encrypt(body.client_secret.strip())
     if body.scopes is not None:
         changes["scopes"] = _scopes(body.scopes)
+    if body.icon is not None:
+        changes["icon"] = check_icon(body.icon)
+    if body.color is not None:
+        changes["color"] = check_color(body.color)
     if body.enabled is not None:
         changes["enabled"] = int(body.enabled)
 
     def save() -> SignInOut:
-        with db.transaction() as conn:
-            providers_repo.update(conn, provider_id, now=now(), **changes)
-        _reload(request, db)
-        return _overview(request, db)
+        with _CHANGES:
+            if body.enabled is False and not _ways_in_left(request, db, saved={provider_id: False}):
+                raise InvalidInput(NO_WAY_IN)
+            with db.transaction() as conn:
+                providers_repo.update(conn, provider_id, now=now(), **changes)
+            _reload(request, db)
+            return _overview(request, db)
 
     return await run_in_threadpool(save)
 
@@ -141,9 +187,12 @@ async def remove_provider(provider_id: int, request: Request, user: SessionUserD
     _admin(user)
 
     def remove() -> None:
-        with db.transaction() as conn:
-            providers_repo.delete(conn, provider_id)
-        _reload(request, db)
+        with _CHANGES:
+            if not _ways_in_left(request, db, saved={provider_id: False}):
+                raise InvalidInput(NO_WAY_IN)
+            with db.transaction() as conn:
+                providers_repo.delete(conn, provider_id)
+            _reload(request, db)
 
     await run_in_threadpool(remove)
     return Response(status_code=204)
@@ -174,5 +223,46 @@ async def set_allowed(body: AllowedListIn, request: Request, user: SessionUserDe
             })
         _reload(request, db)
         return _overview(request, db)
+
+    return await run_in_threadpool(save)
+
+
+@router.put("/switch", response_model=SignInOut)
+async def switch(body: SignInSwitchIn, request: Request, user: SessionUserDep, db: DatabaseDep) -> SignInOut:
+    """Every Google and OIDC button on or off at once, keeping how each is set up (handy for testing)."""
+    _admin(user)
+
+    def save() -> SignInOut:
+        with _CHANGES:
+            if not body.enabled and not _ways_in_left(request, db, sso=False):
+                raise InvalidInput(NO_WAY_IN)
+            with db.transaction() as conn:
+                app_settings_repo.set_many(conn, {f"{SETTINGS_PREFIX}sso": "on" if body.enabled else "off"})
+            _reload(request, db)
+            return _overview(request, db)
+
+    return await run_in_threadpool(save)
+
+
+@router.patch("/server/{key}", response_model=SignInOut)
+async def switch_server_provider(
+    key: str, body: SignInSwitchIn, request: Request, user: SessionUserDep, db: DatabaseDep,
+) -> SignInOut:
+    """Turns off (or back on) a provider set in the server's settings, which can't be changed from here otherwise."""
+    _admin(user)
+    sign_in: SignIn = request.app.state.sign_in
+    if key not in {provider.key for provider in sign_in.server_providers()}:
+        raise HTTPException(status_code=404, detail="That sign-in isn't set in the server's settings")
+
+    def save() -> SignInOut:
+        with _CHANGES:
+            off = {p.key for p in sign_in.server_providers() if not sign_in.server_provider_enabled(p.key)}
+            off = off - {key} if body.enabled else off | {key}
+            if not body.enabled and not _ways_in_left(request, db, server_off=off):
+                raise InvalidInput(NO_WAY_IN)
+            with db.transaction() as conn:
+                app_settings_repo.set_many(conn, {f"{SETTINGS_PREFIX}server_off": ",".join(sorted(off))})
+            _reload(request, db)
+            return _overview(request, db)
 
     return await run_in_threadpool(save)

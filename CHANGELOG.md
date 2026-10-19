@@ -11,6 +11,13 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
   address to give your provider, checks everything when you save, and you can add more than one, turn one off or
   remove it. Who can sign in that way is kept there too. Providers already set in the server's settings keep
   working and show up in the list.
+- **Your own sign-in buttons.** Give each one an icon, built in or your provider's own logo, and a color, with a
+  preview while you choose. One switch hides every sign-in button at once, handy while testing.
+
+### Fixes
+- Feeds with an old `http://` address that a site refuses, like PhoneArena's, now load. FeedStash tries the
+  `https://` address instead and keeps it once it works. Importing an OPML or Feedly export that still lists the
+  `http://` address doesn't add the feed a second time.
 
 ### Before you update
 - As always, it's recommended to create a backup before updating. This release adds to the database.

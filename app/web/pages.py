@@ -8,7 +8,7 @@ from app.clock import iso, now
 from app.db.repositories import users as users_repo
 from app.settings import Settings
 from app.web.auth import SETUP_BLOCKED, session_user, setup_needs_token
-from app.web.sso import Provider
+from app.web.sso import Provider, button_html
 
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
 
@@ -51,7 +51,7 @@ def login_page(
     if settings.dev_login:
         options.append('<a class="btn btn-primary btn-lg" href="/auth/login">Continue as local user</a>')
     for provider in providers:
-        options.append(f'<a class="btn btn-lg" href="/auth/login/{provider.key}">{html.escape(provider.label)}</a>')
+        options.append(button_html(provider))
     form = ""
     if settings.password_login and not settings.dev_login:
         if not needs_setup:

@@ -186,3 +186,84 @@ def test_a_provider_pointed_somewhere_else_never_opens_someone_elses_account(sta
         assert again["id"] != provider["id"]
     finally:
         other.stop()
+
+
+def test_one_switch_turns_every_sign_in_button_off_and_back_on(start_server, oidc_provider):
+    server = start_server(
+        DEV_LOGIN="false", GOOGLE_CLIENT_ID="id.apps.googleusercontent.com", GOOGLE_CLIENT_SECRET="secret",
+    )
+    admin = set_up(server)
+    provider = add_pocket_id(admin, oidc_provider.issuer).json()["providers"][-1]
+    page = httpx.get(server.base_url + "/").text
+    assert "Sign in with Google" in page and "Sign in with Pocket ID" in page
+
+    off = admin.put("/api/admin/sign-in/switch", json={"enabled": False})
+    assert off.status_code == 200 and off.json()["sso_enabled"] is False
+    page = httpx.get(server.base_url + "/").text
+    assert "Sign in with" not in page and 'name="password"' in page
+    assert httpx.get(f"{server.base_url}/auth/login/p{provider['id']}").headers["location"] == "/?error=not_configured"
+    assert len(off.json()["providers"]) == 2  # still set up, just hidden
+
+    admin.put("/api/admin/sign-in/switch", json={"enabled": True})
+    assert "Sign in with Pocket ID" in httpx.get(server.base_url + "/").text
+
+    # A provider from the server's settings can be turned off here too, though not changed.
+    google = admin.patch("/api/admin/sign-in/server/google", json={"enabled": False}).json()["providers"][0]
+    assert (google["key"], google["enabled"]) == ("google", False)
+    page = httpx.get(server.base_url + "/").text
+    assert "Sign in with Google" not in page and "Sign in with Pocket ID" in page
+    admin.patch("/api/admin/sign-in/server/google", json={"enabled": True})
+    assert "Sign in with Google" in httpx.get(server.base_url + "/").text
+    assert admin.patch("/api/admin/sign-in/server/p1", json={"enabled": False}).status_code == 404
+
+
+def test_with_passwords_off_the_last_way_in_cant_be_turned_off(start_server, oidc_provider):
+    server = start_server(
+        DEV_LOGIN="false", PASSWORD_LOGIN="false", ALLOWED_EMAILS="ann@example.com",
+        OIDC_ISSUER=oidc_provider.issuer, OIDC_CLIENT_ID=CLIENT_ID, OIDC_CLIENT_SECRET=CLIENT_SECRET,
+    )
+    oidc_provider.claims = {"sub": "ann-1", "email": "ann@example.com", "email_verified": True}
+    admin = client_for(server, follow_redirects=True)
+    admin.get("/auth/login")
+
+    for response in (
+        admin.put("/api/admin/sign-in/switch", json={"enabled": False}),
+        admin.patch("/api/admin/sign-in/server/oidc", json={"enabled": False}),
+    ):
+        assert response.status_code == 400 and "nobody a way to sign in" in response.json()["detail"]
+
+    # With a second one on, either can go.
+    second = add_pocket_id(admin, oidc_provider.issuer).json()["providers"][-1]
+    assert admin.patch("/api/admin/sign-in/server/oidc", json={"enabled": False}).status_code == 200
+    blocked = admin.delete(f"/api/admin/sign-in/providers/{second['id']}")
+    assert blocked.status_code == 400 and "nobody a way to sign in" in blocked.json()["detail"]
+
+
+def test_buttons_take_an_icon_and_a_color(start_server, oidc_provider):
+    server = start_server(DEV_LOGIN="false")
+    admin = set_up(server)
+    response = add_pocket_id(admin, oidc_provider.issuer, icon="shield", color="#1E3A8A")
+    provider = response.json()["providers"][0]
+    assert (provider["icon"], provider["color"]) == ("shield", "#1e3a8a")
+    page = httpx.get(server.base_url + "/").text
+    assert "/static/sso/shield.svg" in page and "--sso-bg: #1e3a8a; --sso-fg: #ffffff" in page
+
+    logo = "https://id.example.com/api/application-configuration/logo"
+    admin.patch(f"/api/admin/sign-in/providers/{provider['id']}", json={"icon": logo, "color": ""})
+    page = httpx.get(server.base_url + "/").text
+    assert f'<img src="{logo}"' in page and "--sso-bg" not in page
+
+    for body, message in [
+        ({"icon": "javascript:alert(1)"}, "built-in ones"),
+        ({"icon": 'https://x.example.com/a.png" onerror="x'}, "built-in ones"),
+        ({"color": "blue"}, "look like #3355ff"),
+    ]:
+        bad = admin.patch(f"/api/admin/sign-in/providers/{provider['id']}", json=body)
+        assert bad.status_code == 400 and message in bad.json()["detail"], body
+
+    google = admin.post("/api/admin/sign-in/providers", json={
+        "kind": "google", "client_id": "id.apps.googleusercontent.com", "client_secret": "s", "color": "#ff0000",
+    })
+    assert google.status_code == 201
+    page = httpx.get(server.base_url + "/").text
+    assert 'class="btn btn-lg sso-btn sso-google"' in page and "/static/sso/google.svg" in page
