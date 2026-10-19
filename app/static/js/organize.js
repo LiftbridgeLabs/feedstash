@@ -70,11 +70,11 @@ export function renderOrganize() {
   }).join('');
 
   els.organize.innerHTML = `
-    <a class="back-link" href="#/settings" data-org-back>${icon('chevron-left')}Settings</a>
+    <a class="back-link" href="#/settings/feeds" data-org-back>${icon('chevron-left')}Settings</a>
     <div class="org-head">
       <p class="muted">Names save when you leave the field. Reorder with the arrows, or drag in the sidebar. Tick
         <b>Auto-save</b> to send a feed's new articles straight to your stash. Importing and exporting lives in
-        <a href="#/settings">Settings</a>.</p>
+        <a href="#/settings/feeds">Settings</a>.</p>
       <div class="org-actions">
         <button class="btn btn-sm" data-org="add-feed">${icon('plus')}Follow feed</button>
         <button class="btn btn-sm" data-org="new-folder">${icon('folder')}New folder</button>

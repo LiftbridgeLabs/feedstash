@@ -121,4 +121,5 @@ def test_organize_has_a_way_back_to_settings(reader):
     reader.js("document.querySelector('#settings a[href=\"#/organize\"]').click()")
     assert reader.wait_for("location.hash === '#/organize' && !!document.querySelector('[data-org-back]')")
     reader.js("document.querySelector('[data-org-back]').click()")
-    assert reader.wait_for("location.hash === '#/settings' && !document.querySelector('#settings').hidden")
+    # Back to the Feeds group, where the Organize link is.
+    assert reader.wait_for("location.hash === '#/settings/feeds' && !document.querySelector('#settings').hidden && !document.querySelector('[data-group=feeds]').hidden")

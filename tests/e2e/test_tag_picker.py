@@ -49,7 +49,7 @@ def test_settings_tags_merge_the_checked_ones_into_one(reader):
     # The stash page's "Manage tags" goes to Settings → Tags.
     assert reader.wait_for("!!document.querySelector('[data-stash-action=manage-tags]')")
     reader.js("document.querySelector('[data-stash-action=manage-tags]').click()")
-    assert reader.wait_for("location.hash === '#/settings' && !!document.querySelector('[data-tag-settings] [data-tag-name]')")
+    assert reader.wait_for("location.hash === '#/settings/stash' && !document.querySelector('[data-group=stash]').hidden && !!document.querySelector('[data-tag-settings] [data-tag-name]')")
 
     # Look-alikes are offered to check in one click.
     reader.js("document.querySelector('[data-check-group]').click()")

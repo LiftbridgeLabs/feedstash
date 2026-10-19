@@ -63,7 +63,10 @@ def test_someone_can_hide_the_feeds_or_the_stash(reader):
     use("stash")
     assert reader.wait_for(f"{sections} === 'Stash'")
     assert reader.js("document.querySelector('#add-menu [data-add=follow]').hidden")
-    assert reader.js("document.querySelector('[data-only=feeds]').hidden && !document.querySelector('[data-only=stash]').hidden")
+    # Feeds-only parts of Settings hide; the Stash group stays, and the Feeds group is just Import.
+    assert reader.js("[...document.querySelectorAll('[data-only=feeds]')].every((el) => el.hidden)")
+    assert reader.js("!document.querySelector('[data-group-link=stash]').hidden")
+    assert reader.js("document.querySelector('[data-group-link=feeds]').textContent") == "Import"
     reader.js("location.hash = '#/all'")  # an old link into the feeds
     assert reader.wait_for("location.hash === '#/stash/all'")
 
@@ -140,3 +143,30 @@ def test_admins_add_a_single_sign_on_in_settings(reader, oidc_provider):
       f.querySelector('[type=submit]').click();
     })()""")
     assert reader.wait_for("reader.api('GET', '/api/admin/sign-in').then((s) => s.allowed_emails.length === 2)")
+
+
+def test_settings_shows_one_group_at_a_time_with_its_own_address(reader):
+    reader.js("location.hash = '#/settings'")
+    assert reader.wait_for("!!document.querySelector('[data-settings-nav] a.active')")
+    shown = "[...document.querySelectorAll('[data-group]')].filter((g) => !g.hidden).map((g) => g.dataset.group).join(',')"
+    assert reader.js(shown) == "you"
+    reader.js("document.querySelector('[data-group-link=apps]').click()")
+    assert reader.wait_for("location.hash === '#/settings/apps'")
+    assert reader.wait_for(f"{shown} === 'apps'")
+    assert reader.js("document.querySelector('[data-group-link=apps]').getAttribute('aria-current')") == "page"
+    # Switching groups keeps the page: something typed in another group is still there.
+    assert reader.wait_for("!!document.querySelector('[data-signin-allowed-form] [name=emails]')")
+    reader.js("document.querySelector('[data-signin-allowed-form] [name=emails]').value = 'typed@example.com'")
+    reader.js("location.hash = '#/settings/admin'")
+    assert reader.wait_for(f"{shown} === 'admin'")
+    assert reader.js("document.querySelector('[data-signin-allowed-form] [name=emails]').value") == "typed@example.com"
+    # An unknown group opens You.
+    reader.js("location.hash = '#/settings/nope'")
+    assert reader.wait_for(f"{shown} === 'you'")
+
+
+def test_opening_the_admin_group_directly_lands_on_it(reader):
+    reader.js("location.hash = '#/settings/admin'; location.reload()")
+    reader.pump(2)
+    assert reader.wait_for("!!window.reader && !document.querySelector('[data-group=admin]')?.hidden", timeout=20)
+    assert reader.js("document.querySelector('[data-group-link=admin]').classList.contains('active')")

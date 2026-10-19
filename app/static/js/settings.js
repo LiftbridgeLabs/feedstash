@@ -33,13 +33,32 @@ const SUPPORT_EMAIL = 'support@liftbridgelabs.app';
 
 let me = null;
 
-export function showSettings() {
+/* Settings is split into groups, one shown at a time, each with its own address (#/settings/feeds). Every group
+   stays in the page while Settings is open, so switching doesn't reload anything or lose what's been typed. */
+export const SETTINGS_GROUPS = [['you', 'You'], ['feeds', 'Feeds'], ['stash', 'Stash'], ['apps', 'Apps'], ['admin', 'Admin']];
+
+const card = (html, attrs = '') => `<section class="settings-card" ${attrs}>${html}</section>`;
+
+/** Opens Settings on a group. With `switching` (already in Settings) only the group changes. */
+export function showSettings({ switching = false } = {}) {
+  const group = SETTINGS_GROUPS.some(([id]) => id === state.route.id) ? state.route.id : 'you';
+  if (switching && $('[data-settings-nav]', els.settings)) {
+    selectGroup(group);
+    return;
+  }
   const origin = location.origin;
   els.settings.innerHTML = `
-    <h3>Your account</h3>
-    <div data-account><p class="muted">Loading…</p></div>
+    <div class="settings-layout">
+      <nav class="settings-nav" data-settings-nav aria-label="Settings sections">
+        ${SETTINGS_GROUPS.map(([id, label]) => `<a href="#/settings/${id}" data-group-link="${id}" ${id === 'admin' ? 'hidden' : ''}>${label}</a>`).join('')}
+      </nav>
+      <div class="settings-body">
 
-    <h3>Appearance</h3>
+    <div class="settings-group" data-group="you">
+    ${card(`<h3>Your account</h3>
+      <div data-account><p class="muted">Loading…</p></div>`)}
+
+    ${card(`<h3>Appearance</h3>
     <div class="setting-row">
       <label for="theme-mode">Theme</label>
       <select id="theme-mode" data-settings-field="theme-mode">
@@ -50,10 +69,9 @@ export function showSettings() {
     <div class="setting-row">
       <span class="field-label">Colors</span>
       <div class="swatches" data-schemes>${schemeButtons()}</div>
-    </div>
+    </div>`)}
 
-    <div data-only="feeds">
-    <h3>Reading</h3>
+    ${card(`<h3>Reading</h3>
     <div class="setting-row">
       <label for="mark-on-scroll">Mark as read while scrolling</label>
       <select id="mark-on-scroll" data-settings-field="mark-on-scroll">
@@ -67,40 +85,27 @@ export function showSettings() {
       <p class="muted">Move through articles, mark them read and save them without the mouse. Press <kbd>?</kbd>
         anywhere to see the shortcuts.</p>
       <button class="btn btn-sm" data-settings="shortcuts">Keyboard shortcuts</button>
+    </div>`, 'data-only="feeds"')}
     </div>
 
-    <h3>Feeds</h3>
+    <div class="settings-group" data-group="feeds" hidden>
+    ${card(`<h3>Feeds</h3>
     <div class="org-head">
       <p class="muted">Rename, reorder and move feeds, fix a feed's address, or unfollow.</p>
       <div class="org-actions"><a class="btn btn-sm" href="#/organize">${icon('sliders')}Organize feeds</a></div>
-    </div>
-    </div>
+    </div>`, 'data-only="feeds"')}
 
-    <div data-only="stash">${tagsSectionHTML()}</div>
-
-    <div data-accounts-section hidden>
-      <h3>Accounts</h3>
-      <div class="org-head">
-        <p class="muted">Everyone who can sign in. Accounts added here use a password; Google and single sign-on
-          accounts appear after their first sign-in.</p>
-        <div class="org-actions">
-          <button class="btn btn-sm btn-primary" data-settings="new-account">${icon('plus')}Add account</button>
-        </div>
-      </div>
-      <div data-account-list><p class="muted">Loading…</p></div>
+    ${card(importSectionHTML())}
     </div>
 
-    ${signInSectionHTML()}
-
-    ${importSectionHTML()}
-
-    <div data-only="stash">
-    ${mailSectionHTML()}
-
-    ${rulesSectionHTML()}
+    <div class="settings-group" data-group="stash" hidden>
+    ${card(tagsSectionHTML())}
+    ${card(mailSectionHTML())}
+    ${card(rulesSectionHTML())}
     </div>
 
-    <h3>Connected apps</h3>
+    <div class="settings-group" data-group="apps" hidden>
+    ${card(`<h3>Connected apps</h3>
     <div class="org-head">
       <p class="muted">Setting up the iPhone or iPad app? <b>Connect a phone or iPad</b> shows a code to scan, so
         there's nothing to type. The extension, email worker and other apps sign in with a token: make one each, so
@@ -110,9 +115,9 @@ export function showSettings() {
         <button class="btn btn-sm" data-settings="new-token">${icon('plus')}New token</button>
       </div>
     </div>
-    <div data-token-list><p class="muted">Loading…</p></div>
+    <div data-token-list><p class="muted">Loading…</p></div>`)}
 
-    <h3>Setting up a client</h3>
+    ${card(`<h3>Setting up a client</h3>
     <div class="setup">
       <p>Server URL: <code>${esc(origin)}</code>
         <button type="button" class="btn btn-sm" data-copy="${esc(origin)}">${icon('copy')}Copy</button></p>
@@ -128,11 +133,27 @@ export function showSettings() {
           <code>${esc(origin)}/api/greader.php</code> instead), your email as the username, and a token as the
           password. They show your feeds; the stash stays here.</li>
       </ul>
+    </div>`)}
     </div>
 
-    ${logsSectionHTML()}
+    <div class="settings-group" data-group="admin" hidden>
+    ${card(`<div data-accounts-section hidden>
+      <h3>Accounts</h3>
+      <div class="org-head">
+        <p class="muted">Everyone who can sign in. Accounts added here use a password; Google and single sign-on
+          accounts appear after their first sign-in.</p>
+        <div class="org-actions">
+          <button class="btn btn-sm btn-primary" data-settings="new-account">${icon('plus')}Add account</button>
+        </div>
+      </div>
+      <div data-account-list><p class="muted">Loading…</p></div>
+    </div>`)}
 
-    <div data-about-section hidden>
+    ${card(signInSectionHTML())}
+
+    ${card(logsSectionHTML())}
+
+    ${card(`<div data-about-section hidden>
       <h3>About FeedStash</h3>
       <p data-about-version class="muted"></p>
       <div class="org-head">
@@ -145,14 +166,33 @@ export function showSettings() {
           <a class="btn btn-sm" data-about-mail href="mailto:${SUPPORT_EMAIL}">${icon('mail')}Email support</a>
         </div>
       </div>
+    </div>`)}
+    </div>
+
+      </div>
     </div>`;
   applySettingsSections();
+  selectGroup(group);
   renderImportPlan(els.settings); // files chosen before leaving Settings are still listed
   loadAccount();
   loadMail(els.settings);
   loadRules(els.settings);
   loadTagSettings(els.settings);
   loadTokens();
+}
+
+/** Shows one group and marks it in the menu. A group someone can't use (Admin for others, Stash when they only use
+   feeds) falls back to You. */
+function selectGroup(group) {
+  const link = $(`[data-group-link="${group}"]`, els.settings);
+  if (!link || link.hidden) group = 'you';
+  $$('[data-group]', els.settings).forEach((el) => { el.hidden = el.dataset.group !== group; });
+  $$('[data-group-link]', els.settings).forEach((el) => {
+    el.classList.toggle('active', el.dataset.groupLink === group);
+    if (el.dataset.groupLink === group) el.setAttribute('aria-current', 'page');
+    else el.removeAttribute('aria-current');
+  });
+  els.content.scrollTop = 0;
 }
 
 /* ---- appearance */
@@ -206,6 +246,8 @@ async function loadAccount() {
         updating, so you can switch back any time.</p>
     </div>`;
   if (me.is_admin) {
+    $('[data-group-link="admin"]', els.settings).hidden = false;
+    if (state.route.id === 'admin') selectGroup('admin'); // asked for before it was known they're an admin
     $('[data-accounts-section]', els.settings).hidden = false;
     loadAccounts();
     loadSignIn(els.settings);
@@ -462,6 +504,11 @@ const SECTION_CHOICES = [['both', 'Feeds and Stash'], ['feeds', 'Feeds only'], [
 function applySettingsSections() {
   $$('[data-only="feeds"]', els.settings).forEach((el) => { el.hidden = !showsFeeds(); });
   $$('[data-only="stash"]', els.settings).forEach((el) => { el.hidden = !showsStash(); });
+  // Importing is for both halves, so the Feeds group stays, called Import for someone who only uses the stash.
+  const feedsLink = $('[data-group-link="feeds"]', els.settings);
+  if (feedsLink) feedsLink.textContent = showsFeeds() ? 'Feeds' : 'Import';
+  const stashLink = $('[data-group-link="stash"]', els.settings);
+  if (stashLink) stashLink.hidden = !showsStash();
 }
 
 async function saveSections(select) {

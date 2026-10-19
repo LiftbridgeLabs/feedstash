@@ -3,13 +3,13 @@
    feeds    #/all  #/starred  #/uncategorized  #/folder/3  #/feed/7  #/organize
    stash    #/stash/all (link, snippet = notes, screenshot, email, archived)  #/stash/tag/<name>
             #/stash/folder/2 (a stash folder)  #/stash/list/5 (a smart list)
-   other    #/settings */
+   other    #/settings  #/settings/feeds (a group: you, feeds, stash, apps, admin) */
 
 import { resetList } from './articles.js';
 import { closeMenus } from './menus.js';
 import { showOrganize } from './organize.js';
 import { syncSearchBox } from './search.js';
-import { showSettings } from './settings.js';
+import { SETTINGS_GROUPS, showSettings } from './settings.js';
 import { renderHeader, renderNav } from './sidebar.js';
 import { showStash } from './stash.js';
 import { ARTICLE_SCOPES, els, feedById, folderById, newList, showsFeeds, showsStash, STASH_VIEWS, state } from './state.js';
@@ -36,7 +36,8 @@ function parseRoute() {
     // The old Inbox (#/stash/inbox) is gone: it opens Everything saved.
     return { scope, id: Object.hasOwn(STASH_VIEWS, rawId ?? '') && rawId !== 'inbox' ? rawId : 'all' };
   }
-  if (['starred', 'uncategorized', 'organize', 'settings'].includes(scope)) return { scope, id: null };
+  if (scope === 'settings') return { scope, id: SETTINGS_GROUPS.some(([group]) => group === rawId) ? rawId : null };
+  if (['starred', 'uncategorized', 'organize'].includes(scope)) return { scope, id: null };
   return { scope: 'all', id: null };
 }
 
@@ -90,6 +91,7 @@ export function applyRoute() {
     navigate('#/all');
     return;
   }
+  const wasSettings = state.route?.scope === 'settings';
   state.route = route;
   document.body.classList.remove('nav-open');
   closeMenus();
@@ -97,6 +99,10 @@ export function applyRoute() {
   renderHeader();
 
   const panel = PANELS[route.scope] || 'articles';
+  if (panel === 'settings' && wasSettings) {
+    showSettings({ switching: true }); // another group: the page stays as it is
+    return;
+  }
   showPanel(panel);
   if (panel === 'organize') showOrganize();
   else if (panel === 'stash') showStash();

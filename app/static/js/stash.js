@@ -559,7 +559,7 @@ function attachFreshTagPicker(input) {
 /** Renames a tag on every item; naming an existing tag merges the two (e.g. #vibes into #vibe). */
 /** "Manage tags" goes to Settings → Tags, where tags are checked off and merged or renamed. */
 async function manageTags() {
-  navigate('#/settings');
+  navigate('#/settings/stash');
   for (let i = 0; i < 20; i += 1) {
     const heading = document.querySelector('[data-tags-heading]');
     if (heading) {

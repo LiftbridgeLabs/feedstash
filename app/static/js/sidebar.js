@@ -92,7 +92,7 @@ export function renderNav() {
   if (showsFeeds()) html += feedFoldersHTML(folders, feeds, folderBlock);
   if (showsFeeds() && !feeds.length && !folders.length) {
     html += `<div class="nav-empty">You're not following anything yet. Use <b>+ Add → Follow a feed</b>, or bring
-      feeds in from Feedly or an OPML file under <a href="#/settings">Settings</a>.</div>`;
+      feeds in from Feedly or an OPML file under <a href="#/settings/feeds">Settings</a>.</div>`;
   }
 
   const stash = state.stash.summary;
