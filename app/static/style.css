@@ -359,8 +359,12 @@ body.resizing { cursor: col-resize; user-select: none; }
 .org-table input.url { color: var(--text-muted); font-size: 12px; max-width: 420px; text-overflow: ellipsis; }
 .org-table input.url:focus { color: var(--text); }
 .org-table .status-err { color: var(--danger); font-size: 12px; }
+.back-link { display: inline-flex; align-items: center; gap: 2px; margin: 0 0 6px -4px; color: var(--accent); font-size: 14px; font-weight: 600; text-decoration: none; }
+.back-link:hover { text-decoration: underline; }
+.back-link .i { width: 18px; height: 18px; }
 .org-table .status-quiet { color: color-mix(in srgb, var(--danger) 55%, var(--text)); font-size: 12px; }
 .org-table td .muted { font-size: 12px; }
+.org-table .nowrap { white-space: nowrap; }
 .org-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .org-table .row-actions { white-space: nowrap; text-align: right; }
 .org-table .order { white-space: nowrap; width: 1%; padding-right: 0; }

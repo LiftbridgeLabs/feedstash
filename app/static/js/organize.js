@@ -15,7 +15,7 @@ const QUIET_DAYS = 30;
 function lastNewHTML(ts) {
   if (!ts) return '<span class="muted">Nothing received yet</span>';
   const days = (Date.now() / 1000 - ts) / 86400;
-  if (days < QUIET_DAYS) return `<span class="muted">Last received ${agoLong(ts)}</span>`;
+  if (days < QUIET_DAYS) return `<span class="muted nowrap">Last received ${agoLong(ts)}</span>`;
   const date = new Date(ts * 1000);
   const sameYear = date.getFullYear() === new Date().getFullYear();
   const when = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) });
@@ -70,6 +70,7 @@ export function renderOrganize() {
   }).join('');
 
   els.organize.innerHTML = `
+    <a class="back-link" href="#/settings" data-org-back>${icon('chevron-left')}Settings</a>
     <div class="org-head">
       <p class="muted">Names save when you leave the field. Reorder with the arrows, or drag in the sidebar. Tick
         <b>Auto-save</b> to send a feed's new articles straight to your stash. Importing and exporting lives in

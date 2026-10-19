@@ -6,6 +6,7 @@ const ICONS = {
   check: '<path d="M20 6 9 17l-5-5"/>',
   'chevron-down': '<path d="m6 9 6 6 6-6"/>',
   'chevron-up': '<path d="m6 15 6-6 6 6"/>',
+  'chevron-left': '<path d="m15 18-6-6 6-6"/>',
   layout: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/>',
   star: '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z"/>',
   article: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/>',

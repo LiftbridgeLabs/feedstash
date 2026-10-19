@@ -113,3 +113,12 @@ def test_new_articles_appear_when_idle_and_offer_a_button_while_reading(reader, 
     reader.js("document.getElementById('new-banner').click()")
     assert reader.wait_for(has_title.format("Arrived while reading"))
     assert reader.js("document.getElementById('new-banner').hidden")
+
+
+def test_organize_has_a_way_back_to_settings(reader):
+    reader.js("location.hash = '#/settings'")
+    assert reader.wait_for("!document.querySelector('#settings').hidden && !!document.querySelector('#settings a[href=\"#/organize\"]')")
+    reader.js("document.querySelector('#settings a[href=\"#/organize\"]').click()")
+    assert reader.wait_for("location.hash === '#/organize' && !!document.querySelector('[data-org-back]')")
+    reader.js("document.querySelector('[data-org-back]').click()")
+    assert reader.wait_for("location.hash === '#/settings' && !document.querySelector('#settings').hidden")
