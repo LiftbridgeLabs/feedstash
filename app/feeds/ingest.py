@@ -3,14 +3,17 @@
 import asyncio
 import logging
 import sqlite3
+import time
+from collections import defaultdict
 from collections.abc import Sequence
+from urllib.parse import urlparse
 
 from app.clock import now as current_time
 from app.db import Database
 from app.db.models import FeedFetchState, NewArticle
 from app.db.repositories import articles as articles_repo
 from app.db.repositories import feeds as feeds_repo
-from app.feeds.fetcher import Fetcher, FetchError, FetchResult, create_client
+from app.feeds.fetcher import Fetcher, FetchError, FetchResult, RateLimited, create_client
 from app.feeds.parser import ParsedFeed
 from app.feeds.to_stash import stash_article
 from app.text import html_to_text
@@ -19,6 +22,17 @@ log = logging.getLogger("reader.ingest")
 
 REFRESH_CONCURRENCY = 8
 DAY_SECONDS = 86400
+# Feeds on one site are fetched one after another, this far apart: several at once from the same address is what
+# small sites' rate limits turn away.
+SAME_SITE_GAP_SECONDS = 2.0
+# After a site answers "too many requests", its feeds are left alone as long as it asked (a minute to six hours),
+# or an hour if it didn't say. Kept in memory: a restart simply tries again.
+REST_SECONDS = 3600
+MAX_REST_SECONDS = 6 * 3600
+_resting: dict[str, float] = {}  # site -> time.monotonic() when it may be asked again
+# One refresh at a time talks to a site, so a press of Refresh during the scheduled round waits its turn there.
+# Every refresh (scheduler, Refresh, OPML import) runs on the server's one event loop, so asyncio locks suffice.
+_site_locks: dict[str, asyncio.Lock] = {}
 
 
 def save_entries(
@@ -86,18 +100,28 @@ def record_error(db: Database, feed_id: int, message: str) -> None:
 
 
 async def refresh(db: Database, feeds: Sequence[FeedFetchState], *, retention_days: int) -> int:
-    """Fetches feeds concurrently and stores the results. Failures are recorded per feed, never raised."""
+    """Fetches feeds and stores the results: different sites concurrently, one site's feeds one at a time. Feeds of
+    a site that recently said "too many requests" wait for the next round after its rest. Failures are recorded
+    per feed, never raised."""
     if not feeds:
         return 0
+    by_site: dict[str, list[FeedFetchState]] = defaultdict(list)
+    for feed in feeds:
+        by_site[_site(feed.url)].append(feed)
     semaphore = asyncio.Semaphore(REFRESH_CONCURRENCY)
     async with create_client(REFRESH_CONCURRENCY * 2) as client:
         fetcher = Fetcher(client)
 
-        async def refresh_one(feed: FeedFetchState) -> int:
+        async def refresh_one(site: str, feed: FeedFetchState) -> int:
             async with semaphore:
                 try:
                     result = await fetcher.fetch(feed.url, etag=feed.etag, last_modified=feed.last_modified)
                     return await asyncio.to_thread(store_result, db, feed, result, retention_days=retention_days)
+                except RateLimited as exc:
+                    rest = REST_SECONDS if exc.retry_after is None else min(max(exc.retry_after, 60), MAX_REST_SECONDS)
+                    _resting[site] = time.monotonic() + rest
+                    log.info("%s is rate limiting feed fetches; leaving it for %d minutes", site, rest // 60)
+                    message = str(exc)
                 except FetchError as exc:
                     message = str(exc) or "Fetch failed"
                 except Exception as exc:
@@ -106,5 +130,27 @@ async def refresh(db: Database, feeds: Sequence[FeedFetchState], *, retention_da
                 await asyncio.to_thread(record_error, db, feed.id, message)
                 return 0
 
-        results = await asyncio.gather(*(refresh_one(feed) for feed in feeds))
+        async def refresh_site(site: str, site_feeds: list[FeedFetchState]) -> int:
+            added = 0
+            async with _site_locks.setdefault(site, asyncio.Lock()):
+                for index, feed in enumerate(site_feeds):
+                    if _resting.get(site, 0) > time.monotonic():
+                        break
+                    if index:
+                        await asyncio.sleep(SAME_SITE_GAP_SECONDS)
+                    added += await refresh_one(site, feed)
+            return added
+
+        results = await asyncio.gather(*(refresh_site(site, group) for site, group in by_site.items()))
     return sum(results)
+
+
+def _site(url: str) -> str:
+    """The host, with its port only when it isn't the default, so one site written two ways is still one site."""
+    parts = urlparse(url)
+    host = (parts.hostname or "").lower()
+    try:
+        port = parts.port
+    except ValueError:
+        port = None
+    return host if port in (None, 80, 443) else f"{host}:{port}"

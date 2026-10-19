@@ -68,3 +68,109 @@ def test_store_result_records_feed_status(tmp_path):
         feeds.delete(conn, user_id, feed_id)
     # A feed unfollowed while it was being fetched is simply skipped.
     assert ingest.store_result(db, state, result, retention_days=90) == 0
+
+
+RSS = b'<?xml version="1.0"?><rss version="2.0"><channel><title>T</title><item><title>A</title><guid>a</guid></item></channel></rss>'
+
+
+def _refresh_against(monkeypatch, tmp_path, urls, respond):
+    """Follows `urls`, then runs refresh rounds against a mock web where `respond(request)` answers. Returns a
+    function that runs one round, the database and the user."""
+    import asyncio
+
+    import httpx
+
+    monkeypatch.setattr(ingest, "_resting", {})
+    monkeypatch.setattr(ingest, "_site_locks", {})
+    monkeypatch.setattr(ingest, "SAME_SITE_GAP_SECONDS", 0)
+    monkeypatch.setattr(ingest, "create_client", lambda *_: httpx.AsyncClient(transport=httpx.MockTransport(respond)))
+    db = Database(tmp_path / "reader.db")
+    db.initialize()
+    with db.transaction() as conn:
+        user_id = users.upsert(conn, sub="s", email="s@example.com", name=None, picture=None)
+        for url in urls:
+            feeds.create(conn, user_id, url=url, title=url)
+
+    def round_():
+        with db.transaction() as conn:
+            states = feeds.fetch_states_in_scope(conn, user_id, Scope("all"))
+        return asyncio.run(ingest.refresh(db, states, retention_days=90))
+
+    return round_, db, user_id
+
+
+def test_feeds_on_one_site_are_fetched_one_at_a_time(monkeypatch, tmp_path):
+    import asyncio
+
+    import httpx
+
+    in_flight, most = {}, {}
+
+    async def respond(request):
+        host = request.url.host
+        in_flight[host] = in_flight.get(host, 0) + 1
+        most[host] = max(most.get(host, 0), in_flight[host])
+        await asyncio.sleep(0.02)
+        in_flight[host] -= 1
+        return httpx.Response(200, content=RSS, headers={"content-type": "application/rss+xml"})
+
+    urls = [f"https://news.example.com/{n}.xml" for n in range(4)] + [f"https://other{n}.example.com/feed" for n in range(3)]
+    round_, _, _ = _refresh_against(monkeypatch, tmp_path, urls, respond)
+    round_()
+    assert most["news.example.com"] == 1
+    assert set(most) == {"news.example.com", "other0.example.com", "other1.example.com", "other2.example.com"}
+
+
+def test_a_site_that_says_too_many_requests_is_left_alone_for_a_while(monkeypatch, tmp_path):
+    import httpx
+
+    asked = []
+
+    def respond(request):
+        asked.append(str(request.url))
+        if request.url.host == "busy.example.com":
+            return httpx.Response(429, headers={"retry-after": "120"})
+        return httpx.Response(200, content=RSS, headers={"content-type": "application/rss+xml"})
+
+    urls = [f"https://busy.example.com/{n}.xml" for n in range(3)] + ["https://calm.example.com/feed"]
+    round_, db, user_id = _refresh_against(monkeypatch, tmp_path, urls, respond)
+    round_()
+    # The first answer stops the round for that site; the others on it aren't asked at all.
+    assert sum("busy.example.com" in url for url in asked) == 1
+    assert "https://calm.example.com/feed" in asked
+    with db.transaction() as conn:
+        errors = {feed.url: feed.last_error for feed in feeds.list_for_user(conn, user_id)}
+    assert "asked FeedStash to slow down" in errors["https://busy.example.com/0.xml"]
+    assert errors["https://busy.example.com/1.xml"] is None
+
+    asked.clear()
+    round_()
+    assert not any("busy.example.com" in url for url in asked)
+    assert "https://calm.example.com/feed" in asked
+
+
+def test_a_refresh_pressed_during_the_scheduled_round_waits_its_turn_at_each_site(monkeypatch, tmp_path):
+    import asyncio
+
+    import httpx
+
+    in_flight = most = 0
+
+    async def respond(request):
+        nonlocal in_flight, most
+        in_flight += 1
+        most = max(most, in_flight)
+        await asyncio.sleep(0.02)
+        in_flight -= 1
+        return httpx.Response(200, content=RSS, headers={"content-type": "application/rss+xml"})
+
+    urls = ["https://news.example.com/a.xml", "https://news.example.com:443/b.xml"]
+    _, db, user_id = _refresh_against(monkeypatch, tmp_path, urls, respond)
+    with db.transaction() as conn:
+        states = feeds.fetch_states_in_scope(conn, user_id, Scope("all"))
+
+    async def two_at_once():
+        await asyncio.gather(*(ingest.refresh(db, states, retention_days=90) for _ in range(2)))
+
+    asyncio.run(two_at_once())
+    assert most == 1

@@ -3,14 +3,18 @@
 import asyncio
 import re
 from dataclasses import dataclass
+from email.utils import parsedate_to_datetime
 from urllib.parse import urljoin, urlparse
 
 import httpx
 
+from app import clock
 from app.feeds.parser import ParsedFeed, find_feed_links, parse_feed
 from app.netguard import BlockedAddress, GuardedTransport
 
-USER_AGENT = "Mozilla/5.0 (compatible; SelfHostedReader/1.0)"
+# An honest name, not a browser's: sites behind bot protection (Cloudflare's, for one) challenge anything that says
+# "Mozilla" without being a real browser, and let a plainly named feed reader through.
+USER_AGENT = "FeedStash (+https://github.com/LiftbridgeLabs/feedstash)"
 ACCEPT = "application/rss+xml, application/atom+xml, application/xml;q=0.9, text/xml;q=0.9, */*;q=0.8"
 MAX_BYTES = 15 * 1024 * 1024
 # The client's timeout is per read, so a server trickling a byte at a time could hold a fetch (and the refresh round
@@ -21,6 +25,14 @@ COMMON_FEED_PATHS = ("feed", "rss", "feed.xml", "rss.xml", "atom.xml", "index.xm
 
 class FetchError(Exception):
     """A feed couldn't be fetched. The message is meant to be shown to users."""
+
+
+class RateLimited(FetchError):
+    """The site said too many requests (HTTP 429). `retry_after` is how many seconds it asked for, if it said."""
+
+    def __init__(self, message: str, retry_after: int | None):
+        super().__init__(message)
+        self.retry_after = retry_after
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,7 +90,7 @@ class Fetcher:
         if response.status_code == 304:
             return FetchResult(url=str(response.url), feed=None, etag=etag, last_modified=last_modified)
         if response.status_code >= 400:
-            raise FetchError(f"HTTP {response.status_code}")
+            raise _http_error(response)
         feed = await self._parse(response, body)
         if feed is None:
             raise FetchError("Response is not an RSS or Atom feed")
@@ -151,3 +163,32 @@ class Fetcher:
                 seen.add(candidate)
                 candidates.append(candidate)
         return candidates
+
+
+def _http_error(response: httpx.Response) -> FetchError:
+    host = urlparse(str(response.url)).netloc
+    code = response.status_code
+    if code == 429:
+        return RateLimited(
+            f"{host} asked FeedStash to slow down (HTTP 429). It will try again later.",
+            _retry_after(response.headers.get("retry-after")),
+        )
+    if code == 403:
+        return FetchError(f"{host} turned FeedStash away (HTTP 403). Some sites block feed readers.")
+    return FetchError(f"{host} returned HTTP {code}")
+
+
+def _retry_after(value: str | None) -> int | None:
+    """Retry-After is either seconds or an HTTP date."""
+    if not value:
+        return None
+    value = value.strip()
+    if value.isdigit():
+        return int(value)
+    try:
+        moment = parsedate_to_datetime(value)
+    except (TypeError, ValueError):
+        return None
+    if moment.tzinfo is None:
+        return None
+    return max(0, int(moment.timestamp()) - clock.now())

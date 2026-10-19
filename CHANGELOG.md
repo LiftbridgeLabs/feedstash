@@ -3,6 +3,14 @@
 What changed in each FeedStash release, newest first. Before you update, check **Before you update** for anything
 to do first, like taking a backup. Admins see the rest of a release's notes in FeedStash after updating.
 
+## Unreleased
+
+### Fixes
+- Feeds that some sites turned away with HTTP 403 load again. FeedStash now introduces itself to sites as a feed
+  reader, not as a browser, which bot protection like Cloudflare's lets through.
+- Fewer "too many requests" (HTTP 429) errors. Feeds from the same site are now fetched one after another, not
+  all at once, and when a site asks FeedStash to slow down, it leaves that site alone for a while.
+
 ## 0.8.0
 
 ### New

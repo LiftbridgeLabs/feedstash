@@ -112,3 +112,15 @@ def test_discover_reports_missing_pages_and_pages_without_feeds():
 
     with pytest.raises(FetchError, match="Couldn't find"):
         run(no_feed, lambda f: f.discover("https://site.example.com/"))
+
+
+def test_feeds_are_asked_for_by_name_and_refusals_say_so():
+    agent = asyncio.run(_agent())
+    assert agent.startswith("FeedStash") and "Mozilla" not in agent
+    with pytest.raises(FetchError, match="turned FeedStash away"):
+        run(lambda request: httpx.Response(403), lambda f: f.fetch("https://x.example.com/feed"))
+
+
+async def _agent() -> str:
+    async with fetcher_module.create_client() as client:
+        return client.headers["user-agent"]
