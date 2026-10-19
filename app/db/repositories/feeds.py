@@ -41,7 +41,12 @@ def get(conn: sqlite3.Connection, user_id: int, feed_id: int) -> Feed:
 
 
 def is_followed(conn: sqlite3.Connection, user_id: int, url: str) -> bool:
-    return conn.execute("SELECT 1 FROM feeds WHERE user_id = ? AND url = ?", (user_id, url)).fetchone() is not None
+    """Whether the user follows this address, on either http:// or https://: a feed that moved to https (see
+    upgrade_to_https) is still the one an old OPML file lists as http."""
+    rest = url.split("://", 1)[1] if "://" in url else url
+    return conn.execute(
+        "SELECT 1 FROM feeds WHERE user_id = ? AND url IN (?, ?, ?)", (user_id, url, f"http://{rest}", f"https://{rest}")
+    ).fetchone() is not None
 
 
 def exists(conn: sqlite3.Connection, feed_id: int) -> bool:
@@ -92,6 +97,16 @@ def change_source(
         """UPDATE feeds SET url = ?, site_url = COALESCE(?, site_url), etag = ?, last_modified = ?,
                last_fetched_at = ?, last_error = NULL WHERE id = ? AND user_id = ?""",
         (url, site_url, etag, last_modified, fetched_at, feed_id, user_id),
+    )
+
+
+def upgrade_to_https(conn: sqlite3.Connection, feed_id: int, fetched: str, url: str) -> None:
+    """Keeps the https:// address a feed answered on after its http:// one (`fetched`) was refused: unless the
+    address was edited while it was being fetched, or its owner already follows the https one as another feed."""
+    conn.execute(
+        """UPDATE feeds SET url = ? WHERE id = ? AND url = ?
+           AND NOT EXISTS (SELECT 1 FROM feeds other WHERE other.user_id = feeds.user_id AND other.url = ?)""",
+        (url, feed_id, fetched, url),
     )
 
 

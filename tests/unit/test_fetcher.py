@@ -124,3 +124,66 @@ def test_feeds_are_asked_for_by_name_and_refusals_say_so():
 async def _agent() -> str:
     async with fetcher_module.create_client() as client:
         return client.headers["user-agent"]
+
+
+def test_an_http_feed_that_is_refused_is_tried_on_https():
+    seen = []
+
+    def handler(request):
+        seen.append(str(request.url))
+        if request.url.scheme == "http":
+            return httpx.Response(403)  # Cloudflare refusing plain http, no redirect
+        return httpx.Response(200, content=RSS, headers=RSS_HEADERS)
+
+    result = run(handler, lambda f: f.fetch("http://x.example.com/feed/news"))
+    assert result.url == "https://x.example.com/feed/news" and [e.title for e in result.feed.entries] == ["A"]
+    found = run(handler, lambda f: f.discover("http://x.example.com/feed/news"))
+    assert found.url == "https://x.example.com/feed/news"
+    # https that's refused too keeps the original error.
+    with pytest.raises(FetchError, match="turned FeedStash away"):
+        run(lambda request: httpx.Response(403), lambda f: f.fetch("http://x.example.com/feed"))
+
+
+def test_a_rate_limited_http_feed_isnt_asked_again_on_https():
+    seen = []
+
+    def handler(request):
+        seen.append(request.url.scheme)
+        return httpx.Response(429) if request.url.scheme == "http" else httpx.Response(200, content=RSS, headers=RSS_HEADERS)
+
+    with pytest.raises(FetchError, match="slow down"):
+        run(handler, lambda f: f.fetch("http://x.example.com/feed"))
+    assert seen == ["http"]
+
+
+def test_feeds_a_page_links_to_get_the_https_fallback_too():
+    page = b'<html><head><link rel="alternate" type="application/rss+xml" href="http://x.example.com/feed.xml"></head></html>'
+
+    def handler(request):
+        if request.url.path == "/":
+            return httpx.Response(200, content=page, headers={"content-type": "text/html"})
+        if request.url.scheme == "http":
+            return httpx.Response(403)
+        return httpx.Response(200, content=RSS, headers=RSS_HEADERS) if request.url.path == "/feed.xml" else httpx.Response(404)
+
+    assert run(handler, lambda f: f.discover("https://x.example.com/")).url == "https://x.example.com/feed.xml"
+
+
+def test_the_https_fallback_follows_redirects_and_keeps_a_rate_limit():
+    def redirected(request):
+        if request.url.path == "/old":
+            return httpx.Response(301, headers={"location": "http://x.example.com/new"})
+        if request.url.scheme == "http":
+            return httpx.Response(403)
+        return httpx.Response(200, content=RSS, headers=RSS_HEADERS) if request.url.path == "/new" else httpx.Response(404)
+
+    assert run(redirected, lambda f: f.fetch("http://x.example.com/old")).url == "https://x.example.com/new"
+
+    def busy_on_https(request):
+        if request.url.scheme == "http":
+            return httpx.Response(403)
+        return httpx.Response(429, headers={"retry-after": "600"})
+
+    with pytest.raises(fetcher_module.RateLimited) as caught:
+        run(busy_on_https, lambda f: f.fetch("http://x.example.com/feed"))
+    assert caught.value.retry_after == 600

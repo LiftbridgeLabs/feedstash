@@ -13,7 +13,7 @@ from app.db import Database
 from app.db.models import FeedFetchState, NewArticle
 from app.db.repositories import articles as articles_repo
 from app.db.repositories import feeds as feeds_repo
-from app.feeds.fetcher import Fetcher, FetchError, FetchResult, RateLimited, create_client
+from app.feeds.fetcher import Fetcher, FetchError, FetchResult, RateLimited, create_client, secure_url
 from app.feeds.parser import ParsedFeed
 from app.feeds.to_stash import stash_article
 from app.text import html_to_text
@@ -80,6 +80,8 @@ def store_result(db: Database, feed: FeedFetchState, result: FetchResult, *, ret
     with db.transaction() as conn:
         if not feeds_repo.exists(conn, feed.id):
             return 0  # unfollowed while we were fetching
+        if result.url == secure_url(feed.url):  # it answered on https after refusing http (or redirected there)
+            feeds_repo.upgrade_to_https(conn, feed.id, feed.url, result.url)
         if result.not_modified:
             feeds_repo.record_checked(conn, feed.id, fetched_at=now, error=None)
             return 0

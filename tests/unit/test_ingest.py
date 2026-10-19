@@ -174,3 +174,28 @@ def test_a_refresh_pressed_during_the_scheduled_round_waits_its_turn_at_each_sit
 
     asyncio.run(two_at_once())
     assert most == 1
+
+
+def test_a_feed_that_answers_on_https_keeps_that_address(tmp_path):
+    db = Database(tmp_path / "reader.db")
+    db.initialize()
+    with db.transaction() as conn:
+        user_id = users.upsert(conn, sub="s", email="s@example.com", name=None, picture=None)
+        old = feeds.create(conn, user_id, url="http://a.example.com/feed", title="A")
+        both = feeds.create(conn, user_id, url="http://b.example.com/feed", title="B")
+        feeds.create(conn, user_id, url="https://b.example.com/feed", title="B again")
+    for feed_id, url in ((old, "http://a.example.com/feed"), (both, "http://b.example.com/feed")):
+        state = FeedFetchState(id=feed_id, url=url, etag=None, last_modified=None, last_fetched_at=None)
+        ingest.store_result(db, state, FetchResult(url="https://" + url[7:], feed=parsed(entry("x", None))), retention_days=90)
+    with db.transaction() as conn:
+        assert feeds.get(conn, user_id, old).url == "https://a.example.com/feed"
+        assert feeds.get(conn, user_id, both).url == "http://b.example.com/feed"  # already followed on https
+        # An old OPML file listing the http address counts as already followed.
+        assert feeds.is_followed(conn, user_id, "http://a.example.com/feed")
+        # An address edited while it was being fetched isn't overwritten.
+        edited = feeds.create(conn, user_id, url="http://c.example.com/feed", title="C")
+        conn.execute("UPDATE feeds SET url = 'https://elsewhere.example.com/rss' WHERE id = ?", (edited,))
+    state = FeedFetchState(id=edited, url="http://c.example.com/feed", etag=None, last_modified=None, last_fetched_at=None)
+    ingest.store_result(db, state, FetchResult(url="https://c.example.com/feed", feed=parsed(entry("y", None))), retention_days=90)
+    with db.transaction() as conn:
+        assert feeds.get(conn, user_id, edited).url == "https://elsewhere.example.com/rss"

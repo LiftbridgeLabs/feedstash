@@ -84,7 +84,7 @@ class Fetcher:
         if last_modified:
             headers["If-Modified-Since"] = last_modified
         try:
-            response, body = await self._get(url, headers)
+            response, body = await self._secure_if_refused(url, *await self._get(url, headers), headers)
         except httpx.HTTPError as exc:
             raise FetchError(str(exc) or exc.__class__.__name__) from exc
         if response.status_code == 304:
@@ -101,7 +101,7 @@ class Fetcher:
         url = normalize_url(url)
         host = urlparse(url).netloc
         try:
-            response, body = await self._get(url)
+            response, body = await self._secure_if_refused(url, *await self._get(url))
         except BlockedAddress as exc:
             raise FetchError(str(exc)) from exc
         except httpx.HTTPError as exc:
@@ -114,7 +114,7 @@ class Fetcher:
 
         for candidate in self._candidates(str(response.url), body):
             try:
-                response, body = await self._get(candidate)
+                response, body = await self._secure_if_refused(candidate, *await self._get(candidate))
             except (httpx.HTTPError, FetchError):
                 continue
             if response.status_code >= 400:
@@ -125,6 +125,24 @@ class Fetcher:
         raise FetchError("Couldn't find an RSS or Atom feed at that address")
 
     # -------------------------------------------------------------- internals
+
+    async def _secure_if_refused(
+        self, url: str, response: httpx.Response, body: bytes, headers: dict | None = None,
+    ) -> tuple[httpx.Response, bytes]:
+        """When an http:// address is refused, the https:// one, if that works. Some sites refuse plain http outright
+        instead of redirecting (PhoneArena's Cloudflare answers 403), and old feed addresses, like ones in a Feedly
+        export, are often still http. The result's URL is the https one, so the caller can keep it."""
+        # The address that refused, after any redirects: that's the one to try on https.
+        secure = secure_url(str(response.url)) or secure_url(url)
+        # Not for "too many requests": asking again at once would dodge the rest a site asked for.
+        if response.status_code < 400 or response.status_code == 429 or secure is None:
+            return response, body
+        try:
+            secured, secured_body = await self._get(secure, headers)
+        except (httpx.HTTPError, FetchError):
+            return response, body
+        # https saying "too many requests" counts: its Retry-After starts the rest.
+        return (secured, secured_body) if secured.status_code < 400 or secured.status_code == 429 else (response, body)
 
     async def _get(self, url: str, headers: dict | None = None) -> tuple[httpx.Response, bytes]:
         try:
@@ -163,6 +181,11 @@ class Fetcher:
                 seen.add(candidate)
                 candidates.append(candidate)
         return candidates
+
+
+def secure_url(url: str) -> str | None:
+    """The https:// version of an http:// address, or None for anything else."""
+    return "https://" + url[7:] if url[:7].lower() == "http://" else None
 
 
 def _http_error(response: httpx.Response) -> FetchError:
