@@ -6,21 +6,27 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
 ## Unreleased
 
 ### New
-- **Set up Google or single sign-on in Settings.** Admins can now add Google, or their own sign-in like Pocket ID,
-  Authentik or Authelia, under Settings → Sign-in, no server settings or restart needed. The form shows the
-  address to give your provider, checks everything when you save, and you can add more than one, turn one off or
-  remove it. Who can sign in that way is kept there too. Providers already set in the server's settings keep
-  working and show up in the list.
+- **Set up Google or single sign-on in Settings.** Admins can now add Google, or any sign-in that speaks OpenID
+  Connect (Pocket ID, Authentik, Authelia, Keycloak and more), under Settings → Sign-in, no server settings or
+  restart needed. The form shows the address to give your provider and checks it when you save. You can add more
+  than one, turn one off or remove it, and keep the list of who can sign in that way there too. Providers already
+  set in the server's settings keep working and show up in the list.
+- **Try it before anyone sees it.** Each sign-in has a Try it button that runs a real sign-in in a new tab and
+  tells you whether it worked and whether that person would be let in, without signing you out. It works while
+  the button is still hidden.
 - **Your own sign-in buttons.** Give each one an icon, built in or your provider's own logo, and a color, with a
   preview while you choose. One switch hides every sign-in button at once, handy while testing.
+- **See which feeds went quiet.** Settings → Organize now shows when each feed last brought in something new, and
+  calls out feeds with nothing new for a month, so one that stopped publishing or moved doesn't go unnoticed.
 
 ### Fixes
 - Feeds with an old `http://` address that a site refuses, like PhoneArena's, now load. FeedStash tries the
-  `https://` address instead and keeps it once it works. Importing an OPML or Feedly export that still lists the
-  `http://` address doesn't add the feed a second time.
+  `https://` address instead and updates the feed to it once it works. Importing an OPML or Feedly export that
+  still lists the `http://` address doesn't add the feed a second time.
 
 ### Before you update
-- As always, it's recommended to create a backup before updating. This release adds to the database.
+- As always, it's recommended to create a backup before updating. This release adds to the database, and once
+  it has run, older versions of FeedStash won't start on that database, so a backup is how you'd go back.
 
 ## 0.8.1
 

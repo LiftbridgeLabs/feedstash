@@ -118,3 +118,19 @@ def test_existing_pictures_become_each_items_first_picture():
 
     migrations.apply(conn)
     assert [tuple(row) for row in conn.execute("SELECT item_id, position, image_name FROM item_images")] == [(1, 0, "a.png")]
+
+
+def test_feeds_get_when_they_last_brought_something_new_from_the_articles_they_have():
+    conn = memory_db()
+    for number in range(1, 19):  # up to and including 18
+        conn.executescript(f"BEGIN;\n{migrations.MIGRATIONS[number - 1]}\nPRAGMA user_version = {number};\nCOMMIT;")
+    conn.execute("INSERT INTO users (id, sub, email, created_at) VALUES (1, 's', 'e@example.com', 0)")
+    conn.execute("INSERT INTO feeds (id, user_id, url, title, created_at) VALUES (1, 1, 'https://a.example.com/f', 'A', 0)")
+    conn.execute("INSERT INTO feeds (id, user_id, url, title, created_at) VALUES (2, 1, 'https://b.example.com/f', 'B', 0)")
+    for guid, fetched in (("x", 100), ("y", 250)):
+        conn.execute(
+            "INSERT INTO articles (feed_id, guid, title, published_at, fetched_at) VALUES (1, ?, 't', 1, ?)", (guid, fetched)
+        )
+    conn.commit()
+    migrations.apply(conn)
+    assert dict(conn.execute("SELECT id, last_new_at FROM feeds").fetchall()) == {1: 250, 2: None}

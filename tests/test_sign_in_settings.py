@@ -267,3 +267,47 @@ def test_buttons_take_an_icon_and_a_color(start_server, oidc_provider):
     assert google.status_code == 201
     page = httpx.get(server.base_url + "/").text
     assert 'class="btn btn-lg sso-btn sso-google"' in page and "/static/sso/google.svg" in page
+
+
+def test_try_it_reports_what_happened_without_signing_anyone_in(start_server, oidc_provider):
+    server = start_server(DEV_LOGIN="false")
+    owner = set_up(server)
+    provider = add_pocket_id(owner, oidc_provider.issuer).json()["providers"][0]
+    owner.patch(f"/api/admin/sign-in/providers/{provider['id']}", json={"enabled": False})
+    try_url = f"/auth/login/p{provider['id']}?try=1"
+
+    def try_it() -> str:
+        return owner.get(try_url, follow_redirects=True).text
+
+    # Works even while the button is hidden, and says the address isn't on the list yet.
+    oidc_provider.claims = {"sub": "ann-1", "email": "ann@example.com", "email_verified": True}
+    page = try_it()
+    assert "Pocket ID works" in page and "ann@example.com" in page
+    assert "isn't on the allowed list yet" in page and "Its button is hidden" in page
+    # The owner is still the owner, and no account was made.
+    assert owner.get("/api/me").json()["email"] == "owner@example.com"
+    assert [a["email"] for a in owner.get("/api/accounts").json()] == ["owner@example.com"]
+
+    owner.put("/api/admin/sign-in/allowed", json={"emails": ["ann@example.com"]})
+    assert "on the allowed list, so they can sign in" in try_it()
+
+    oidc_provider.claims = {"sub": "ann-1"}
+    assert "without an email address" in try_it()
+
+    # The owner's own address, from a provider that doesn't say it's verified: a real sign-in wouldn't get in.
+    oidc_provider.claims = {"sub": "someone", "email": "owner@example.com"}
+    page = try_it()
+    assert "already has an account here" in page and "they can sign in" not in page
+
+    # A wrong client secret is what a typo usually looks like.
+    owner.patch(f"/api/admin/sign-in/providers/{provider['id']}", json={"client_secret": "typo"})
+    oidc_provider.claims = {"sub": "ann-1", "email": "ann@example.com", "email_verified": True}
+    page = try_it()
+    assert "didn't finish the sign-in" in page and "invalid_client" in page and "/auth/sso/callback" in page
+
+    # Only a signed-in admin can try.
+    assert httpx.get(server.base_url + try_url).headers["location"] == "/?error=not_configured"
+    owner.post("/api/accounts", json={"email": "kid@example.com", "name": "Kid", "password": "kid password"})
+    kid = client_for(server)
+    kid.post("/auth/password", json={"email": "kid@example.com", "password": "kid password"})
+    assert kid.get(try_url).headers["location"] == "/?error=not_configured"

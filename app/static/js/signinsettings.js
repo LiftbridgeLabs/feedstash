@@ -84,8 +84,12 @@ function providerRow(provider) {
     status = `Set in the server's settings, so it can only be changed there. ${provider.enabled ? '' : 'Turned off here.'}`;
   }
   const toggle = `<button class="btn btn-sm" data-signin="toggle" data-key="${esc(provider.key)}">${provider.enabled ? 'Turn off' : 'Turn on'}</button>`;
-  const actions = provider.from_server_settings ? `<div class="org-actions">${toggle}</div>` : `
+  // A real sign-in in a new tab that reports what happened, without signing you in as anyone else.
+  const tryIt = provider.secret_unreadable ? '' : `<a class="btn btn-sm" href="/auth/login/${encodeURIComponent(provider.key)}?try=1"
+        target="_blank" rel="noopener" data-signin-try title="Run a real sign-in in a new tab and see what happens">Try it</a>`;
+  const actions = provider.from_server_settings ? `<div class="org-actions">${tryIt}${toggle}</div>` : `
       <div class="org-actions">
+        ${tryIt}
         <button class="btn btn-sm" data-signin="edit" data-key="${esc(provider.key)}">${icon('sliders')}Edit</button>
         ${toggle}
         <button class="btn btn-sm" data-signin="remove" data-key="${esc(provider.key)}">Remove</button>

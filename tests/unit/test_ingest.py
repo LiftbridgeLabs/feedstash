@@ -199,3 +199,13 @@ def test_a_feed_that_answers_on_https_keeps_that_address(tmp_path):
     ingest.store_result(db, state, FetchResult(url="https://c.example.com/feed", feed=parsed(entry("y", None))), retention_days=90)
     with db.transaction() as conn:
         assert feeds.get(conn, user_id, edited).url == "https://elsewhere.example.com/rss"
+
+
+def test_a_feed_remembers_when_it_last_brought_something_new(conn, user_id):
+    feed_id = feeds.create(conn, user_id, url="https://a.example.com/feed", title="A")
+    assert feeds.get(conn, user_id, feed_id).last_new_at is None
+    ingest.save_entries(conn, feed_id, parsed(entry("a", 500)), first_fetch=True, retention_days=90, now=1000)
+    assert feeds.get(conn, user_id, feed_id).last_new_at == 1000
+    # The same entries again bring nothing new, so the date stays.
+    ingest.save_entries(conn, feed_id, parsed(entry("a", 500)), first_fetch=False, retention_days=90, now=2000)
+    assert feeds.get(conn, user_id, feed_id).last_new_at == 1000

@@ -359,6 +359,8 @@ body.resizing { cursor: col-resize; user-select: none; }
 .org-table input.url { color: var(--text-muted); font-size: 12px; max-width: 420px; text-overflow: ellipsis; }
 .org-table input.url:focus { color: var(--text); }
 .org-table .status-err { color: var(--danger); font-size: 12px; }
+.org-table .status-quiet { color: color-mix(in srgb, var(--danger) 55%, var(--text)); font-size: 12px; }
+.org-table td .muted { font-size: 12px; }
 .org-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .org-table .row-actions { white-space: nowrap; text-align: right; }
 .org-table .order { white-space: nowrap; width: 1%; padding-right: 0; }
@@ -581,6 +583,11 @@ dialog.whats-new { width: min(560px, calc(100vw - 32px)); }
 .sso-google:hover { background: #f2f2f2; }
 .sso-preview { display: flex; flex-direction: column; gap: 6px; }
 .sso-preview .btn { align-self: stretch; }
+.try-result { text-align: left; }
+.try-result img, .try-result h1 { display: block; margin-left: auto; margin-right: auto; text-align: center; }
+.try-result h1 { font-size: 22px; }
+.try-result code { word-break: break-all; }
+.try-result .btn { display: flex; justify-content: center; margin-top: 18px; }
 .sso-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 14px 0 0; }
 .sso-row-main { display: flex; flex-direction: column; gap: 4px; }
 .sso-row-button .btn { pointer-events: none; min-width: 230px; }

@@ -309,6 +309,12 @@ MIGRATIONS: list[str] = [
     ALTER TABLE sign_in_providers ADD COLUMN icon TEXT NOT NULL DEFAULT 'key';
     ALTER TABLE sign_in_providers ADD COLUMN color TEXT NOT NULL DEFAULT '';
     """,
+    # 19: when each feed last brought in a new article, to spot feeds that went quiet. Starts from the newest article
+    # still stored.
+    """
+    ALTER TABLE feeds ADD COLUMN last_new_at INTEGER;
+    UPDATE feeds SET last_new_at = (SELECT MAX(fetched_at) FROM articles WHERE articles.feed_id = feeds.id);
+    """,
 ]
 
 

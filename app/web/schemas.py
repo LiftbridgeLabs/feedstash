@@ -160,6 +160,7 @@ class FeedOut(BaseModel):
     unread: int
     auto_stash: bool = False  # new articles go straight to the stash
     full_text: bool = False  # new articles get their full page fetched
+    last_new_at: int | None = None  # when it last brought in a new article, to spot feeds that went quiet
 
 
 class TreeOut(BaseModel):

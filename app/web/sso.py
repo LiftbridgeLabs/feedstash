@@ -11,7 +11,7 @@ import html
 import logging
 import re
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import httpx
 from authlib.integrations.starlette_client import OAuth
@@ -45,6 +45,7 @@ class Provider:
     scopes: str
     icon: str = "key"  # one of BUILT_IN_ICONS, or an image's address; Google's button always has its own look
     color: str = ""  # "#rrggbb", or "" for the theme's
+    shown: bool = True  # on the sign-in page; one that's turned off can still be tried from Settings
 
     @property
     def account_prefix(self) -> str:
@@ -111,20 +112,22 @@ class SignIn:
     def load(self, conn: sqlite3.Connection) -> None:
         saved = []
         unreadable = set()
-        for row in providers_repo.list_all(conn):
-            if not row.enabled:
-                continue
-            secret = self._secrets.decrypt(row.client_secret)
-            if secret is None:
-                unreadable.add(row.id)
-                log.warning("Sign-in %r is skipped: its client secret can't be read with this SECRET_KEY", row.name)
-                continue
-            saved.append(self._from_row(row, secret))
         values = app_settings_repo.get_all(conn, SETTINGS_PREFIX)
         self._sso_enabled = values.get(f"{SETTINGS_PREFIX}sso", "on") != "off"
         self._server_off = set(split_list(values.get(f"{SETTINGS_PREFIX}server_off", "")))
-        server = [provider for provider in self._server_providers if provider.key not in self._server_off]
-        self._snapshot = ([*server, *saved] if self._sso_enabled else [], {})
+        for row in providers_repo.list_all(conn):
+            secret = self._secrets.decrypt(row.client_secret)
+            if secret is None:
+                unreadable.add(row.id)
+                if row.enabled:
+                    log.warning("Sign-in %r is skipped: its client secret can't be read with this SECRET_KEY", row.name)
+                continue
+            saved.append(replace(self._from_row(row, secret), shown=row.enabled and self._sso_enabled))
+        server = [
+            replace(provider, shown=provider.key not in self._server_off and self._sso_enabled)
+            for provider in self._server_providers
+        ]
+        self._snapshot = ([*server, *saved], {})
         self._unreadable = unreadable
         self._saved_emails = split_list(values.get(f"{SETTINGS_PREFIX}allowed_emails", ""))
         self._saved_domains = split_list(values.get(f"{SETTINGS_PREFIX}allowed_domains", ""))
@@ -140,7 +143,8 @@ class SignIn:
     # -------------------------------------------------------------- providers
 
     def providers(self) -> list[Provider]:
-        return list(self._snapshot[0])
+        """The ones on the sign-in page."""
+        return [provider for provider in self._snapshot[0] if provider.shown]
 
     def server_providers(self) -> list[Provider]:
         """All of them, including ones turned off here."""
@@ -156,11 +160,12 @@ class SignIn:
     def secret_unreadable(self, provider_id: int) -> bool:
         return provider_id in self._unreadable
 
-    def resolve(self, key: str):
-        """(provider, its authlib client) from one snapshot, or (None, None) when there's no such provider."""
+    def resolve(self, key: str, *, trying: bool = False):
+        """(provider, its authlib client) from one snapshot, or (None, None) when there's no such provider on the
+        sign-in page. `trying` (an admin's Try it) also finds ones that are turned off."""
         providers, clients = self._snapshot
         provider = next((provider for provider in providers if provider.key == key), None)
-        if provider is None:
+        if provider is None or not (provider.shown or trying):
             return None, None
         if key not in clients:
             oauth = OAuth()

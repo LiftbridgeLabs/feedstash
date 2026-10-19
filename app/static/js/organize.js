@@ -9,6 +9,19 @@ import { loadTree } from './sidebar.js';
 import { els, feedIdsIn, state, sumUnread } from './state.js';
 import { $, $$, agoLong, esc, favicon, plural } from './util.js';
 
+// A feed that hasn't brought in anything new for this long is called out, so a dead or moved feed is noticed.
+const QUIET_DAYS = 30;
+
+function lastNewHTML(ts) {
+  if (!ts) return '<span class="muted">Nothing received yet</span>';
+  const days = (Date.now() / 1000 - ts) / 86400;
+  if (days < QUIET_DAYS) return `<span class="muted">Last received ${agoLong(ts)}</span>`;
+  const date = new Date(ts * 1000);
+  const sameYear = date.getFullYear() === new Date().getFullYear();
+  const when = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) });
+  return `<span class="status-quiet" title="It may have stopped publishing or moved. Check its address.">Nothing new since ${esc(when)}</span>`;
+}
+
 /** The router has already switched to the organize panel. */
 export function showOrganize() {
   renderOrganize();
@@ -37,6 +50,7 @@ export function renderOrganize() {
     const status = f.last_error
       ? `<span class="status-err" title="${esc(f.last_error)}">${esc(f.last_error.slice(0, 60))}</span>`
       : f.last_fetched_at ? `<span class="muted">Updated ${agoLong(f.last_fetched_at)}</span>` : '<span class="muted">Waiting for first fetch</span>';
+    const lastNew = f.last_fetched_at ? `<br>${lastNewHTML(f.last_new_at)}` : '';
     const alone = siblings.length === 1 ? 'title="The only feed in its folder: pick another folder to move it there"' : '';
     return `<tr data-search="${esc(`${f.title} ${f.url}`.toLowerCase())}">
       <td class="order" ${alone}>${orderButtons('feed', f.id, siblings.indexOf(f.id), siblings.length)}</td>
@@ -49,7 +63,7 @@ export function renderOrganize() {
       <td><select data-feed-folder="${f.id}" aria-label="Folder">${folderOptions(f.folder_id)}</select></td>
       <td class="check-cell"><label class="check" title="New articles go straight to your stash, and are marked read here">
         <input type="checkbox" data-feed-autostash="${f.id}" ${f.auto_stash ? 'checked' : ''}><span class="hide-sm">Auto-save</span></label></td>
-      <td>${status}</td>
+      <td>${status}${lastNew}</td>
       <td class="num">${f.unread}</td>
       <td class="row-actions"><button class="btn btn-sm" data-org="unfollow" data-id="${f.id}">Unfollow</button></td>
     </tr>`;

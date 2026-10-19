@@ -1,12 +1,13 @@
 """A minimal OpenID Connect provider for tests: discovery, an authorize endpoint that approves at once, token,
 JWKS and userinfo. Set `claims` before starting a sign-in; they end up in the signed ID token."""
 
+import base64
 import json
 import secrets
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, urlencode, urlparse
+from urllib.parse import parse_qs, unquote, urlencode, urlparse
 
 from authlib.jose import JsonWebKey, jwt
 
@@ -87,6 +88,14 @@ class FakeOidcProvider:
             def do_POST(self):
                 length = int(self.headers.get("Content-Length") or 0)
                 form = {key: values[0] for key, values in parse_qs(self.rfile.read(length).decode()).items()}
+                # Like a real provider, a wrong client secret is refused (sent as HTTP Basic, or in the form).
+                scheme, _, encoded = self.headers.get("Authorization", "").partition(" ")
+                secret = form.get("client_secret")
+                if scheme.lower() == "basic":
+                    secret = unquote(base64.b64decode(encoded).decode().partition(":")[2])
+                if secret != CLIENT_SECRET:
+                    self._json({"error": "invalid_client", "error_description": "client authentication failed"}, 401)
+                    return
                 grant = provider._grants.pop(form.get("code", ""), None)
                 if urlparse(self.path).path != "/token" or grant is None:
                     self._json({"error": "invalid_grant"}, 400)

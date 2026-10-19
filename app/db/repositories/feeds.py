@@ -8,7 +8,7 @@ from app.db.repositories._common import clean_name, next_position, ordered_ids
 from app.errors import Conflict, NotFound
 
 _FEED_SELECT = """SELECT f.id, f.folder_id, f.title, f.position, f.url, f.site_url, f.last_fetched_at, f.last_error,
-    f.auto_stash, f.full_text, (SELECT COUNT(*) FROM articles a WHERE a.feed_id = f.id AND a.read_at IS NULL) AS unread
+    f.auto_stash, f.full_text, f.last_new_at, (SELECT COUNT(*) FROM articles a WHERE a.feed_id = f.id AND a.read_at IS NULL) AS unread
     FROM feeds f"""
 _STATE_SELECT = "SELECT id, url, etag, last_modified, last_fetched_at FROM feeds"
 
@@ -98,6 +98,10 @@ def change_source(
                last_fetched_at = ?, last_error = NULL WHERE id = ? AND user_id = ?""",
         (url, site_url, etag, last_modified, fetched_at, feed_id, user_id),
     )
+
+
+def mark_new_articles(conn: sqlite3.Connection, feed_id: int, *, at: int) -> None:
+    conn.execute("UPDATE feeds SET last_new_at = ? WHERE id = ?", (at, feed_id))
 
 
 def upgrade_to_https(conn: sqlite3.Connection, feed_id: int, fetched: str, url: str) -> None:

@@ -6,6 +6,7 @@ are in app/web/sso.py.
 """
 
 import asyncio
+import html
 import ipaddress
 import logging
 import secrets
@@ -13,7 +14,7 @@ import secrets
 import httpx
 from authlib.integrations.starlette_client import OAuthError
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
 from app.clock import now
@@ -33,6 +34,7 @@ DEV_LOGIN_SUB = "dev-login"
 SESSION_USER_KEY = "uid"
 SESSION_VERSION_KEY = "sv"  # see migration 11: a session started before the account's last change doesn't count
 SESSION_SSO_KEY = "sso"  # which provider from Settings → Sign-in a sign-in started with (they share one callback)
+SESSION_TRY_KEY = "sso_try"  # an admin's Try it: the provider being tried, whose result is shown, not signed in
 # Errors a provider can cause while we fetch its metadata, keys or tokens.
 PROVIDER_ERRORS = (OAuthError, httpx.HTTPError, ValueError, KeyError)
 
@@ -126,7 +128,11 @@ async def login(request: Request):
 async def login_with(provider: str, request: Request):
     settings: Settings = request.app.state.settings
     sign_in: SignIn = request.app.state.sign_in
-    chosen, client = sign_in.resolve(provider)
+    # Try it (Settings → Sign-in): an admin checks a provider, even one that's turned off, without signing in with it.
+    trying = request.query_params.get("try") == "1"
+    if trying and not await _is_admin(request):
+        return RedirectResponse("/?error=not_configured", status_code=303)
+    chosen, client = sign_in.resolve(provider, trying=trying)
     if chosen is None or client is None:
         return RedirectResponse("/?error=not_configured", status_code=303)
     extra = {"prompt": "select_account"} if chosen.kind == "google" else {}
@@ -134,6 +140,10 @@ async def login_with(provider: str, request: Request):
     redirect_uri = f"{settings.base_url_for(str(request.base_url))}{chosen.callback_path}"
     if not chosen.from_server_settings:
         request.session[SESSION_SSO_KEY] = chosen.key
+    if trying:
+        request.session[SESSION_TRY_KEY] = chosen.key
+    else:
+        request.session.pop(SESSION_TRY_KEY, None)
     try:
         return await client.authorize_redirect(request, redirect_uri, **extra)
     except PROVIDER_ERRORS as exc:
@@ -169,7 +179,8 @@ def _verified(value) -> bool | None:
 
 async def _finish_external_sign_in(request: Request, provider: str):
     sign_in: SignIn = request.app.state.sign_in
-    chosen, client = sign_in.resolve(provider)
+    trying = bool(provider) and request.session.pop(SESSION_TRY_KEY, None) == provider and await _is_admin(request)
+    chosen, client = sign_in.resolve(provider, trying=trying)
     if chosen is None or client is None:
         return RedirectResponse("/?error=not_configured", status_code=303)
     try:
@@ -179,10 +190,14 @@ async def _finish_external_sign_in(request: Request, provider: str):
             info = {**dict(await client.userinfo(token=token)), **info}  # some providers keep the email out of the ID token
     except PROVIDER_ERRORS as exc:
         log.warning("%s failed: %s", chosen.label, exc)
+        if trying:
+            return _try_result(request, chosen, failed=str(exc) or exc.__class__.__name__)
         return RedirectResponse("/?error=oauth", status_code=303)
 
     email = str(info.get("email") or "").strip().lower()
     verified = _verified(info.get("email_verified"))
+    if trying:
+        return await run_in_threadpool(_try_result, request, chosen, info=info, email=email, verified=verified)
     # Google always says whether the address is verified; other providers may leave it out, which is accepted for a
     # new account but not for joining an existing one (see find_or_add_account).
     if not info.get("sub") or not email or verified is False or (chosen.kind == "google" and not verified):
@@ -213,6 +228,70 @@ async def _finish_external_sign_in(request: Request, provider: str):
         return RedirectResponse("/?error=not_allowed", status_code=303)
     await start_session(request, user_id)
     return RedirectResponse("/", status_code=303)
+
+
+async def _is_admin(request: Request) -> bool:
+    user = await run_in_threadpool(session_user, request)
+    return bool(user and user.is_admin)
+
+
+def _try_result(
+    request: Request, chosen, *, failed: str | None = None, info: dict | None = None, email: str = "",
+    verified: bool | None = None,
+) -> HTMLResponse:
+    """What Try it found, on a page of its own (the admin stays signed in as themselves; no account is made)."""
+    name = html.escape(chosen.label.removeprefix("Sign in with "))
+    settings: Settings = request.app.state.settings
+    callback = html.escape(f"{settings.base_url_for(str(request.base_url))}{chosen.callback_path}")
+    if failed:
+        title = f"{name} didn't finish the sign-in"
+        lines = [
+            f"What it said: <code>{html.escape(failed[:300])}</code>",
+            f"Check the client ID and secret, and that the redirect URI at the provider is <code>{callback}</code>.",
+        ]
+    elif not (info or {}).get("sub") or not email:
+        title = f"{name} answered, but without an email address"
+        lines = ["FeedStash needs one to know whose account it is. Make sure the client asks for the "
+                 "<code>email</code> scope and that your account there has an address."]
+    else:
+        title = f"{name} works"
+        lines = [f"It signed in <b>{html.escape(email)}</b>."]
+        refused = verified is False or (chosen.kind == "google" and not verified)
+        if refused:
+            lines.append("But it says that address isn't verified, so FeedStash won't accept it.")
+        elif verified is None:
+            lines.append("It didn't say whether the address is verified. That's fine for a new account, but it can't "
+                         "join an account that already exists.")
+        db: Database = request.app.state.db
+        with db.transaction() as conn:
+            existing = users_repo.find_by_email(conn, email)
+            linked = users_repo.has_sub(conn, f"{chosen.account_prefix}:{info['sub']}")
+        sign_in: SignIn = request.app.state.sign_in
+        # The same checks as a real sign-in (find_or_add_account), so the page never promises more than it would do.
+        if refused:
+            pass
+        elif existing and not linked and verified is not True:
+            lines.append("That address already has an account here, and without the provider saying it's verified, "
+                         "FeedStash won't let this sign-in into it.")
+        elif sign_in.email_allowed(email):
+            lines.append("That address is on the allowed list, so they can sign in.")
+        elif existing and existing.has_password:
+            lines.append("That address has a password account here, so they can sign in.")
+        else:
+            lines.append("That address isn't on the allowed list yet, so FeedStash would turn them away. Add it "
+                         "under <b>Who can sign in</b>.")
+        if not chosen.shown:
+            lines.append("Its button is hidden right now, so nobody sees it on the sign-in page until you turn it on.")
+    body = "".join(f"<p>{line}</p>" for line in lines)
+    return HTMLResponse(f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Try {name} · FeedStash</title><link rel="icon" href="/static/icon.svg"><link rel="stylesheet" href="/static/style.css"></head>
+<body class="login-body"><main class="login-card try-result">
+<img src="/static/icon.svg" alt="" width="56" height="56"><h1>{title}</h1>
+{body}
+<p class="muted">You're still signed in as yourself, and no account was made. You can close this tab.</p>
+<a class="btn btn-primary btn-lg" href="/#/settings">Back to Settings</a>
+</main></body></html>""")
 
 
 # ------------------------------------------------------------------ passwords

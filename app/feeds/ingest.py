@@ -60,6 +60,8 @@ def save_entries(
         ))
     added_ids: list[int] = []
     added = articles_repo.insert_new(conn, feed_id, fresh, fetched_at=now, added_ids=added_ids)
+    if added:
+        feeds_repo.mark_new_articles(conn, feed_id, at=now)
     if added_ids and not first_fetch:
         _auto_stash(conn, feed_id, added_ids, now=now)
     return added
