@@ -285,6 +285,24 @@ MIGRATIONS: list[str] = [
     CREATE INDEX idx_articles_unread_pub ON articles(published_at DESC, id DESC) WHERE read_at IS NULL;
     CREATE INDEX idx_feeds_last_fetched ON feeds(last_fetched_at);
     """,
+    # 17: sign-in providers added in Settings → Sign-in (Google, or any OpenID Connect provider such as Pocket ID).
+    # The client secret is encrypted with the server's SecretBox, like the mailbox password. AUTOINCREMENT, so a
+    # removed provider's id (its sign-in address p<id>) never comes back for a different one.
+    """
+    CREATE TABLE sign_in_providers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        kind TEXT NOT NULL CHECK (kind IN ('google', 'oidc')),
+        name TEXT NOT NULL,
+        issuer TEXT NOT NULL,
+        client_id TEXT NOT NULL,
+        client_secret TEXT NOT NULL,
+        scopes TEXT NOT NULL DEFAULT 'openid email profile',
+        enabled INTEGER NOT NULL DEFAULT 1,
+        position INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+    );
+    """,
 ]
 
 

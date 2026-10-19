@@ -90,3 +90,39 @@ def test_admins_set_and_read_the_logs_in_settings(reader):
     reader.js("(() => { const s = document.querySelector('[data-log-field=max_mb]'); s.value = '25'; s.dispatchEvent(new Event('change', { bubbles: true })); })()")
     assert reader.wait_for("reader.api('GET', '/api/admin/logs/settings').then((s) => s.max_mb === 25)")
     assert reader.js("document.querySelector('[data-logs-section] a[download]').getAttribute('href')") == "/api/admin/logs/download"
+
+
+def test_admins_add_a_single_sign_on_in_settings(reader, oidc_provider):
+    reader.js("location.hash = '#/settings'")
+    assert reader.wait_for("!document.querySelector('[data-signin-section]')?.hidden && !!document.querySelector('[data-signin-allowed-form]')")
+    assert "Only passwords so far" in reader.js("document.querySelector('[data-signin-list]').textContent")
+
+    reader.js("document.querySelector('[data-signin=add]').click()")
+    assert reader.wait_for("!!document.querySelector('dialog.modal [name=issuer]')")
+    # The redirect URI to give the provider shows before anything is saved.
+    assert "/auth/sso/callback" in reader.js("document.querySelector('dialog.modal [data-callbacks]').textContent")
+    reader.js(f"""(() => {{
+      const d = document.querySelector('dialog.modal');
+      d.querySelector('[name=name]').value = 'Pocket ID';
+      d.querySelector('[name=issuer]').value = '{oidc_provider.issuer}';
+      d.querySelector('[name=client_id]').value = 'feedstash-test';
+      d.querySelector('[name=client_secret]').value = 'test-client-secret';
+      d.querySelector('[type=submit]').click();
+    }})()""")
+    assert reader.wait_for("!document.querySelector('dialog.modal')")
+    assert reader.wait_for("document.querySelector('[data-signin-list]').textContent.includes('Pocket ID')")
+
+    # Choosing Google hides the issuer and name, and says where Google's setting is.
+    reader.js("document.querySelector('[data-signin=add]').click()")
+    assert reader.wait_for("!!document.querySelector('dialog.modal [name=kind]')")
+    reader.js("(() => { const s = document.querySelector('dialog.modal [name=kind]'); s.value = 'google'; s.dispatchEvent(new Event('change', { bubbles: true })); })()")
+    assert reader.js("document.querySelector('dialog.modal [name=issuer]').closest('[data-oidc-only]').hidden") is True
+    assert "Google Cloud Console" in reader.js("document.querySelector('dialog.modal [data-where]').textContent")
+    reader.js("document.querySelector('dialog.modal [data-cancel]').click()")
+
+    reader.js("""(() => {
+      const f = document.querySelector('[data-signin-allowed-form]');
+      f.querySelector('[name=emails]').value = 'ann@example.com, bo@example.com';
+      f.querySelector('[type=submit]').click();
+    })()""")
+    assert reader.wait_for("reader.api('GET', '/api/admin/sign-in').then((s) => s.allowed_emails.length === 2)")

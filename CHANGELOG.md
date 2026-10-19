@@ -3,6 +3,18 @@
 What changed in each FeedStash release, newest first. Before you update, check **Before you update** for anything
 to do first, like taking a backup. Admins see the rest of a release's notes in FeedStash after updating.
 
+## Unreleased
+
+### New
+- **Set up Google or single sign-on in Settings.** Admins can now add Google, or their own sign-in like Pocket ID,
+  Authentik or Authelia, under Settings → Sign-in, no server settings or restart needed. The form shows the
+  address to give your provider, checks everything when you save, and you can add more than one, turn one off or
+  remove it. Who can sign in that way is kept there too. Providers already set in the server's settings keep
+  working and show up in the list.
+
+### Before you update
+- As always, it's recommended to create a backup before updating. This release adds to the database.
+
 ## 0.8.1
 
 ### Fixes

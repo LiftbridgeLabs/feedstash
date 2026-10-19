@@ -18,7 +18,7 @@ class Scope:
 @dataclass(frozen=True, slots=True)
 class User:
     id: int
-    sub: str  # "<provider>:<subject>" (google:…, oidc:…, local:<uuid>), or "dev-login"
+    sub: str  # "<provider>:<subject>" (google:…, oidc:…, oidc@<issuer>:…, local:<uuid>), or "dev-login"
     email: str
     name: str | None
     picture: str | None
@@ -27,6 +27,22 @@ class User:
     created_at: int = 0
     read_retention_days: int = 30  # read articles are deleted this long after reading; 0 = only the server's cleanup
     sections: str = "both"  # which halves of the app they use: both, feeds or stash
+
+
+@dataclass(frozen=True, slots=True)
+class SignInProvider:
+    """A sign-in added in Settings → Sign-in. `client_secret` is as stored: encrypted with the server's SecretBox."""
+
+    id: int
+    kind: str  # "google" or "oidc"
+    name: str  # what the button says after "Sign in with"
+    issuer: str  # the OIDC issuer (or its discovery document's URL); Google's for kind "google"
+    client_id: str
+    client_secret: str
+    scopes: str
+    enabled: bool
+    position: int
+    updated_at: int
 
 
 @dataclass(frozen=True, slots=True)

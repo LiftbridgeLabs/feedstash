@@ -1,7 +1,8 @@
 """Signing in: passwords, Google and any OpenID Connect provider for the web app; API tokens for the clients.
 
 Who may use the app: accounts with a FeedStash password (created on purpose), and anyone whose Google or OIDC
-email is in ALLOWED_EMAILS / ALLOWED_DOMAINS.
+email is on the allowed list (ALLOWED_EMAILS / ALLOWED_DOMAINS, plus Settings → Sign-in). The providers themselves
+are in app/web/sso.py.
 """
 
 import asyncio
@@ -10,7 +11,7 @@ import logging
 import secrets
 
 import httpx
-from authlib.integrations.starlette_client import OAuth, OAuthError
+from authlib.integrations.starlette_client import OAuthError
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from starlette.concurrency import run_in_threadpool
@@ -24,14 +25,14 @@ from app.services import accounts
 from app.settings import Settings
 from app.web.ratelimit import LoginLimiter
 from app.web.schemas import OkOut, PasswordLoginIn, SetupIn
+from app.web.sso import SignIn
 
 log = logging.getLogger("reader.auth")
 
-GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
 DEV_LOGIN_SUB = "dev-login"
 SESSION_USER_KEY = "uid"
 SESSION_VERSION_KEY = "sv"  # see migration 11: a session started before the account's last change doesn't count
-PROVIDERS = ("google", "oidc")
+SESSION_SSO_KEY = "sso"  # which provider from Settings → Sign-in a sign-in started with (they share one callback)
 # Errors a provider can cause while we fetch its metadata, keys or tokens.
 PROVIDER_ERRORS = (OAuthError, httpx.HTTPError, ValueError, KeyError)
 
@@ -42,51 +43,8 @@ router = APIRouter()
 PASSWORD_CHECKS = asyncio.Semaphore(4)
 
 
-def build_oauth(settings: Settings) -> OAuth | None:
-    """OAuth clients for the configured external providers, or None when there are none."""
-    if not (settings.google_configured or settings.oidc_configured):
-        return None
-    oauth = OAuth()
-    if settings.google_configured:
-        oauth.register(
-            name="google",
-            client_id=settings.google_client_id,
-            client_secret=settings.google_client_secret.get_secret_value(),
-            server_metadata_url=GOOGLE_DISCOVERY_URL,
-            client_kwargs={"scope": "openid email profile", "code_challenge_method": "S256"},
-        )
-    if settings.oidc_configured:
-        oauth.register(
-            name="oidc",
-            client_id=settings.oidc_client_id,
-            client_secret=settings.oidc_client_secret.get_secret_value(),
-            server_metadata_url=settings.oidc_discovery_url,
-            client_kwargs={"scope": settings.oidc_scopes, "code_challenge_method": "S256"},
-        )
-    return oauth
-
-
-def external_providers(settings: Settings) -> list[tuple[str, str]]:
-    """(provider, button label) for each configured external sign-in."""
-    providers = []
-    if settings.google_configured:
-        providers.append(("google", "Sign in with Google"))
-    if settings.oidc_configured:
-        providers.append(("oidc", f"Sign in with {settings.oidc_name}"))
-    return providers
-
-
-def email_allowed(settings: Settings, email: str) -> bool:
-    if settings.dev_login:
-        return True
-    email = (email or "").strip().lower()
-    if "*" in settings.allowed_emails or email in settings.allowed_emails:
-        return True
-    return email.rsplit("@", 1)[-1] in settings.allowed_domains
-
-
-def user_allowed(settings: Settings, user: User) -> bool:
-    return user.has_password or email_allowed(settings, user.email)
+def user_allowed(sign_in: SignIn, user: User) -> bool:
+    return user.has_password or sign_in.email_allowed(user.email)
 
 
 def session_user(request: Request) -> User | None:
@@ -94,12 +52,12 @@ def session_user(request: Request) -> User | None:
     user_id = request.session.get(SESSION_USER_KEY)
     if not user_id:
         return None
-    settings: Settings = request.app.state.settings
     db: Database = request.app.state.db
     with db.transaction() as conn:
         user = users_repo.get(conn, user_id)
         version = users_repo.session_version(conn, user_id)
-    if user is None or not user_allowed(settings, user) or request.session.get(SESSION_VERSION_KEY, 0) != version:
+    sign_in: SignIn = request.app.state.sign_in
+    if user is None or not user_allowed(sign_in, user) or request.session.get(SESSION_VERSION_KEY, 0) != version:
         request.session.clear()
         return None
     return user
@@ -117,12 +75,11 @@ def bearer_token(request: Request) -> str | None:
 
 def token_user(request: Request, token: str) -> User | None:
     """The user an API token belongs to. Remembers which token was used on `request.state.api_token`."""
-    settings: Settings = request.app.state.settings
     db: Database = request.app.state.db
     with db.transaction() as conn:
         match = tokens_repo.authenticate(conn, token, now=now())
         user = users_repo.get(conn, match.user_id) if match else None
-    if user is None or not user_allowed(settings, user):
+    if user is None or not user_allowed(request.app.state.sign_in, user):
         return None
     request.state.api_token = match
     return user
@@ -159,32 +116,28 @@ async def login(request: Request):
 
         await start_session(request, await run_in_threadpool(upsert))
         return RedirectResponse("/", status_code=303)
-    providers = external_providers(settings)
+    providers = request.app.state.sign_in.providers()
     if len(providers) == 1 and not settings.password_login:
-        return RedirectResponse(f"/auth/login/{providers[0][0]}", status_code=303)
+        return RedirectResponse(f"/auth/login/{providers[0].key}", status_code=303)
     return RedirectResponse("/", status_code=303)
-
-
-def _client(request: Request, provider: str):
-    oauth: OAuth | None = request.app.state.oauth
-    if provider not in PROVIDERS or oauth is None:
-        return None
-    return oauth.create_client(provider)
 
 
 @router.get("/auth/login/{provider}")
 async def login_with(provider: str, request: Request):
     settings: Settings = request.app.state.settings
-    client = _client(request, provider)
-    if client is None:
+    sign_in: SignIn = request.app.state.sign_in
+    chosen, client = sign_in.resolve(provider)
+    if chosen is None or client is None:
         return RedirectResponse("/?error=not_configured", status_code=303)
-    extra = {"prompt": "select_account"} if provider == "google" else {}
+    extra = {"prompt": "select_account"} if chosen.kind == "google" else {}
     # Come back to the address the browser is using (LAN or reverse proxy), so the session cookie carries over.
-    redirect_uri = f"{settings.base_url_for(str(request.base_url))}/auth/{provider}/callback"
+    redirect_uri = f"{settings.base_url_for(str(request.base_url))}{chosen.callback_path}"
+    if not chosen.from_server_settings:
+        request.session[SESSION_SSO_KEY] = chosen.key
     try:
         return await client.authorize_redirect(request, redirect_uri, **extra)
     except PROVIDER_ERRORS as exc:
-        log.warning("Couldn't start %s sign-in: %s", provider, exc)
+        log.warning("Couldn't start %s sign-in: %s", chosen.label, exc)
         return RedirectResponse("/?error=oauth", status_code=303)
 
 
@@ -194,8 +147,16 @@ async def google_callback_before_oidc(request: Request):
     return await _finish_external_sign_in(request, "google")
 
 
+@router.get("/auth/sso/callback")
+async def settings_provider_callback(request: Request):
+    """Where every provider added in Settings → Sign-in comes back; the session says which one this is."""
+    return await _finish_external_sign_in(request, request.session.pop(SESSION_SSO_KEY, None) or "")
+
+
 @router.get("/auth/{provider}/callback")
 async def provider_callback(provider: str, request: Request):
+    if provider.startswith("p"):  # providers from Settings only come back through /auth/sso/callback
+        return RedirectResponse("/?error=not_configured", status_code=303)
     return await _finish_external_sign_in(request, provider)
 
 
@@ -207,9 +168,9 @@ def _verified(value) -> bool | None:
 
 
 async def _finish_external_sign_in(request: Request, provider: str):
-    settings: Settings = request.app.state.settings
-    client = _client(request, provider)
-    if client is None:
+    sign_in: SignIn = request.app.state.sign_in
+    chosen, client = sign_in.resolve(provider)
+    if chosen is None or client is None:
         return RedirectResponse("/?error=not_configured", status_code=303)
     try:
         token = await client.authorize_access_token(request)
@@ -217,38 +178,38 @@ async def _finish_external_sign_in(request: Request, provider: str):
         if not info.get("email") and client.server_metadata.get("userinfo_endpoint"):
             info = {**dict(await client.userinfo(token=token)), **info}  # some providers keep the email out of the ID token
     except PROVIDER_ERRORS as exc:
-        log.warning("%s sign-in failed: %s", provider, exc)
+        log.warning("%s failed: %s", chosen.label, exc)
         return RedirectResponse("/?error=oauth", status_code=303)
 
     email = str(info.get("email") or "").strip().lower()
     verified = _verified(info.get("email_verified"))
     # Google always says whether the address is verified; other providers may leave it out, which is accepted for a
-    # new account but not for joining an existing one (see sign_in).
-    if not info.get("sub") or not email or verified is False or (provider == "google" and not verified):
+    # new account but not for joining an existing one (see find_or_add_account).
+    if not info.get("sub") or not email or verified is False or (chosen.kind == "google" and not verified):
         return RedirectResponse("/?error=unverified", status_code=303)
 
     db: Database = request.app.state.db
 
-    def sign_in() -> int | str | None:
+    def find_or_add_account() -> int | str | None:
         with db.transaction() as conn:
             existing = users_repo.find_by_email(conn, email)
             # Joining an account that already exists needs the provider's word that the address is theirs;
             # otherwise whoever could claim that address at the provider would get the account.
-            if existing and not users_repo.has_sub(conn, f"{provider}:{info['sub']}") and verified is not True:
+            if existing and not users_repo.has_sub(conn, f"{chosen.account_prefix}:{info['sub']}") and verified is not True:
                 return "unverified"
-            if not (email_allowed(settings, email) or (existing and existing.has_password)):
+            if not (sign_in.email_allowed(email) or (existing and existing.has_password)):
                 return None
             return users_repo.upsert(
-                conn, sub=f"{provider}:{info['sub']}", email=email, name=info.get("name"),
+                conn, sub=f"{chosen.account_prefix}:{info['sub']}", email=email, name=info.get("name"),
                 picture=info.get("picture"), link_by_email=True,
             )
 
-    user_id = await run_in_threadpool(sign_in)
+    user_id = await run_in_threadpool(find_or_add_account)
     if user_id == "unverified":
         log.warning("Rejected %s sign-in to the existing account %s: the provider didn't verify the address", provider, email)
         return RedirectResponse("/?error=unverified", status_code=303)
     if user_id is None:
-        log.warning("Rejected %s sign-in from %s (not in ALLOWED_EMAILS/ALLOWED_DOMAINS)", provider, email)
+        log.warning("Rejected %s from %s (not on the allowed list)", chosen.label, email)
         return RedirectResponse("/?error=not_allowed", status_code=303)
     await start_session(request, user_id)
     return RedirectResponse("/", status_code=303)
@@ -334,7 +295,8 @@ async def first_run_setup(body: SetupIn, request: Request) -> OkOut:
             raise HTTPException(status_code=403, detail=SETUP_BLOCKED)
         if not secrets.compare_digest((body.setup_token or "").strip().encode(), expected.encode()):
             raise HTTPException(status_code=403, detail="That setup token isn't right")
-    if (settings.allowed_emails or settings.allowed_domains) and not email_allowed(settings, body.email):
+    sign_in: SignIn = request.app.state.sign_in
+    if sign_in.has_allowed_list and not sign_in.email_allowed(body.email):
         raise HTTPException(status_code=403, detail="Use an email address from ALLOWED_EMAILS or ALLOWED_DOMAINS")
     async with PASSWORD_CHECKS:
         user = await run_in_threadpool(

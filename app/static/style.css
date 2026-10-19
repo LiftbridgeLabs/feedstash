@@ -465,6 +465,8 @@ body.resizing { cursor: col-resize; user-select: none; }
 .mail-form details[open] { padding-bottom: 12px; }
 .mail-form summary { cursor: pointer; font-size: 14px; color: var(--text-muted); }
 .mail-form details label { margin-top: 10px; }
+.copy-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.copy-line code { word-break: break-all; font-size: 13px; }
 
 /* Spacing of the article and stash rows (View options → Spacing). */
 :root[data-density="compact"] .item-row { padding: 7px 4px; gap: 12px; }

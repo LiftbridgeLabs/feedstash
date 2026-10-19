@@ -42,6 +42,52 @@ class LogLinesOut(BaseModel):
     lines: list[str]  # the newest last
 
 
+class SignInProviderIn(BaseModel):
+    kind: Literal["google", "oidc"]
+    name: str = Field(default="", max_length=60)  # the button: "Sign in with <name>"; Google is always "Google"
+    issuer: str = Field(default="", max_length=500)  # OIDC only
+    client_id: str = Field(min_length=1, max_length=500)
+    client_secret: str = Field(min_length=1, max_length=2000)
+    scopes: str = Field(default="openid email profile", max_length=300)
+
+
+class SignInProviderPatch(BaseModel):
+    name: str | None = Field(default=None, max_length=60)
+    issuer: str | None = Field(default=None, max_length=500)
+    client_id: str | None = Field(default=None, min_length=1, max_length=500)
+    client_secret: str | None = Field(default=None, max_length=2000)  # empty or left out keeps the saved one
+    scopes: str | None = Field(default=None, max_length=300)
+    enabled: bool | None = None
+
+
+class SignInProviderOut(BaseModel):
+    id: int | None  # None for the ones set in the server's settings, which can't be changed here
+    kind: str
+    name: str
+    issuer: str
+    client_id: str
+    scopes: str
+    enabled: bool
+    from_server_settings: bool
+    secret_unreadable: bool = False  # saved with a different SECRET_KEY: the secret has to be entered again
+    callback_urls: list[str]  # the redirect URIs to enter at the provider, one per address in BASE_URL
+
+
+class SignInOut(BaseModel):
+    providers: list[SignInProviderOut]
+    callback_urls: list[str]  # for a provider added here, before it's saved
+    allowed_emails: list[str]  # the allowed list kept here
+    allowed_domains: list[str]
+    server_allowed_emails: list[str]  # ALLOWED_EMAILS / ALLOWED_DOMAINS from the server's settings, read-only
+    server_allowed_domains: list[str]
+    password_login: bool
+
+
+class AllowedListIn(BaseModel):
+    emails: list[str] = Field(default_factory=list, max_length=500)
+    domains: list[str] = Field(default_factory=list, max_length=200)
+
+
 class UpdatesOut(BaseModel):
     current: str
     latest: str | None  # set only when it's newer than the running release

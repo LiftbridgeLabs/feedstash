@@ -9,6 +9,7 @@ import { applySections, setPref } from './menus.js';
 import { showShortcuts } from './shortcuts.js';
 import { renderNav } from './sidebar.js';
 import { loadLogs, logsSectionHTML, wireLogs } from './logsettings.js';
+import { loadSignIn, signInSectionHTML, wireSignIn } from './signinsettings.js';
 import { loadTagSettings, tagsSectionHTML, wireTagSettings } from './tagsettings.js';
 import { loadRules, rulesSectionHTML, wireRules } from './rules.js';
 import { els, showsFeeds, showsStash, state } from './state.js';
@@ -88,6 +89,8 @@ export function showSettings() {
       </div>
       <div data-account-list><p class="muted">Loading…</p></div>
     </div>
+
+    ${signInSectionHTML()}
 
     ${importSectionHTML()}
 
@@ -205,6 +208,7 @@ async function loadAccount() {
   if (me.is_admin) {
     $('[data-accounts-section]', els.settings).hidden = false;
     loadAccounts();
+    loadSignIn(els.settings);
     loadAbout();
     loadLogs(els.settings);
   }
@@ -490,6 +494,7 @@ export function wireSettings() {
   wireImport(els.settings);
   wireMail(els.settings);
   wireLogs(els.settings);
+  wireSignIn(els.settings);
   wireRules(els.settings);
   wireTagSettings(els.settings);
   els.settings.addEventListener('change', (e) => {

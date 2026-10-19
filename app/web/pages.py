@@ -7,7 +7,8 @@ from fastapi.responses import FileResponse, HTMLResponse
 from app.clock import iso, now
 from app.db.repositories import users as users_repo
 from app.settings import Settings
-from app.web.auth import SETUP_BLOCKED, external_providers, session_user, setup_needs_token
+from app.web.auth import SETUP_BLOCKED, session_user, setup_needs_token
+from app.web.sso import Provider
 
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
 
@@ -42,13 +43,15 @@ SETUP_TOKEN_FIELD = """<label><span>Setup token <small>(the SETUP_TOKEN in the s
 router = APIRouter(include_in_schema=False)
 
 
-def login_page(settings: Settings, *, error: str | None, needs_setup: bool, setup_needs_token: bool = False) -> str:
+def login_page(
+    settings: Settings, providers: list[Provider], *, error: str | None, needs_setup: bool, setup_needs_token: bool = False,
+) -> str:
     message = LOGIN_ERRORS.get(error or "")
     options = []
     if settings.dev_login:
         options.append('<a class="btn btn-primary btn-lg" href="/auth/login">Continue as local user</a>')
-    for provider, label in external_providers(settings):
-        options.append(f'<a class="btn btn-lg" href="/auth/login/{provider}">{html.escape(label)}</a>')
+    for provider in providers:
+        options.append(f'<a class="btn btn-lg" href="/auth/login/{provider.key}">{html.escape(provider.label)}</a>')
     form = ""
     if settings.password_login and not settings.dev_login:
         if not needs_setup:
@@ -86,7 +89,7 @@ def index(request: Request, error: str | None = None):
     with request.app.state.db.transaction() as conn:
         needs_setup = users_repo.count(conn) == 0
     return HTMLResponse(login_page(
-        settings, error=error, needs_setup=needs_setup, setup_needs_token=needs_setup and setup_needs_token(request)
+        settings, request.app.state.sign_in.providers(), error=error, needs_setup=needs_setup, setup_needs_token=needs_setup and setup_needs_token(request)
     ))
 
 

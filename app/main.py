@@ -21,6 +21,7 @@ from app.services.pages import PageWorker
 from app.services.updates import create_checker
 from app.settings import Settings, resolve_secret_key
 from app.web import auth, errors, pages, security
+from app.web.sso import SignIn
 from app.web.api import accounts as accounts_api
 from app.web.api import articles as articles_api
 from app.web.api import feeds as feeds_api
@@ -28,6 +29,7 @@ from app.web.api import folders as folders_api
 from app.web.api import greader as greader_api
 from app.web.api import imports as imports_api
 from app.web.api import logs as logs_api
+from app.web.api import sign_in as sign_in_api
 from app.web.api import mail as mail_api
 from app.web.api import opml as opml_api
 from app.web.api import stash as stash_api
@@ -54,6 +56,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     db = Database(settings.database_path)
     secret_key = resolve_secret_key(settings)
     secrets = SecretBox(secret_key)
+    sign_in = SignIn(settings, secrets)
     images = ImageStore(settings.uploads_dir)
     scheduler = RefreshScheduler(db, settings)
     page_worker = PageWorker(db)
@@ -65,7 +68,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         db.initialize()
         with db.transaction() as conn:
             log_files.apply(LogSettings.from_strings(app_settings_repo.get_all(conn, "logs."), log_default))
-        _warn_about_sign_in(settings)
+            sign_in.load(conn)
+        _warn_about_sign_in(settings, sign_in)
         if settings.scheduler_enabled:
             scheduler.start()
             if mail_worker.has_mailboxes():  # nothing to check until someone connects one
@@ -91,7 +95,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.update_checker = update_checker
     app.state.log_files = log_files
     app.state.log_default = log_default
-    app.state.oauth = auth.build_oauth(settings)
+    app.state.sign_in = sign_in
     app.state.login_limiter = LoginLimiter()
     app.state.background_tasks = set()
 
@@ -113,7 +117,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     for router in (
         pages.router, auth.router, tree_api.router, articles_api.router, folders_api.router, feeds_api.router,
         opml_api.router, imports_api.router, stash_api.router, stash_api.uploads_router, stash_organize_api.router,
-        mail_api.router, tokens_api.router, accounts_api.router, updates_api.router, logs_api.router,
+        mail_api.router, tokens_api.router, accounts_api.router, updates_api.router, logs_api.router, sign_in_api.router,
     ):
         app.include_router(router)
     # The Google Reader API, for other reader apps. Clients disagree about the address: some take the server's
@@ -164,19 +168,19 @@ def _configure_logging() -> None:
 
 
 
-def _warn_about_sign_in(settings: Settings) -> None:
+def _warn_about_sign_in(settings: Settings, sign_in: SignIn) -> None:
     if "*" in [part.strip() for part in settings.forwarded_allow_ips.split(",")]:
         log.warning(
             "FORWARDED_ALLOW_IPS is *: anyone can claim any address with X-Forwarded-For and get past the sign-in "
             "rate limit. Remove it to use the default (private networks) or set it to your reverse proxy's address"
         )
-    external = settings.google_configured or settings.oidc_configured
+    external = bool(sign_in.providers())
     if settings.dev_login:
         log.warning("DEV_LOGIN is enabled: anyone who can reach this server can sign in")
     elif not (settings.password_login or external):
         log.warning("PASSWORD_LOGIN is off and neither Google nor OIDC is configured; nobody can sign in")
-    elif external and not (settings.allowed_emails or settings.allowed_domains):
+    elif external and not sign_in.has_allowed_list:
         log.warning(
-            "ALLOWED_EMAILS and ALLOWED_DOMAINS are empty; Google/OIDC sign-ins only work for emails that already "
-            "have a password account"
+            "The allowed list is empty (ALLOWED_EMAILS, ALLOWED_DOMAINS and Settings → Sign-in); Google/OIDC sign-ins "
+            "only work for emails that already have a password account"
         )

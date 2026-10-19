@@ -81,24 +81,28 @@ Locked out? Reset a password from the server:
 docker exec -it feedstash python -m app.cli set-password --email you@example.com
 ```
 
-### Google
+### Google and single sign-on (Pocket ID, Authentik, Authelia…)
 
-1. In [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials), set up the OAuth consent screen (External; add yourself as a test user; "Testing" is fine for personal use).
-2. **Create credentials → OAuth client ID → Web application**, with the authorized redirect URI `<BASE_URL>/auth/google/callback`. Google only accepts `https` addresses (and `localhost`), so use your https one; Google sign-in won't work on a plain `http://192.168.x.x` address.
-3. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `ALLOWED_EMAILS` (or `ALLOWED_DOMAINS` for a Workspace domain).
+The easiest way is in the app: an admin opens **Settings → Sign-in → Add sign-in**, picks Google or OpenID Connect, and pastes in the client ID and secret. The form shows the redirect URI to give the provider, `<BASE_URL>/auth/sso/callback` (one for each address in `BASE_URL`), so you can create the client there first. FeedStash checks the issuer address when you save, and you can add more than one provider, turn one off, or remove it. The client secret is stored encrypted with the server's `SECRET_KEY`.
 
-### Any OpenID Connect provider
+Below the providers, **Who can sign in** keeps the allowed list: addresses, or whole domains. `*` lets in anyone your provider lets in.
 
-Create an OAuth2/OIDC client (confidential, authorization code flow) with the redirect URI `<BASE_URL>/auth/oidc/callback` (add one for each address in `BASE_URL`) and the scopes `openid email profile`, then set:
+- **Google:** in [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials), set up the OAuth consent screen (External; add yourself as a test user; "Testing" is fine for personal use), then **Create credentials → OAuth client ID → Web application** with the redirect URI from Settings. Google only accepts `https` addresses (and `localhost`), so Google sign-in won't work on a plain `http://192.168.x.x` address.
+- **OpenID Connect:** create a confidential client using the authorization code flow, with the redirect URI from Settings and the scopes `openid email profile`. The issuer address is, for example, `https://id.example.com` for Pocket ID, `https://auth.example.com/application/o/feedstash/` for Authentik, `https://auth.example.com` for Authelia, or `https://sso.example.com/realms/home` for Keycloak.
+
+#### Or in the server's settings
+
+Google and one OIDC provider can also be set with environment variables, which suits setups kept in a compose file. These show in Settings → Sign-in but can only be changed in the server's settings. Their redirect URIs are `<BASE_URL>/auth/google/callback` and `<BASE_URL>/auth/oidc/callback`.
 
 | Variable | Example |
 |---|---|
-| `OIDC_ISSUER` | Authentik: `https://auth.example.com/application/o/feedstash/` · Authelia: `https://auth.example.com` · Keycloak: `https://sso.example.com/realms/home` · Pocket ID: `https://id.example.com` |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | From Google Cloud Console |
+| `OIDC_ISSUER` | `https://id.example.com` |
 | `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | From the provider |
 | `OIDC_NAME` | Button text: "Sign in with **Pocket ID**" |
-| `ALLOWED_EMAILS` | Who may sign in; `*` lets in anyone your provider allows |
+| `ALLOWED_EMAILS` / `ALLOWED_DOMAINS` | Added to the list kept in Settings |
 
-Google and OIDC sign-ins need an email in `ALLOWED_EMAILS`/`ALLOWED_DOMAINS`. If someone already has a password account, signing in with Google or OIDC under the same (verified) email opens that same account. An admin can also give a Google or OIDC account a password in Settings.
+Google and OIDC sign-ins need an email on the allowed list. If someone already has a password account, signing in with Google or OIDC under the same (verified) email opens that same account. An admin can also give a Google or OIDC account a password in Settings.
 
 ## Configuration
 
@@ -108,10 +112,10 @@ All settings are environment variables (see `.env.example`).
 |---|---|---|
 | `BASE_URL` | `http://localhost:8672` | The address you open FeedStash at, or several separated by commas (e.g. `https://feedstash.example.com,http://192.168.1.50:8672` for away and at home). Google/OIDC sign-in returns to whichever one you used; the first is the main address. Session cookies are `Secure` whenever you're on https. |
 | `PASSWORD_LOGIN` | `true` | Password accounts and first-run setup. |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | | Google sign-in. |
-| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | | OpenID Connect sign-in. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | | Google sign-in (or add it in Settings → Sign-in). |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | | OpenID Connect sign-in (or add it in Settings → Sign-in). |
 | `OIDC_NAME`, `OIDC_SCOPES` | `single sign-on`, `openid email profile` | Button label and requested scopes. |
-| `ALLOWED_EMAILS`, `ALLOWED_DOMAINS` | | Comma-separated. Who may sign in with Google or OIDC. |
+| `ALLOWED_EMAILS`, `ALLOWED_DOMAINS` | | Comma-separated. Who may sign in with Google or OIDC, along with the list in Settings → Sign-in. |
 | `PUID`, `PGID` | `1000`, `1000` | The user and group the app runs as. The container makes `/data` theirs on start. |
 | `PORT` | `8672` | Port inside the container. |
 | `FORWARDED_ALLOW_IPS` | private networks in the Docker image, `127.0.0.1` otherwise | Addresses or ranges whose `X-Forwarded-*` headers are trusted. The default covers a reverse proxy on the same machine or network. Set it to your proxy's address if the proxy reaches FeedStash from a public one. Never `*`: anyone could then claim any address and get past the sign-in rate limit, and setup would need `SETUP_TOKEN`. |
@@ -328,8 +332,9 @@ app/
 
   web/
     api/             JSON routers: tree, articles, folders, feeds, opml, imports, stash, stash_organize, mail,
-                     tokens, accounts, and greader (the Google Reader API)
-    auth.py          sign-in (passwords, Google, OIDC), API tokens, allowlist
+                     tokens, accounts, sign_in, logs, and greader (the Google Reader API)
+    auth.py          sign-in (passwords, Google, OIDC), API tokens
+    sso.py           the Google and OIDC providers (server settings + Settings → Sign-in) and the allowed list
     ratelimit.py     pauses password guessing
     ...
 
