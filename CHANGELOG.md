@@ -16,6 +16,8 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
   the button is still hidden.
 - **Your own sign-in buttons.** Give each one an icon, built in or your provider's own logo, and a color, with a
   preview while you choose. One switch hides every sign-in button at once, handy while testing.
+- **A tidier Settings.** Settings is now split into You, Feeds, Stash, Apps and Admin, one at a time, with each
+  section in its own box: a menu on the left, or tabs on a phone. Organize feeds has a way back to Settings.
 - **See which feeds went quiet.** Settings → Organize now shows when each feed last brought in something new, and
   calls out feeds with nothing new for a month, so one that stopped publishing or moved doesn't go unnoticed.
 
