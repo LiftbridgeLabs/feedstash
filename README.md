@@ -23,23 +23,23 @@ Everything you want to read, in one self-hosted app: the feeds you follow, and t
 
 **Stash**
 - **Capture from anywhere.** The browser extension, forwarding an email, the share sheet on iPhone and iPad, or **+ Add → Save something** in the web app: one form for a title, notes, links and pictures (paste them straight in), and FeedStash works out whether it's a link, a note or a screenshot. An item can hold several labeled links and up to 20 pictures.
-- **Email to your stash.** Connect a mailbox under **Settings → Email** (Gmail, iCloud, Fastmail, Yahoo, Zoho or any IMAP server, with an app password) and anything you forward there is saved: subject as the title, `#hashtags` as tags, links saved with previews, and the first image attached. Write `$Folder` in the subject to file it (a folder that doesn't exist yet is created), or `$"Two words"` for a name with spaces — markers also work on a body line that holds nothing but markers, so `$5 off` in a newsletter stays text. FeedStash checks the mailbox itself, so this needs no open ports and works behind a proxy that asks for its own sign-in. For instant delivery on your own domain, `clients/email-worker/` is the Cloudflare alternative.
+- **Email to your stash.** Connect a mailbox under **Settings → Stash → Email to your stash** (Gmail, iCloud, Fastmail, Yahoo, Zoho or any IMAP server, with an app password) and anything you forward there is saved: subject as the title, `#hashtags` as tags, links saved with previews, and the first image attached. Write `$Folder` in the subject to file it (a folder that doesn't exist yet is created), or `$"Two words"` for a name with spaces — markers also work on a body line that holds nothing but markers, so `$5 off` in a newsletter stays text. FeedStash checks the mailbox itself, so this needs no open ports and works behind a proxy that asks for its own sign-in. For instant delivery on your own domain, the Cloudflare email worker is the alternative: **Settings → Apps → Email with Cloudflare** has the script to download and the steps.
 - **Come back to it.** Everything you save is in **Everything saved**. Show any view as a list, a Pinterest-style grid or even tiles; each folder, smart list and tag remembers its own. Edit, tag, search, filter by kind and tag, and archive or delete what you're done with.
 - **Link previews and saved copies.** When you save a link, FeedStash fetches the page in the background: the list shows its title, description and image, and opening the item shows a readable copy of the article that stays even if the site changes or goes away.
 - **Full-text search.** Stash search covers titles, notes, links, tags and the text of saved pages, and matches other forms of a word ("reefs" finds "reef").
 - **Folders.** Keep saved items together by project or topic: make a folder in the sidebar, then drag items onto it, pick it as you save, or use the folder picker on an open item. An item is in one folder at a time; tags still work across everything.
 - **Smart lists.** Any search or filter can be saved to the sidebar with **Save as smart list**. It always shows what matches now.
-- **Rules.** Under **Settings → Stash rules**, say what happens to something new: by website, address, title, feed or kind, it can be tagged, filed in a folder or archived. Rules run on everything that arrives (except bulk imports), and **Run on everything saved** applies them to what's already there.
+- **Rules.** Under **Settings → Stash → Stash rules**, say what happens to something new: by website, address, title, feed or kind, it can be tagged, filed in a folder or archived. Rules run on everything that arrives (except bulk imports), and **Run on everything saved** applies them to what's already there.
 - **Save articles.** "Save to stash" on any feed article (or press `b`).
 - **Import saved links** from Feedly boards, browser bookmarks, Pocket or Raindrop, choosing for each file where its links go and how they're tagged.
 
-**Appearance.** Light, dark or following your system, in nine full color schemes — FeedStash, Slate, Nord, Solarized, Gruvbox, Dracula, Rosé, Forest and Sepia — under **Settings → Appearance**. Each one repaints the whole app, not just the accent color. List rows come in **compact**, **standard** or **comfortable** spacing (the view options menu in the toolbar). All of it is kept per browser, so each device can look however you like.
+**Appearance.** Light, dark or following your system, in nine full color schemes — FeedStash, Slate, Nord, Solarized, Gruvbox, Dracula, Rosé, Forest and Sepia — under **Settings → You → Appearance**. Each one repaints the whole app, not just the accent color. List rows come in **compact**, **standard** or **comfortable** spacing (the view options menu in the toolbar). All of it is kept per browser, so each device can look however you like.
 
-**Accounts.** Several people can share one server; each has their own feeds and stash. Admins add and remove accounts in **Settings → Accounts**. Each person also chooses how long their read articles are kept (**Settings → Your account**, 30 days by default; Read later is never deleted), and can hide the feeds or the stash if they only use one (**Use**).
+**Accounts.** Several people can share one server; each has their own feeds and stash. Admins add and remove accounts in **Settings → Admin → Accounts**. Each person also chooses how long their read articles are kept (**Settings → You → Your account**, 30 days by default; Read later is never deleted), and can hide the feeds or the stash if they only use one (**Use**).
 
-**Updates.** After an update, admins see what changed the first time they open FeedStash, and the version in the sidebar says when a newer release is out (`UPDATE_CHECK`). **Settings → About FeedStash** has the version and links for feature requests, problems and support.
+**Updates.** After an update, admins see what changed the first time they open FeedStash, and the version in the sidebar says when a newer release is out (`UPDATE_CHECK`). **Settings → Admin → About FeedStash** has the version and links for feature requests, problems and support.
 
-**Keyboard:** press `?` in the web app for the list (it's also under Settings → Reading). `j`/`k` open the next/previous article, `n`/`p` select without opening, `o` open, `v` open original, `m` toggle read, `s` read later, `b` save to stash, `c` save something, `/` search, `r` refresh, `Shift+A` mark all read, `Esc` close.
+**Keyboard:** press `?` in the web app for the list (it's also under Settings → You → Reading). `j`/`k` open the next/previous article, `n`/`p` select without opening, `o` open, `v` open original, `m` toggle read, `s` read later, `b` save to stash, `c` save something, `/` search, `r` refresh, `Shift+A` mark all read, `Esc` close.
 
 ## Quick start
 
@@ -68,7 +68,7 @@ Turn on any combination. The sign-in page shows whatever is configured.
 
 ### Passwords (on by default)
 
-On a fresh install the first visit shows **Create the first account**. That account is an admin and can add more accounts, set their passwords, and make other admins under **Settings → Accounts**. Everyone can change their own password in Settings.
+On a fresh install the first visit shows **Create the first account**. That account is an admin and can add more accounts, set their passwords, and make other admins under **Settings → Admin → Accounts**. Everyone can change their own password in Settings.
 
 - Setup only works from your own network (your LAN, Docker, Tailscale), so nobody who finds a new server on the internet can claim it first. Setting up a server you can only reach over the internet, like one on a VPS? Set `SETUP_TOKEN` to something only you know and enter it on the setup page.
 - If `ALLOWED_EMAILS` or `ALLOWED_DOMAINS` is set, the first account must use one of those addresses.
@@ -83,7 +83,7 @@ docker exec -it feedstash python -m app.cli set-password --email you@example.com
 
 ### Google and single sign-on (Pocket ID, Authentik, Authelia…)
 
-The easiest way is in the app: an admin opens **Settings → Sign-in → Add sign-in**, picks Google or OpenID Connect, and pastes in the client ID and secret. The form shows the redirect URI to give the provider, `<BASE_URL>/auth/sso/callback` (one for each address in `BASE_URL`), so you can create the client there first. FeedStash checks the issuer address when you save, and you can add more than one provider, turn one off, or remove it. Each button can have an icon (a built-in one, or an image link such as the logo your provider serves) and a color, with a preview as you choose; Google's button keeps Google's own look. **Try it** runs a real sign-in in a new tab and reports whether it worked, which address came back and whether that address may sign in, without signing you out or making an account; it works on a provider that's turned off, so you can check one before anyone sees its button. **Sign-in buttons → All hidden** turns every Google and single sign-on button off at once, handy while testing; passwords keep working. The client secret is stored encrypted with the server's `SECRET_KEY`.
+The easiest way is in the app: an admin opens **Settings → Admin → Sign-in → Add sign-in**, picks Google or OpenID Connect, and pastes in the client ID and secret. The form shows the redirect URI to give the provider, `<BASE_URL>/auth/sso/callback` (one for each address in `BASE_URL`), so you can create the client there first. FeedStash checks the issuer address when you save, and you can add more than one provider, turn one off, or remove it. Each button can have an icon (a built-in one, or an image link such as the logo your provider serves) and a color, with a preview as you choose; Google's button keeps Google's own look. **Try it** runs a real sign-in in a new tab and reports whether it worked, which address came back and whether that address may sign in, without signing you out or making an account; it works on a provider that's turned off, so you can check one before anyone sees its button. **Sign-in buttons → All hidden** turns every Google and single sign-on button off at once, handy while testing; passwords keep working. The client secret is stored encrypted with the server's `SECRET_KEY`.
 
 Below the providers, **Who can sign in** keeps the allowed list: addresses, or whole domains. `*` lets in anyone your provider lets in.
 
@@ -92,7 +92,7 @@ Below the providers, **Who can sign in** keeps the allowed list: addresses, or w
 
 #### Or in the server's settings
 
-Google and one OIDC provider can also be set with environment variables, which suits setups kept in a compose file. These show in Settings → Sign-in, where they can be turned off and on, but can only be changed in the server's settings. Their redirect URIs are `<BASE_URL>/auth/google/callback` and `<BASE_URL>/auth/oidc/callback`.
+Google and one OIDC provider can also be set with environment variables, which suits setups kept in a compose file. These show in Settings → Admin → Sign-in, where they can be turned off and on, but can only be changed in the server's settings. Their redirect URIs are `<BASE_URL>/auth/google/callback` and `<BASE_URL>/auth/oidc/callback`.
 
 | Variable | Example |
 |---|---|
@@ -112,21 +112,21 @@ All settings are environment variables (see `.env.example`).
 |---|---|---|
 | `BASE_URL` | `http://localhost:8672` | The address you open FeedStash at, or several separated by commas (e.g. `https://feedstash.example.com,http://192.168.1.50:8672` for away and at home). Google/OIDC sign-in returns to whichever one you used; the first is the main address. Session cookies are `Secure` whenever you're on https. |
 | `PASSWORD_LOGIN` | `true` | Password accounts and first-run setup. |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | | Google sign-in (or add it in Settings → Sign-in). |
-| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | | OpenID Connect sign-in (or add it in Settings → Sign-in). |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | | Google sign-in (or add it in Settings → Admin → Sign-in). |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | | OpenID Connect sign-in (or add it in Settings → Admin → Sign-in). |
 | `OIDC_NAME`, `OIDC_SCOPES` | `single sign-on`, `openid email profile` | Button label and requested scopes. |
-| `ALLOWED_EMAILS`, `ALLOWED_DOMAINS` | | Comma-separated. Who may sign in with Google or OIDC, along with the list in Settings → Sign-in. |
+| `ALLOWED_EMAILS`, `ALLOWED_DOMAINS` | | Comma-separated. Who may sign in with Google or OIDC, along with the list in Settings → Admin → Sign-in. |
 | `PUID`, `PGID` | `1000`, `1000` | The user and group the app runs as. The container makes `/data` theirs on start. |
 | `PORT` | `8672` | Port inside the container. |
 | `FORWARDED_ALLOW_IPS` | private networks in the Docker image, `127.0.0.1` otherwise | Addresses or ranges whose `X-Forwarded-*` headers are trusted. The default covers a reverse proxy on the same machine or network. Set it to your proxy's address if the proxy reaches FeedStash from a public one. Never `*`: anyone could then claim any address and get past the sign-in rate limit, and setup would need `SETUP_TOKEN`. |
 | `SETUP_TOKEN` | | Lets the first account be created from outside your own network, by entering this on the setup page. When set, it is asked for everywhere, your own network included. Setup closes once the first account exists, so you can remove it afterwards. |
-| `LOG_REQUESTS` | `changes` | Which requests get a line in the log, until an admin changes it under **Settings → Logs**: `changes` (saves, edits and anything that failed), `errors` (only failures), `all` (every request, including health checks and page loads, thousands of lines a day) or `none`. |
+| `LOG_REQUESTS` | `changes` | Which requests get a line in the log, until an admin changes it under **Settings → Admin → Logs**: `changes` (saves, edits and anything that failed), `errors` (only failures), `all` (every request, including health checks and page loads, thousands of lines a day) or `none`. |
 | `UPDATE_CHECK` | `true` | Once a day, while an admin has FeedStash open, ask GitHub for the latest release so the sidebar can say when there's an update. Nothing is sent but the request itself. `false` turns it off. |
 | `SECRET_KEY` | generated | Signs session cookies. Generated once into `/data/secret.key` when empty. |
 | `SESSION_DAYS` | `30` | How long you stay signed in. |
 | `REFRESH_INTERVAL_MINUTES` | `15` | How often feeds are fetched (5 or more). |
 | `RETENTION_DAYS` | `90` | Feed articles older than this are deleted, read or not; Read later and the newest 50 per feed are kept. Read articles can go sooner: each account sets its own limit in Settings (30 days after reading by default). Stash items are never deleted automatically. |
-| `MAIL_POLL_MINUTES` | `5` | How often a mailbox connected under Settings → Email is checked. Nothing runs at all until someone connects one, and it stops again when the last one is disconnected. |
+| `MAIL_POLL_MINUTES` | `5` | How often a mailbox connected under Settings → Stash → Email to your stash is checked. Nothing runs at all until someone connects one, and it stops again when the last one is disconnected. |
 | `PAGE_CAPTURE` | `true` | Fetch the web page behind each saved link for its preview, readable copy and search text. Turn it off if the server shouldn't reach out to the sites you save. |
 | `DEV_LOGIN` | `false` | Local testing only: skips sign-in entirely. |
 | `KEEP_PER_FEED` | `50` | How many of each feed's newest articles `RETENTION_DAYS` always keeps. |
@@ -193,7 +193,7 @@ Then copy `/data/backups/` and `/data/uploads/` somewhere safe. Or stop the cont
 
 To update, pull the new image and recreate the container (`docker compose pull && docker compose up -d`, or Force update on unRAID). Database changes are applied automatically on start; take a backup first.
 
-**Logs.** FeedStash keeps its own log files in `/data/logs`, rotated by size, and admins choose under **Settings → Logs** how detailed they are, which requests get a line, how big a file gets and how many old ones to keep; the latest lines can be read and the whole log downloaded there too. The container's own output (`docker logs`) only gets warnings, errors and start-up lines, so it stays small however Docker is set up.
+**Logs.** FeedStash keeps its own log files in `/data/logs`, rotated by size, and admins choose under **Settings → Admin → Logs** how detailed they are, which requests get a line, how big a file gets and how many old ones to keep; the latest lines can be read and the whole log downloaded there too. The container's own output (`docker logs`) only gets warnings, errors and start-up lines, so it stays small however Docker is set up.
 
 Each release's notes are in [`CHANGELOG.md`](CHANGELOG.md) and on the [Releases page](https://github.com/LiftbridgeLabs/feedstash/releases) (watch the repository for releases to hear about them). Check **Before you update** for anything to do first, like taking a backup. After an update, admins see what changed the first time they open FeedStash, and the version in the sidebar says when a newer release is out.
 
@@ -210,7 +210,7 @@ metadata services hand out credentials.
 
 ## Moving from Feedly
 
-Download your data from Feedly, unzip it, then in FeedStash open **Settings → Import & export** and choose that whole folder:
+Download your data from Feedly, unzip it, then in FeedStash open **Settings → Feeds → Import & export** and choose that whole folder:
 
 - Your feeds and folders come in from `subscriptions.opml` straight away, and FeedStash starts fetching them.
 - Each board (`my boards/`) shows up as a row: tick whether to import it, pick Everything saved or the Archive, and set a tag. Original save dates are kept, and links you already have are skipped.
@@ -222,11 +222,11 @@ If you only have the OPML, **Import OPML** in the same place takes it (and **Exp
 
 Each client signs in with its own API token, so you can revoke one without affecting the others.
 
-1. In the web app, open **Settings → Connected apps** and click **New token**. Copy the token; it's shown only once (only a hash is stored).
+1. In the web app, open **Settings → Apps → Connected apps** and click **New token**. Copy the token; it's shown only once (only a hash is stored).
 2. Configure the client with your `BASE_URL` and that token:
-   - **Browser extension** (`clients/extension/`): load it unpacked, then set the server URL and token in its options.
-   - **Email worker** (`clients/email-worker/`): set `FEEDSTASH_API_BASE` and `FEEDSTASH_API_TOKEN` for the Cloudflare Worker.
-   - **iPhone and iPad app**: in the web app, **Settings → Connected apps → Connect a phone or iPad** shows a code to scan; or enter the server URL and a token in the app's Settings tab.
+   - **Browser extension**: download it from **Settings → Apps → Browser extension**, unzip it, and load the folder with **Load unpacked** at `chrome://extensions` (Developer mode on); then set the server URL and token in its options. The source is `clients/extension/`.
+   - **Email worker**: download the script from **Settings → Apps → Email with Cloudflare** and paste it into a new Worker in the Cloudflare dashboard, with `FEEDSTASH_API_BASE`, `FEEDSTASH_API_TOKEN` and `ALLOWED_SENDERS` set. The source is `clients/email-worker/`.
+   - **iPhone and iPad app**: in the web app, **Settings → Apps → Connected apps → Connect a phone or iPad** shows a code to scan; or enter the server URL and a token in the app's Settings tab.
 
 See the extension's and email worker's READMEs for install steps.
 
@@ -238,7 +238,7 @@ FeedStash speaks the **Google Reader API**, the protocol most reader apps use to
 |---|---|
 | Server | your FeedStash address, e.g. `https://feedstash.example.com`. If the app rejects it, try `https://feedstash.example.com/api/greader.php` |
 | Username | your FeedStash email |
-| Password | an API token from **Settings → Connected apps** — make one per app, so you can revoke it on its own |
+| Password | an API token from **Settings → Apps → Connected apps** — make one per app, so you can revoke it on its own |
 
 These apps see your feeds, folders, read state and Read later; marking something read in one shows up everywhere, since the state lives on your server. They can also follow, rename, move and unfollow feeds. They don't see the stash — the protocol has no idea it exists.
 
@@ -361,7 +361,7 @@ READER_E2E_BROWSER="/path/to/chrome" pytest      # also run the browser tests (C
 
 **Security notes**
 
-- Passwords are hashed with scrypt. Sessions are signed cookies (`SameSite=Lax`, `Secure` over https), started fresh on every sign-in. Changing or resetting a password signs that account out of every other browser, and **Settings → Sign out other browsers** does the same on demand (apps with a token stay connected; revoke tokens under Connected apps).
+- Passwords are hashed with scrypt. Sessions are signed cookies (`SameSite=Lax`, `Secure` over https), started fresh on every sign-in. Changing or resetting a password signs that account out of every other browser, and **Settings → You → Sign out other browsers** does the same on demand (apps with a token stay connected; revoke tokens under Connected apps).
 - The server's mailbox connection checks the mail server's certificate, and mailbox settings can only be changed from the web app; changing the mail server asks for the password again.
 - Credentials passed in a URL (`?token=`, the Reader API's `ClientLogin`) are hidden in the access log.
 - Feed HTML is sanitized twice (server and browser), and a strict Content-Security-Policy blocks all scripts except the app's own. Stash text is always shown as plain text.

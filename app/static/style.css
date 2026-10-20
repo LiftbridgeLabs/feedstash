@@ -618,6 +618,13 @@ dialog.whats-new { width: min(560px, calc(100vw - 32px)); }
 .settings-nav a:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .settings-nav a.active { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); font-weight: 600; }
 .settings-body { min-width: 0; }
+.settings-card .steps { margin: 12px 0 0; padding-left: 22px; line-height: 1.55; }
+.settings-card .steps li { margin: 6px 0; }
+.settings-card .steps ul { margin: 4px 0; padding-left: 18px; }
+.settings-card .server-address { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0 0; font-size: 14px; }
+.settings-card .org-actions + .steps { margin-top: 14px; }
+.email-ways { margin: 0 0 4px; padding-left: 20px; font-size: 14px; line-height: 1.5; }
+.email-ways li { margin: 4px 0; }
 .settings-card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px; padding: 4px 20px 20px; margin: 0 0 18px; }
 .settings-card > h3:first-child, .settings-card > div > h3:first-child { margin-top: 16px; }
 .settings-card:has(> [hidden]:only-child), .settings-card[hidden] { display: none; }

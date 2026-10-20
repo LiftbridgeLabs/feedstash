@@ -170,3 +170,13 @@ def test_opening_the_admin_group_directly_lands_on_it(reader):
     reader.pump(2)
     assert reader.wait_for("!!window.reader && !document.querySelector('[data-group=admin]')?.hidden", timeout=20)
     assert reader.js("document.querySelector('[data-group-link=admin]').classList.contains('active')")
+
+
+def test_apps_says_when_the_address_is_local_and_when_the_worker_isnt_bundled(reader):
+    reader.js("location.hash = '#/settings/apps'")
+    assert reader.wait_for("!document.querySelector('[data-group=apps]').hidden")
+    # Tests run from source on 127.0.0.1: the worker isn't bundled, and the address isn't one Cloudflare can reach.
+    assert reader.wait_for("document.querySelector('[data-worker-download]').textContent.includes('runs from source')")
+    cloudflare = "[...document.querySelectorAll('.settings-card')].find((c) => c.querySelector('h3')?.textContent === 'Email with Cloudflare').textContent.replace(/\\s+/g, ' ')"
+    assert "Cloudflare can't reach" in reader.js(cloudflare)
+    assert reader.js("!!document.querySelector('a[href=\"/downloads/feedstash-extension.zip\"]')")

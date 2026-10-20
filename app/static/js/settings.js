@@ -117,23 +117,63 @@ export function showSettings({ switching = false } = {}) {
     </div>
     <div data-token-list><p class="muted">Loading…</p></div>`)}
 
-    ${card(`<h3>Setting up a client</h3>
-    <div class="setup">
-      <p>Server URL: <code>${esc(origin)}</code>
-        <button type="button" class="btn btn-sm" data-copy="${esc(origin)}">${icon('copy')}Copy</button></p>
-      <ul>
-        <li><b>Browser extension</b>: load <code>clients/extension</code> unpacked in Chrome, Edge or Brave, open its
-          options, and enter the server URL and a token.</li>
-        <li><b>Email</b>: deploy <code>clients/email-worker</code> to Cloudflare with <code>FEEDSTASH_API_BASE</code> set to
-          the server URL and <code>FEEDSTASH_API_TOKEN</code> to a token. Hashtags in the subject become tags.</li>
-        <li><b>iPhone and iPad</b>: click <b>Connect a phone or iPad</b> above and scan the code, or enter the server URL and a token on the FeedStash app's Settings tab. Sharing to
-          FeedStash saves links, text and images.</li>
-        <li><b>Other reader apps</b> (NetNewsWire, Reeder Classic, lire, Capy Reader): add a <b>FreshRSS</b> or
-          <b>Google Reader</b> account with the server URL above (some apps want
-          <code>${esc(origin)}/api/greader.php</code> instead), your email as the username, and a token as the
-          password. They show your feeds; the stash stays here.</li>
-      </ul>
-    </div>`)}
+    ${card(`<h3>Browser extension</h3>
+    <p class="muted">Save the page you're on, a link, some text or a screenshot from Chrome, Edge or Brave with a
+      right-click or the toolbar button. It also sends FeedStash the page as you see it, so sites that turn servers
+      away still get a readable copy.</p>
+    <div class="org-actions"><a class="btn btn-sm btn-primary" href="/downloads/feedstash-extension.zip" download>Download the extension</a></div>
+    <ol class="steps">
+      <li>Unzip the download. You get a folder called <b>feedstash-extension</b>; keep it somewhere it can stay.</li>
+      <li>Open <code>chrome://extensions</code> in Chrome or Brave, or <code>edge://extensions</code> in Edge, and
+        turn on <b>Developer mode</b> (top right).</li>
+      <li>Click <b>Load unpacked</b> and choose the <b>feedstash-extension</b> folder. Pin the FeedStash icon to the
+        toolbar if you like.</li>
+      <li>Click the FeedStash icon → <b>Settings</b>, enter this server's address and a token, and click
+        <b>Test connection</b>. Make the token under <b>Connected apps</b> above, called something like
+        "extension".</li>
+    </ol>
+    ${serverAddressHTML(origin)}`)}
+
+    ${card(`<h3>Email with Cloudflare</h3>
+    <p class="muted">Send or forward email to an address on your own domain, like <code>stash@yourdomain.com</code>,
+      and it lands in your stash within seconds. You need a domain whose email (DNS) is on Cloudflare, a free
+      Cloudflare account, and FeedStash reachable from the internet, since Cloudflare delivers the mail to it.
+      No domain? Use a mailbox instead: <a href="#/settings/stash">Stash → Email to your stash</a>.</p>
+    <div class="org-actions" data-worker-download><a class="btn btn-sm btn-primary" href="/downloads/feedstash-email-worker.js" download>Download the worker script</a></div>
+    <ol class="steps">
+      <li>Make a token under <b>Connected apps</b> above, called something like "email", and copy it.</li>
+      <li>In the Cloudflare dashboard, open <b>Workers &amp; Pages</b> → <b>Create</b> and create a Worker from the
+        <b>Hello World</b> starter. Name it <code>feedstash-email-worker</code> and deploy it.</li>
+      <li>Click <b>Edit code</b>, delete what's there, paste in the whole worker script you downloaded, and click
+        <b>Deploy</b>.</li>
+      <li>In the worker's <b>Settings → Variables and Secrets</b>, add:
+        <ul>
+          <li><code>FEEDSTASH_API_BASE</code>: this server's address as the internet sees it${isLocalAddress(origin) ? '' : ' (below)'}</li>
+          <li><code>FEEDSTASH_API_TOKEN</code>: the token, added as a <b>Secret</b></li>
+          <li><code>ALLOWED_SENDERS</code>: the addresses you send from, separated by commas. Mail from anyone else
+            is turned away.</li>
+        </ul></li>
+      <li>Open your domain → <b>Email</b> → <b>Email Routing</b> (turn it on if asked), and add a routing rule:
+        your address, like <code>stash@yourdomain.com</code>, with the action <b>Send to a Worker</b> →
+        <code>feedstash-email-worker</code>.</li>
+      <li>Email that address with a subject like <code>Test #testing</code>. It shows up in your stash within a few
+        seconds; if it doesn't, the email bounces back with the reason.</li>
+    </ol>
+    ${isLocalAddress(origin)
+      ? `<p class="server-address">You're on <code>${esc(origin)}</code>, an address on your own network, which Cloudflare
+        can't reach. Use the address you open FeedStash at from outside, like <code>https://feedstash.yourdomain.com</code>.</p>`
+      : serverAddressHTML(origin)}`, 'data-only="stash"')}
+
+    ${card(`<h3>Other apps</h3>
+    <ul class="steps">
+      <li><b>iPhone and iPad</b>: get FeedStash from the App Store, then click <b>Connect a phone or iPad</b> above
+        and scan the code. Sharing to FeedStash saves links, text and pictures.</li>
+      <li><b>Other reader apps</b> (NetNewsWire, Reeder Classic, lire, Capy Reader): add a <b>FreshRSS</b> or
+        <b>Google Reader</b> account with this server's address (some apps want
+        <code>${esc(origin)}/api/greader.php</code> instead), your email as the username, and a token as the
+        password. They show your feeds; the stash stays here.</li>
+    </ul>
+    ${serverAddressHTML(origin)}`)}
     </div>
 
     <div class="settings-group" data-group="admin" hidden>
@@ -179,6 +219,25 @@ export function showSettings({ switching = false } = {}) {
   loadRules(els.settings);
   loadTagSettings(els.settings);
   loadTokens();
+  checkWorkerDownload();
+}
+
+/** A copy run from source (not the Docker image) has no bundled worker: say where it comes from instead. */
+async function checkWorkerDownload() {
+  const box = $('[data-worker-download]', els.settings);
+  if (!box) return;
+  try {
+    const response = await fetch('/downloads');
+    if (!response.ok) return;
+    const available = await response.json();
+    if (available.email_worker || !box.isConnected) return;
+  } catch {
+    return; // offline or the like: leave the button, which explains itself if it fails
+  }
+  box.innerHTML = `<p class="muted">This copy of FeedStash runs from source, so it doesn't have the ready-made worker
+    script (the Docker image builds it). Bundle <code>clients/email-worker</code> with
+    <code>npx esbuild src/index.js --bundle --format=esm --minify</code>, or deploy it with wrangler as its README
+    describes.</p>`;
 }
 
 /** Shows one group and marks it in the menu. A group someone can't use (Admin for others, Stash when they only use
@@ -193,6 +252,28 @@ function selectGroup(group) {
     else el.removeAttribute('aria-current');
   });
   els.content.scrollTop = 0;
+}
+
+/** An address only reachable at home: localhost, private ranges, Tailscale's 100.64/10, or a .local name. */
+function isLocalAddress(origin) {
+  let host;
+  try {
+    host = new URL(origin).hostname.replace(/^\[|\]$/g, '');
+  } catch {
+    return false;
+  }
+  if (host === 'localhost' || host.endsWith('.local') || host === '::1') return true;
+  if (host.includes(':')) return /^f[cd][0-9a-f]{2}:|^fe[89ab][0-9a-f]:/i.test(host); // IPv6: unique-local, link-local
+  const parts = host.split('.').map(Number);
+  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n))) return false;
+  const [a, b] = parts;
+  return a === 127 || a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31)
+    || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254);
+}
+
+function serverAddressHTML(origin) {
+  return `<p class="server-address">This server's address: <code>${esc(origin)}</code>
+    <button type="button" class="btn btn-sm" data-copy="${esc(origin)}">${icon('copy')}Copy</button></p>`;
 }
 
 /* ---- appearance */

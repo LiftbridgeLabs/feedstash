@@ -1,8 +1,10 @@
 import html
+import io
+import zipfile
 from pathlib import Path
 
 from fastapi import APIRouter, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, Response
 
 from app.clock import iso, now
 from app.db.repositories import users as users_repo
@@ -11,6 +13,11 @@ from app.web.auth import SETUP_BLOCKED, session_user, setup_needs_token
 from app.web.sso import Provider, button_html
 
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
+# The browser extension and the bundled Cloudflare email worker, offered as downloads in Settings → Apps. The Docker
+# image carries both (the worker is bundled when the image is built); a checkout has the extension only.
+CLIENTS_DIR = Path(__file__).resolve().parents[2] / "clients"
+EXTENSION_DIR = CLIENTS_DIR / "extension"
+EMAIL_WORKER_FILE = CLIENTS_DIR / "email-worker" / "feedstash-email-worker.js"
 
 LOGIN_ERRORS = {
     "not_allowed": "That account isn't allowed to use FeedStash.",
@@ -130,3 +137,41 @@ def healthz(request: Request):
 def api_health(request: Request):
     """The clients' "Test connection" check. No sign-in needed."""
     return {"ok": True, "time": iso(now()), "version": request.app.state.settings.feedstash_version}
+
+
+# ------------------------------------------------------------------ downloads (Settings → Apps)
+# Both are the open-source clients from the repository, with nothing about this server in them, so they need no
+# sign-in; the instructions beside the buttons say where the server address and token go.
+
+
+@router.get("/downloads")
+def downloads_available():
+    """Which downloads this copy has, so Settings → Apps can say so instead of offering a link that fails."""
+    return {"extension": (EXTENSION_DIR / "manifest.json").is_file(), "email_worker": EMAIL_WORKER_FILE.is_file()}
+
+
+@router.get("/downloads/feedstash-extension.zip")
+def extension_zip():
+    if not (EXTENSION_DIR / "manifest.json").is_file():
+        return PlainTextResponse("The browser extension isn't included in this copy of FeedStash.", status_code=404)
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for path in sorted(EXTENSION_DIR.rglob("*")):
+            if path.is_file() and path.suffix != ".md":
+                archive.write(path, Path("feedstash-extension") / path.relative_to(EXTENSION_DIR))
+    return Response(
+        buffer.getvalue(), media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="feedstash-extension.zip"', "Cache-Control": "no-cache"},
+    )
+
+
+@router.get("/downloads/feedstash-email-worker.js")
+def email_worker_script():
+    if not EMAIL_WORKER_FILE.is_file():
+        return PlainTextResponse(
+            "The email worker is bundled when the Docker image is built, so it's only in the image.", status_code=404
+        )
+    return FileResponse(
+        EMAIL_WORKER_FILE, media_type="text/javascript; charset=utf-8", filename="feedstash-email-worker.js",
+        headers={"Cache-Control": "no-cache"},
+    )

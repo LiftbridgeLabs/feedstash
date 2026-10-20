@@ -5,6 +5,7 @@ data/
 .git/
 .pytest_cache/
 tests/
-clients/
+clients/email-worker/node_modules/
+clients/email-worker/.wrangler/
 *.md
 !CHANGELOG.md

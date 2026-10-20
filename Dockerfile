@@ -1,3 +1,12 @@
+# The Cloudflare email worker as one file people paste into the Cloudflare dashboard (Settings → Apps offers it as a
+# download), bundled here so it always matches clients/email-worker. Pinned like the image below.
+FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS email-worker
+WORKDIR /worker
+COPY clients/email-worker/package.json clients/email-worker/package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts
+COPY clients/email-worker/src ./src
+RUN npx --yes esbuild@0.28.2 src/index.js --bundle --format=esm --minify --outfile=/out/feedstash-email-worker.js
+
 # Pinned to an exact image, like requirements.txt; Dependabot proposes updates.
 FROM python:3.13-slim@sha256:8d9d0b8bcf6506481eae4907c18f5e3e7902e629f5f6d684f9e7c32e85e3ddf0
 
@@ -28,6 +37,9 @@ RUN pip install -r requirements.txt
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 COPY app ./app
 COPY CHANGELOG.md ./
+# Offered as downloads in Settings → Apps: the browser extension (zipped when asked for) and the bundled worker.
+COPY clients/extension ./clients/extension
+COPY --from=email-worker /out/feedstash-email-worker.js ./clients/email-worker/feedstash-email-worker.js
 RUN chmod 755 /usr/local/bin/docker-entrypoint.sh && mkdir -p /data
 
 VOLUME ["/data"]

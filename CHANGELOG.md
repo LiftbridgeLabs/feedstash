@@ -7,7 +7,7 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
 
 ### New
 - **Set up Google or single sign-on in Settings.** Admins can now add Google, or any sign-in that speaks OpenID
-  Connect (Pocket ID, Authentik, Authelia, Keycloak and more), under Settings → Sign-in, no server settings or
+  Connect (Pocket ID, Authentik, Authelia, Keycloak and more), under Settings → Admin → Sign-in, no server settings or
   restart needed. The form shows the address to give your provider and checks it when you save. You can add more
   than one, turn one off or remove it, and keep the list of who can sign in that way there too. Providers already
   set in the server's settings keep working and show up in the list.
@@ -16,9 +16,12 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
   the button is still hidden.
 - **Your own sign-in buttons.** Give each one an icon, built in or your provider's own logo, and a color, with a
   preview while you choose. One switch hides every sign-in button at once, handy while testing.
-- **A tidier Settings.** Settings is now split into You, Feeds, Stash, Apps and Admin, one at a time, with each
-  section in its own box: a menu on the left, or tabs on a phone. Organize feeds has a way back to Settings.
-- **See which feeds went quiet.** Settings → Organize now shows when each feed last brought in something new, and
+- **A tidier Settings:** settings is now split into the following groups: You, Feeds, Stash, Apps, and Admin, with
+  each section in its own box. They appear as a menu on the left, or tabs on a phone. Organize feeds has a way back
+  to Settings.
+- **Set up the browser extension and the email worker without GitHub.** Settings → Apps has both as downloads, with
+  step-by-step instructions, and Email to your stash explains both ways to send email in.
+- **See which feeds went quiet.** Organize feeds now shows when each feed last brought in something new, and
   calls out feeds with nothing new for a month, so one that stopped publishing or moved doesn't go unnoticed.
 
 ### Fixes

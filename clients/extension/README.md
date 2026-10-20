@@ -4,9 +4,12 @@ Manifest V3 extension for Chrome/Edge/Brave (Chromium-based). Right-click a link
 
 ## Load it (unpacked, for personal use — no store listing needed)
 
-1. Go to `chrome://extensions`
+The easiest way to get it is from FeedStash itself: **Settings → Apps → Browser extension → Download the extension**,
+then unzip it. (From a checkout of this repository, use this `extension/` folder instead.)
+
+1. Go to `chrome://extensions` (`edge://extensions` in Edge)
 2. Enable "Developer mode" (top right)
-3. Click "Load unpacked" and select this `extension/` folder
+3. Click "Load unpacked" and select the unzipped `feedstash-extension` folder
 4. Click the new toolbar icon → "Settings" (or right-click the icon → Options)
 5. Enter your server URL (e.g. `https://notes.yourdomain.com`) and an API token
 

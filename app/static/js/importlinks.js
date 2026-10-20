@@ -19,15 +19,16 @@ export function importSectionHTML() {
   return `
     <h3>Import &amp; export</h3>
     <div class="org-head">
-      <p class="muted"><b>From Feedly:</b> unzip the export and choose the whole folder — feeds arrive at once, and
-        each board becomes a row below where you say where its links go. Feeds also come from any OPML file, and
-        saved links from bookmark files (browsers, Pocket, Raindrop). Links you already have are skipped.</p>
+      <p class="muted"><b>Moving from Feedly?</b> Download your data from Feedly, unzip it, and choose the unzipped
+        folder with <b>Import from Feedly</b>. Your feeds arrive at once, and each board becomes a row below where you
+        say where its links go. Feeds also come from any OPML file, and saved links from bookmark files (browsers,
+        Pocket, Raindrop). Anything you already have is skipped.</p>
       <div class="org-actions">
-        <label class="btn btn-sm btn-primary">${icon('plus')}Feedly export folder…
+        <label class="btn btn-sm btn-primary">${icon('plus')}Import from Feedly…
           <input type="file" webkitdirectory hidden data-import-folder></label>
         <label class="btn btn-sm">Import OPML…
           <input type="file" accept=".opml,.xml,text/xml,application/xml,text/x-opml" hidden data-import-opml></label>
-        <label class="btn btn-sm">Bookmark files…
+        <label class="btn btn-sm">Import bookmarks…
           <input type="file" accept=".html,.htm,text/html" multiple hidden data-import-files></label>
         <a class="btn btn-sm" href="/api/opml/export" download>Export OPML</a>
       </div>

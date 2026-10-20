@@ -10,7 +10,21 @@ Example: emailing `stash@yourdomain.com` with the subject `Check this out #readi
 - **A FeedStash the worker can reach from the internet** — a Cloudflare Worker can't see a LAN address. If FeedStash is only on your LAN, put it behind a reverse proxy or a Cloudflare Tunnel first, and use that address as `FEEDSTASH_API_BASE`.
 - A Cloudflare account with Workers (the free plan is plenty) and Node installed for `npx wrangler`.
 
-## Set it up
+## Set it up in the Cloudflare dashboard (no tools needed)
+
+FeedStash offers the worker as one ready-to-paste file: **Settings → Apps → Email with Cloudflare → Download the
+worker script**. The same page lists these steps.
+
+1. **Make a token:** in FeedStash, **Settings → Apps → Connected apps → New token**, name it `email`, and copy it.
+2. **Create the worker:** Cloudflare dashboard → **Workers & Pages** → **Create** → a Worker from the **Hello World**
+   starter, named `feedstash-email-worker`, then deploy it.
+3. **Paste the script:** **Edit code**, replace everything with the downloaded script, and **Deploy**.
+4. **Set its variables:** the worker's **Settings → Variables and Secrets**: `FEEDSTASH_API_BASE` (your FeedStash
+   address as the internet sees it), `FEEDSTASH_API_TOKEN` (the token, as a **Secret**) and `ALLOWED_SENDERS`
+   (see below).
+5. Wire up the address as described under **Wire up the address**.
+
+## Or set it up with wrangler
 
 1. **Make a token:** in FeedStash, **Settings → Connected apps → New token**, name it `email-worker`, and copy it. It's shown only once.
 2. **Point the worker at your server:** edit `wrangler.toml` and set `FEEDSTASH_API_BASE` to your FeedStash address and `ALLOWED_SENDERS` to who may write to it. Anyone else is bounced, and an empty list lets in anyone who learns the address.

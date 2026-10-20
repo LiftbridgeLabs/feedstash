@@ -25,10 +25,15 @@ export function mailSectionHTML() {
   return `
     <h3>Email to your stash</h3>
     <div class="org-head">
-      <p class="muted">Forward an email to a mailbox and FeedStash saves it: subject as the title, #hashtags as
-        tags, $Folder to file it (made if it's new), and any links saved with a preview. FeedStash reaches out to
-        the mailbox, so this works even with no ports open. A mailbox kept just for this is tidiest.</p>
+      <p class="muted">Email something to FeedStash and it's saved: the subject as the title, #hashtags as tags,
+        $Folder to file it (made if it's new), and any links saved with a preview. There are two ways:</p>
     </div>
+    <ul class="muted email-ways">
+      <li><b>An address on your own domain</b>, if its email is on Cloudflare: mail arrives instantly. See
+        <a href="#/settings/apps">Apps → Email with Cloudflare</a> for the steps.</li>
+      <li><b>A mailbox FeedStash checks</b> every few minutes, like a Gmail or iCloud address kept just for this. It
+        works even with no ports open. Connect it here:</li>
+    </ul>
     <div data-mail><p class="muted">Loading…</p></div>`;
 }
 
