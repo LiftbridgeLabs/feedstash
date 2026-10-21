@@ -160,7 +160,12 @@ def _firefox_manifest(manifest: dict) -> dict:
     manifest = dict(manifest)
     manifest["background"] = {"scripts": ["common.js", "background.js"]}
     manifest["browser_specific_settings"] = {
-        "gecko": {"id": FIREFOX_ADDON_ID, "strict_min_version": "128.0", "data_collection_permissions": {"required": ["none"]}},
+        # Mozilla counts anything sent outside the browser, the user's own server included: the page and its address.
+        # Firefox 140 is the first with that built-in consent screen.
+        "gecko": {
+            "id": FIREFOX_ADDON_ID, "strict_min_version": "140.0",
+            "data_collection_permissions": {"required": ["websiteContent", "browsingActivity"]},
+        },
     }
     return manifest
 
