@@ -90,6 +90,7 @@ h1 { font-size: 1rem; margin: 0 0 0.75rem; }
   margin-bottom: 0.5rem;
 }
 .primary-btn:hover { background: var(--accent-hover); }
+.primary-btn:disabled { opacity: 0.6; cursor: default; }
 .primary-btn.secondary { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
 
 #status { min-height: 1rem; font-size: 0.78rem; color: var(--text-dim); }

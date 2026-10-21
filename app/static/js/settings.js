@@ -138,8 +138,9 @@ export function showSettings({ switching = false } = {}) {
       <li>Unzip the download. You get a folder called <b>feedstash-extension-firefox</b>.</li>
       <li>Open <code>about:debugging#/runtime/this-firefox</code>, click <b>Load Temporary Add-on…</b> and choose
         the <b>manifest.json</b> file inside that folder.</li>
-      <li>Firefox only keeps add-ons that Mozilla has signed, so it removes this one when Firefox restarts: load it
-        again the same way after a restart.</li>
+      <li>Firefox only keeps add-ons that Mozilla has signed, so it removes this one, settings and all, when Firefox
+        restarts: load it again and enter the address and token again. Keep the token somewhere safe, like your
+        password manager, since FeedStash shows it only once.</li>
     </ol>
     <p class="steps-title"><b>Then, in any browser</b></p>
     <ol class="steps">

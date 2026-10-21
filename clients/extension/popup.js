@@ -40,6 +40,9 @@ init();
 /** Your stash folders, with the one you saved to last chosen. Saving works without them if they can't be loaded. */
 async function loadFolders(apiBaseUrl, apiToken) {
   const select = document.getElementById('folderSelect');
+  const saveBtn = document.getElementById('saveBtn');
+  // Not until the list is in: saving meanwhile would go to "No folder" and forget the last one.
+  saveBtn.disabled = true;
   try {
     const folders = await feedstashFetch(`${apiBaseUrl.replace(/\/$/, '')}/api/stash/folders`, {
       headers: { Authorization: `Bearer ${apiToken}` },
@@ -54,6 +57,8 @@ async function loadFolders(apiBaseUrl, apiToken) {
     if (lastFolderId && folders.some((f) => String(f.id) === lastFolderId)) select.value = lastFolderId;
   } catch {
     // Keep "No folder": an older server, or the server unreachable, which saving will report.
+  } finally {
+    saveBtn.disabled = false;
   }
 }
 

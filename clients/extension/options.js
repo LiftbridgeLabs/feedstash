@@ -20,7 +20,9 @@ document.getElementById('appearanceSelect').addEventListener('change', (e) => {
 /** Firefox lets an extension reach a site only once you've allowed it; Chrome allowed it at install. Asked for
     straight from the click, which is when a browser shows the prompt. */
 async function allowServer(apiBaseUrl) {
-  const granted = await chrome.permissions.request({ origins: [`${new URL(apiBaseUrl).origin}/*`] });
+  // Without the port: Firefox doesn't accept one in a match pattern, and a pattern with none covers every port.
+  const { protocol, hostname } = new URL(apiBaseUrl);
+  const granted = await chrome.permissions.request({ origins: [`${protocol}//${hostname}/*`] });
   if (!granted) throw new Error('FeedStash needs your permission to reach your server. Click again and choose Allow.');
 }
 
