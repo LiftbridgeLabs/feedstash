@@ -133,10 +133,11 @@ def test_admins_add_a_single_sign_on_in_settings(reader, oidc_provider):
     reader.js("document.querySelector('[data-signin=edit]').click()")
     assert reader.wait_for("!!document.querySelector('dialog.modal [name=trust_all]')")
     reader.js("(() => { const s = document.querySelector('dialog.modal [name=trust_all]'); s.value = 'anyone'; s.dispatchEvent(new Event('change', { bubbles: true })); })()")
-    assert "user group" in reader.js("document.querySelector('dialog.modal [data-access-hint]').textContent")
+    assert "Everyone Pocket ID allows" in reader.js("document.querySelector('dialog.modal [data-everyone]').textContent")
+    assert "Pocket ID decides who gets in" in reader.js("document.querySelector('dialog.modal [data-access-hint]').textContent")
     reader.js("document.querySelector('dialog.modal [type=submit]').click()")
     assert reader.wait_for("reader.api('GET', '/api/admin/sign-in').then((s) => s.providers[0].trust_all === true)")
-    assert reader.wait_for("document.querySelector('[data-signin-list]').textContent.includes('lets in anyone it signs in')")
+    assert reader.wait_for("document.querySelector('[data-signin-list]').textContent.includes('everyone pocket id allows')")
 
     # Choosing Google hides the issuer and name, and says where Google's setting is.
     reader.js("document.querySelector('[data-signin=add]').click()")
@@ -144,9 +145,9 @@ def test_admins_add_a_single_sign_on_in_settings(reader, oidc_provider):
     reader.js("(() => { const s = document.querySelector('dialog.modal [name=kind]'); s.value = 'google'; s.dispatchEvent(new Event('change', { bubbles: true })); })()")
     assert reader.js("document.querySelector('dialog.modal [name=issuer]').closest('[data-oidc-only]').hidden") is True
     assert "Google Cloud Console" in reader.js("document.querySelector('dialog.modal [data-where]').textContent")
-    # And warns what "anyone" means with Google.
-    reader.js("(() => { const s = document.querySelector('dialog.modal [name=trust_all]'); s.value = 'anyone'; s.dispatchEvent(new Event('change', { bubbles: true })); })()")
-    assert "anyone with a Google account" in reader.js("document.querySelector('dialog.modal [data-access-hint]').textContent")
+    # And has no "everyone" choice at all: anyone can have a Google account.
+    assert reader.js("document.querySelector('dialog.modal [data-access]').hidden") is True
+    assert "anyone can have a Google account" in reader.js("document.querySelector('dialog.modal [data-google-access]').textContent")
     reader.js("document.querySelector('dialog.modal [data-cancel]').click()")
 
     reader.js("""(() => {

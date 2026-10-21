@@ -329,7 +329,7 @@ def test_a_sign_in_set_to_anyone_lets_in_whoever_it_signs_in(start_server, oidc_
     token = zed.post("/api/tokens", json={"clientName": "phone"}).json()["token"]
     assert httpx.get(server.base_url + "/api/me", headers={"Authorization": f"Bearer {token}"}).status_code == 200
     oidc_provider.claims = {"sub": "zed-1", "email": "zed@anywhere.example", "email_verified": True}
-    assert "lets in anyone it signs in" in owner.get(f"/auth/login/{key}?try=1", follow_redirects=True).text
+    assert "Pocket ID decides who gets in" in owner.get(f"/auth/login/{key}?try=1", follow_redirects=True).text
 
     # Back to the allowed list: someone who isn't on it is out, phone included.
     owner.patch(f"/api/admin/sign-in/providers/{provider['id']}", json={"trust_all": False})
@@ -378,3 +378,15 @@ def test_two_clients_of_one_provider_each_keep_their_own_rule(start_server, oidc
     again = client_for(server, follow_redirects=True)
     again.get(f"/auth/login/p{open_door['id']}")
     assert again.get("/api/me").status_code == 200
+
+
+def test_google_always_uses_the_allowed_list(start_server):
+    server = start_server(DEV_LOGIN="false")
+    owner = set_up(server)
+    google = {"kind": "google", "client_id": "id.apps.googleusercontent.com", "client_secret": "s"}
+    refused = owner.post("/api/admin/sign-in/providers", json={**google, "trust_all": True})
+    assert refused.status_code == 400 and "anyone can have a Google account" in refused.json()["detail"]
+    provider = owner.post("/api/admin/sign-in/providers", json=google).json()["providers"][0]
+    changed = owner.patch(f"/api/admin/sign-in/providers/{provider['id']}", json={"trust_all": True})
+    assert changed.status_code == 400 and "anyone can have a Google account" in changed.json()["detail"]
+    assert owner.get("/api/admin/sign-in").json()["providers"][0]["trust_all"] is False

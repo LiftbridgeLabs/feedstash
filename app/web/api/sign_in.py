@@ -72,6 +72,8 @@ def _overview(request: Request, db: Database) -> SignInOut:
     )
 
 
+GOOGLE_USES_THE_LIST = "Google sign-in always checks the allowed list, since anyone can have a Google account."
+
 NO_WAY_IN = (
     "Password sign-in is off on this server (PASSWORD_LOGIN=false), so that would leave nobody a way to sign in. "
     "Keep at least one sign-in on."
@@ -142,6 +144,8 @@ async def overview(request: Request, user: SessionUserDep, db: DatabaseDep) -> S
 async def add_provider(body: SignInProviderIn, request: Request, user: SessionUserDep, db: DatabaseDep) -> SignInOut:
     _admin(user)
     name = _name(body.kind, body.name)
+    if body.kind == "google" and body.trust_all:
+        raise InvalidInput(GOOGLE_USES_THE_LIST)
     icon, color = check_icon(body.icon), check_color(body.color)
     issuer = GOOGLE_DISCOVERY_URL if body.kind == "google" else await check_issuer(body.issuer)
     secret = request.app.state.secrets.encrypt(body.client_secret.strip())
@@ -182,6 +186,8 @@ async def change_provider(
     if body.color is not None:
         changes["color"] = check_color(body.color)
     if body.trust_all is not None:
+        if current.kind == "google" and body.trust_all:
+            raise InvalidInput(GOOGLE_USES_THE_LIST)
         changes["trust_all"] = int(body.trust_all)
     if body.enabled is not None:
         changes["enabled"] = int(body.enabled)

@@ -276,7 +276,7 @@ def _try_result(
             lines.append("That address already has an account here, and without the provider saying it's verified, "
                          "FeedStash won't let this sign-in into it.")
         elif chosen.trust_all:
-            lines.append("This sign-in lets in anyone it signs in, so they can sign in.")
+            lines.append(f"{name} decides who gets in with this sign-in, so they can sign in.")
         elif sign_in.email_allowed(email):
             lines.append("That address is on the allowed list, so they can sign in.")
         elif existing and existing.has_password:

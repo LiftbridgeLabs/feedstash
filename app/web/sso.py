@@ -138,7 +138,7 @@ class SignIn:
         url = GOOGLE_DISCOVERY_URL if row.kind == "google" else discovery_url(row.issuer)
         return Provider(
             f"p{row.id}", row.kind, f"Sign in with {row.name}", url, row.client_id, secret, row.scopes, row.icon,
-            row.color, trust_all=row.trust_all,
+            row.color, trust_all=row.trust_all and row.kind != "google",  # anyone can have a Google account
         )
 
     # -------------------------------------------------------------- providers

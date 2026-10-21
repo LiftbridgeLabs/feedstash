@@ -78,7 +78,7 @@ function buttonHTML({ kind, name, icon: iconName, color }) {
 
 function providerRow(provider) {
   const kind = (provider.kind === 'google' ? 'Google' : `OpenID Connect · ${esc(host(provider.issuer))}`)
-    + (provider.trust_all ? ' · lets in anyone it signs in' : ' · allowed list');
+    + (provider.trust_all ? ` · ${esc(everyoneLabel(provider.name).toLowerCase())}` : ' · allowed list');
   let status = provider.enabled ? '' : 'Turned off: its button is hidden.';
   if (provider.secret_unreadable) status = '<span class="status-err">Enter the client secret again: it was saved with a different SECRET_KEY.</span>';
   if (provider.from_server_settings) {
@@ -128,9 +128,9 @@ function render(section) {
   const fromServer = [...overview.server_allowed_emails, ...overview.server_allowed_domains];
   $('[data-signin-allowed]', section).innerHTML = `
     <form class="mail-form" data-signin-allowed-form>
-      <p class="muted">The allowed list: who can sign in with a sign-in set to <b>Only people on the allowed list</b>.
-        Add whole domains for a company or school. A sign-in set to <b>Anyone it signs in</b> doesn't need it, and
-        accounts with a password can always sign in.</p>
+      <p class="muted">FeedStash's allowed list: who can sign in with Google, and with any sign-in set to <b>Only people
+        on FeedStash's allowed list</b>. Add whole domains for a company or school. A sign-in set to <b>Everyone …
+        allows</b> leaves that to your provider, and accounts with a password can always sign in.</p>
       <label>Email addresses <small>(comma separated)</small>
         <input type="text" name="emails" value="${esc(overview.allowed_emails.join(', '))}" autocomplete="off"
           placeholder="you@example.com, family@example.com"></label>
@@ -170,21 +170,28 @@ function callbackHTML(urls, kind) {
 
 const ICON_CHOICES = [['key', 'Key'], ['shield', 'Shield'], ['lock', 'Lock'], ['none', 'No icon'], ['link', 'An image from a link…']];
 
+const providerName = (name) => (name || '').trim() || 'your provider';
+const everyoneLabel = (name) => `Everyone ${providerName(name)} allows`;
+
+/** Who may sign in with an OpenID Connect sign-in. Google has no such choice: anyone can have a Google account. */
 function accessHTML(provider, kind) {
   const anyone = Boolean(provider?.trust_all);
+  const name = provider?.name || '';
   return `
-    <label>Who can sign in with this<select name="trust_all">
-      <option value="list" ${anyone ? '' : 'selected'}>Only people on the allowed list</option>
-      <option value="anyone" ${anyone ? 'selected' : ''}>Anyone it signs in</option>
-    </select></label>
-    <p class="muted" data-access-hint>${accessHint(kind, anyone)}</p>`;
+    <div data-access ${kind === 'google' ? 'hidden' : ''}>
+      <label>Who can sign in with this<select name="trust_all">
+        <option value="list" ${anyone ? '' : 'selected'}>Only people on FeedStash's allowed list</option>
+        <option value="anyone" ${anyone ? 'selected' : ''} data-everyone>${esc(everyoneLabel(name))}</option>
+      </select></label>
+      <p class="muted" data-access-hint>${accessHint(name, anyone)}</p>
+    </div>
+    <p class="muted" data-google-access ${kind === 'google' ? '' : 'hidden'}>Google sign-in always checks FeedStash's
+      allowed list, since anyone can have a Google account.</p>`;
 }
 
-function accessHint(kind, anyone) {
-  if (!anyone) return 'Addresses and domains go in the allowed list under Sign-in. Passwords always work.';
-  return kind === 'google'
-    ? '<span class="status-err">With Google, that\'s anyone with a Google account. Use it only if that\'s what you want.</span>'
-    : 'Choose who gets in at the provider itself, like a user group on its client in Pocket ID or Authentik.';
+function accessHint(name, anyone) {
+  if (!anyone) return 'Add addresses and whole domains to the allowed list under Sign-in. Accounts with a password can always sign in.';
+  return `${esc(providerName(name))} decides who gets in, for example with a user group on its FeedStash client. FeedStash doesn't check its own list for this sign-in.`;
 }
 
 function lookHTML(provider) {
@@ -248,10 +255,22 @@ async function editProvider(section, provider) {
         });
       };
       preview();
-      dialog.addEventListener('input', preview);
+      dialog.addEventListener('input', (e) => {
+        preview();
+        if (e.target.name === 'name') {
+          $('[data-everyone]', dialog).textContent = everyoneLabel(e.target.value);
+          $('[data-access-hint]', dialog).innerHTML = accessHint(e.target.value, form.elements.trust_all.value === 'anyone');
+        }
+      });
       dialog.addEventListener('change', (e) => {
+        if (e.target.name === 'kind') {
+          const google = e.target.value === 'google';
+          $('[data-access]', dialog).hidden = google;
+          $('[data-google-access]', dialog).hidden = !google;
+          if (google) form.elements.trust_all.value = 'list';
+        }
         if (e.target.name === 'trust_all' || e.target.name === 'kind') {
-          $('[data-access-hint]', dialog).innerHTML = accessHint(currentKind(), form.elements.trust_all.value === 'anyone');
+          $('[data-access-hint]', dialog).innerHTML = accessHint(form.elements.name.value, form.elements.trust_all.value === 'anyone');
         }
         if (e.target.name === 'icon_choice') $('[data-icon-link]', dialog).hidden = e.target.value !== 'link';
         if (e.target.name === 'use_color') form.elements.color.hidden = !e.target.checked;
@@ -277,12 +296,13 @@ async function editProvider(section, provider) {
     },
     onSubmit: async (fd) => {
       const form = $('dialog.modal form');
+      const currentKindAtSave = () => fd.get('kind') || kind;
       const body = {
         name: (fd.get('name') || '').trim(),
         issuer: (fd.get('issuer') || '').trim(),
         client_id: (fd.get('client_id') || '').trim(),
         client_secret: fd.get('client_secret') || '',
-        trust_all: fd.get('trust_all') === 'anyone',
+        trust_all: currentKindAtSave() !== 'google' && fd.get('trust_all') === 'anyone',
         ...lookFrom(form),
       };
       if (!body.client_id) throw new Error('Enter the client ID from your provider');
