@@ -372,4 +372,6 @@ READER_E2E_BROWSER="/path/to/chrome" pytest      # also run the browser tests (C
 ## License
 
 FeedStash is free software under the [GNU Affero General Public License v3.0](LICENSE). You can run it, change it and
-share it. If you run a changed version as a service for other people, the license asks you to offer them its source.
+share it. If you run a changed version as a service for other people, the license asks you to offer them its source. The
+license covers the code; the FeedStash name and logo are trademarks, and [TRADEMARKS.md](TRADEMARKS.md) says how they
+can be used.
