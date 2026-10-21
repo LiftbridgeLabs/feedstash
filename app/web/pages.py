@@ -176,7 +176,8 @@ def _extension_zip(folder: str, firefox: bool) -> Response:
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
         for path in sorted(EXTENSION_DIR.rglob("*")):
-            if not path.is_file() or path.suffix == ".md":
+            # The README and the store listing's screenshots aren't part of the extension.
+            if not path.is_file() or path.suffix == ".md" or "screenshots" in path.relative_to(EXTENSION_DIR).parts:
                 continue
             name = Path(folder) / path.relative_to(EXTENSION_DIR)
             if firefox and path.name == "manifest.json":

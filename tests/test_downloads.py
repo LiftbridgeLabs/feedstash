@@ -51,5 +51,7 @@ def test_the_firefox_download_has_firefox_s_manifest(server):
     for manifest in (chrome_manifest, firefox_manifest):
         assert "host_permissions" not in manifest
         assert manifest["optional_host_permissions"] == ["http://*/*", "https://*/*"]
+    # Only the extension itself: no README or store screenshots.
+    assert not [n for n in chrome.namelist() if n.endswith(".md") or "/screenshots/" in n]
     # Everything else is the same extension.
     assert sorted(n.split("/", 1)[1] for n in chrome.namelist()) == sorted(n.split("/", 1)[1] for n in firefox.namelist())

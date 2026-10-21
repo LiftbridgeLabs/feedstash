@@ -7,5 +7,6 @@ data/
 tests/
 clients/email-worker/node_modules/
 clients/email-worker/.wrangler/
+clients/extension/screenshots/
 *.md
 !CHANGELOG.md
