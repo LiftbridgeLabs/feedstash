@@ -12,8 +12,21 @@
   --radius: 8px;
   color-scheme: light;
 }
+/* Dark: chosen in Settings, or following the browser when Settings says "Match the browser" (no data-theme). */
+:root[data-theme="dark"] {
+  --bg: #17191b;
+  --surface: #24272b;
+  --border: #30343a;
+  --text: #e6e8ea;
+  --text-dim: #9aa1a7;
+  --accent: #2fb866;
+  --accent-hover: #3fcb77;
+  --accent-text: #0c1a12;
+  --danger: #ef5b52;
+  color-scheme: dark;
+}
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme]) {
     --bg: #17191b;
     --surface: #24272b;
     --border: #30343a;

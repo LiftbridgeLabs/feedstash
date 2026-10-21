@@ -2,8 +2,20 @@ async function load() {
   const { apiBaseUrl, apiToken } = await getSettings();
   document.getElementById('baseUrlInput').value = apiBaseUrl;
   document.getElementById('tokenInput').value = apiToken;
+  let appearance = 'auto';
+  try { appearance = localStorage.getItem('appearance') || 'auto'; } catch { /* storage blocked */ }
+  document.getElementById('appearanceSelect').value = appearance;
 }
 load();
+
+/* Applies at once, here and in the popup next time it opens. Firefox's "Match the browser" follows its toolbar
+   theme, not the Website appearance setting, so a light toolbar theme gives a light popup. */
+document.getElementById('appearanceSelect').addEventListener('change', (e) => {
+  const choice = e.target.value;
+  try { localStorage.setItem('appearance', choice); } catch { /* storage blocked: stays on the browser's */ }
+  if (choice === 'auto') delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = choice;
+});
 
 /** Firefox lets an extension reach a site only once you've allowed it; Chrome allowed it at install. Asked for
     straight from the click, which is when a browser shows the prompt. */
