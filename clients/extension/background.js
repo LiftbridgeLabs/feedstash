@@ -1,4 +1,5 @@
-importScripts('common.js');
+// Chrome runs this as a service worker, which loads common.js itself; Firefox lists both files in its manifest.
+if (typeof importScripts === 'function') importScripts('common.js');
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({ id: 'save-link', title: 'Save link to FeedStash', contexts: ['link'] });

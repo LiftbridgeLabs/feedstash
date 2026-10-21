@@ -620,6 +620,7 @@ dialog.whats-new { width: min(560px, calc(100vw - 32px)); }
 .settings-body { min-width: 0; }
 .settings-card .steps { margin: 12px 0 0; padding-left: 22px; line-height: 1.55; }
 .settings-card .steps li { margin: 6px 0; }
+.settings-card .steps-title { margin: 16px 0 0; font-size: 14px; }
 .settings-card .steps ul { margin: 4px 0; padding-left: 18px; }
 .settings-card .server-address { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0 0; font-size: 14px; }
 .settings-card .org-actions + .steps { margin-top: 14px; }

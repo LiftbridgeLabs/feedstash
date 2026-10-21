@@ -118,19 +118,34 @@ export function showSettings({ switching = false } = {}) {
     <div data-token-list><p class="muted">Loading…</p></div>`)}
 
     ${card(`<h3>Browser extension</h3>
-    <p class="muted">Save the page you're on, a link, some text or a screenshot from Chrome, Edge or Brave with a
-      right-click or the toolbar button. It also sends FeedStash the page as you see it, so sites that turn servers
-      away still get a readable copy.</p>
-    <div class="org-actions"><a class="btn btn-sm btn-primary" href="/downloads/feedstash-extension.zip" download>Download the extension</a></div>
+    <p class="muted">Save the page you're on, a link, some text or a screenshot with a right-click or the toolbar
+      button. It also sends FeedStash the page as you see it, so sites that turn servers away still get a readable
+      copy.</p>
+    <div class="org-actions">
+      <a class="btn btn-sm btn-primary" href="/downloads/feedstash-extension.zip" download>Download for Chrome, Edge or Brave</a>
+      <a class="btn btn-sm btn-primary" href="/downloads/feedstash-extension-firefox.zip" download>Download for Firefox</a>
+    </div>
+    <p class="steps-title"><b>Chrome, Edge or Brave</b></p>
     <ol class="steps">
       <li>Unzip the download. You get a folder called <b>feedstash-extension</b>; keep it somewhere it can stay.</li>
       <li>Open <code>chrome://extensions</code> in Chrome or Brave, or <code>edge://extensions</code> in Edge, and
         turn on <b>Developer mode</b> (top right).</li>
       <li>Click <b>Load unpacked</b> and choose the <b>feedstash-extension</b> folder. Pin the FeedStash icon to the
         toolbar if you like.</li>
+    </ol>
+    <p class="steps-title"><b>Firefox</b></p>
+    <ol class="steps">
+      <li>Unzip the download. You get a folder called <b>feedstash-extension-firefox</b>.</li>
+      <li>Open <code>about:debugging#/runtime/this-firefox</code>, click <b>Load Temporary Add-on…</b> and choose
+        the <b>manifest.json</b> file inside that folder.</li>
+      <li>Firefox only keeps add-ons that Mozilla has signed, so it removes this one when Firefox restarts: load it
+        again the same way after a restart.</li>
+    </ol>
+    <p class="steps-title"><b>Then, in any browser</b></p>
+    <ol class="steps">
       <li>Click the FeedStash icon → <b>Settings</b>, enter this server's address and a token, and click
-        <b>Test connection</b>. Make the token under <b>Connected apps</b> above, called something like
-        "extension".</li>
+        <b>Test connection</b>. If the browser asks to let FeedStash reach your server, choose <b>Allow</b>. Make the
+        token under <b>Connected apps</b> above, called something like "extension".</li>
     </ol>
     ${serverAddressHTML(origin)}`)}
 

@@ -1,5 +1,6 @@
 import html
 import io
+import json
 import zipfile
 from pathlib import Path
 
@@ -150,19 +151,48 @@ def downloads_available():
     return {"extension": (EXTENSION_DIR / "manifest.json").is_file(), "email_worker": EMAIL_WORKER_FILE.is_file()}
 
 
-@router.get("/downloads/feedstash-extension.zip")
-def extension_zip():
+# Firefox reads the same extension with a few manifest differences: background scripts instead of a service worker
+# (Firefox doesn't run extension service workers), and an add-on id, which Firefox requires.
+FIREFOX_ADDON_ID = "feedstash-capture@liftbridgelabs.app"
+
+
+def _firefox_manifest(manifest: dict) -> dict:
+    manifest = dict(manifest)
+    manifest["background"] = {"scripts": ["common.js", "background.js"]}
+    manifest["browser_specific_settings"] = {
+        "gecko": {"id": FIREFOX_ADDON_ID, "strict_min_version": "128.0", "data_collection_permissions": {"required": ["none"]}},
+    }
+    return manifest
+
+
+def _extension_zip(folder: str, firefox: bool) -> Response:
     if not (EXTENSION_DIR / "manifest.json").is_file():
         return PlainTextResponse("The browser extension isn't included in this copy of FeedStash.", status_code=404)
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
         for path in sorted(EXTENSION_DIR.rglob("*")):
-            if path.is_file() and path.suffix != ".md":
-                archive.write(path, Path("feedstash-extension") / path.relative_to(EXTENSION_DIR))
+            if not path.is_file() or path.suffix == ".md":
+                continue
+            name = Path(folder) / path.relative_to(EXTENSION_DIR)
+            if firefox and path.name == "manifest.json":
+                manifest = _firefox_manifest(json.loads(path.read_text(encoding="utf-8")))
+                archive.writestr(str(name), json.dumps(manifest, indent=2) + "\n")
+            else:
+                archive.write(path, name)
     return Response(
         buffer.getvalue(), media_type="application/zip",
-        headers={"Content-Disposition": 'attachment; filename="feedstash-extension.zip"', "Cache-Control": "no-cache"},
+        headers={"Content-Disposition": f'attachment; filename="{folder}.zip"', "Cache-Control": "no-cache"},
     )
+
+
+@router.get("/downloads/feedstash-extension.zip")
+def extension_zip():
+    return _extension_zip("feedstash-extension", firefox=False)
+
+
+@router.get("/downloads/feedstash-extension-firefox.zip")
+def extension_zip_firefox():
+    return _extension_zip("feedstash-extension-firefox", firefox=True)
 
 
 @router.get("/downloads/feedstash-email-worker.js")
