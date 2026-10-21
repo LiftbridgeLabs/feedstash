@@ -3,7 +3,7 @@
 What changed in each FeedStash release, newest first. Before you update, check **Before you update** for anything
 to do first, like taking a backup. Admins see the rest of a release's notes in FeedStash after updating.
 
-## Unreleased
+## 0.9.0
 
 ### New
 - **Set up Google or single sign-on in Settings.** Admins can now add Google, or any sign-in that speaks OpenID
