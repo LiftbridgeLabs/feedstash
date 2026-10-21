@@ -57,7 +57,8 @@ def _overview(request: Request, db: Database) -> SignInOut:
     providers += [
         SignInProviderOut(
             id=row.id, key=f"p{row.id}", kind=row.kind, name=row.name, issuer="" if row.kind == "google" else row.issuer,
-            client_id=row.client_id, scopes=row.scopes, icon=row.icon, color=row.color, trust_all=row.trust_all,
+            client_id=row.client_id, scopes=row.scopes, icon=row.icon, color=row.color,
+            trust_all=row.trust_all and row.kind != "google",  # what's enforced: Google always uses the list
             enabled=row.enabled,
             from_server_settings=False,
             secret_unreadable=sign_in.secret_unreadable(row.id), callback_urls=_urls(request, SSO_CALLBACK_PATH),
