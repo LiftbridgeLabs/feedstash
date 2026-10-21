@@ -1,14 +1,30 @@
+/* FeedStash's own colors (the web app's FeedStash scheme), light or dark with the system. */
 :root {
-  --bg: #0f1117;
-  --surface: #1a1d27;
-  --border: #2e3340;
-  --text: #e6e8ef;
-  --text-dim: #9aa0ae;
-  --accent: #4f46e5;
-  --accent-hover: #6058ea;
-  --danger: #e5484d;
-  --success: #3fb950;
+  --bg: #ffffff;
+  --surface: #f6f7f8;
+  --border: #e3e6e8;
+  --text: #1d2125;
+  --text-dim: #6b7278;
+  --accent: #1f9d55;
+  --accent-hover: #188246;
+  --accent-text: #ffffff;
+  --danger: #d0372f;
   --radius: 8px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17191b;
+    --surface: #24272b;
+    --border: #30343a;
+    --text: #e6e8ea;
+    --text-dim: #9aa1a7;
+    --accent: #2fb866;
+    --accent-hover: #3fcb77;
+    --accent-text: #0c1a12;
+    --danger: #ef5b52;
+    color-scheme: dark;
+  }
 }
 * { box-sizing: border-box; }
 body {
@@ -34,11 +50,11 @@ h1 { font-size: 1rem; margin: 0 0 0.75rem; }
   cursor: pointer;
   font-size: 0.8rem;
 }
-.type-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+.type-btn.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 
 .field { display: block; margin-bottom: 0.65rem; }
 .field span { display: block; font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.25rem; }
-.field input, .field textarea {
+.field input, .field textarea, .field select {
   width: 100%;
   padding: 0.45rem 0.55rem;
   background: var(--surface);
@@ -54,7 +70,7 @@ h1 { font-size: 1rem; margin: 0 0 0.75rem; }
   padding: 0.55rem;
   background: var(--accent);
   border: none;
-  color: white;
+  color: var(--accent-text);
   border-radius: var(--radius);
   font-size: 0.85rem;
   cursor: pointer;

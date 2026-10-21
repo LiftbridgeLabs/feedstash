@@ -3,6 +3,14 @@
 What changed in each FeedStash release, newest first. Before you update, check **Before you update** for anything
 to do first, like taking a backup. Admins see the rest of a release's notes in FeedStash after updating.
 
+## Unreleased
+
+### New
+- **The browser extension works in Firefox.** Settings → Apps has a Firefox download with its own steps, next to the
+  one for Chrome, Edge and Brave.
+- **The extension saves into a folder** you pick, remembering the last one, and follows your system's light or dark
+  look in FeedStash's colors. Snippets are called Notes there too, as in the web app.
+
 ## 0.9.0
 
 ### New
