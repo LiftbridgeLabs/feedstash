@@ -46,7 +46,7 @@ PASSWORD_CHECKS = asyncio.Semaphore(4)
 
 
 def user_allowed(sign_in: SignIn, user: User) -> bool:
-    return user.has_password or sign_in.email_allowed(user.email)
+    return user.has_password or sign_in.email_allowed(user.email) or sign_in.trusts(user.signed_in_with)
 
 
 def session_user(request: Request) -> User | None:
@@ -212,12 +212,14 @@ async def _finish_external_sign_in(request: Request, provider: str):
             # otherwise whoever could claim that address at the provider would get the account.
             if existing and not users_repo.has_sub(conn, f"{chosen.account_prefix}:{info['sub']}") and verified is not True:
                 return "unverified"
-            if not (sign_in.email_allowed(email) or (existing and existing.has_password)):
+            if not (sign_in.email_allowed(email) or chosen.trust_all or (existing and existing.has_password)):
                 return None
-            return users_repo.upsert(
+            user_id = users_repo.upsert(
                 conn, sub=f"{chosen.account_prefix}:{info['sub']}", email=email, name=info.get("name"),
                 picture=info.get("picture"), link_by_email=True,
             )
+            users_repo.set_signed_in_with(conn, user_id, chosen.key)
+            return user_id
 
     user_id = await run_in_threadpool(find_or_add_account)
     if user_id == "unverified":
@@ -273,6 +275,8 @@ def _try_result(
         elif existing and not linked and verified is not True:
             lines.append("That address already has an account here, and without the provider saying it's verified, "
                          "FeedStash won't let this sign-in into it.")
+        elif chosen.trust_all:
+            lines.append("This sign-in lets in anyone it signs in, so they can sign in.")
         elif sign_in.email_allowed(email):
             lines.append("That address is on the allowed list, so they can sign in.")
         elif existing and existing.has_password:

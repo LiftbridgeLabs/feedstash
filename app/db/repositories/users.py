@@ -9,7 +9,7 @@ from app.db.models import User
 from app.errors import Conflict, InvalidInput, NotFound
 
 _SELECT = """SELECT id, sub, email, name, picture, is_admin, password_hash IS NOT NULL AS has_password, created_at,
-    read_retention_days, sections FROM users"""
+    read_retention_days, sections, signed_in_with FROM users"""
 SECTIONS = ("both", "feeds", "stash")
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+$")
 
@@ -25,7 +25,13 @@ def _user(row: sqlite3.Row | None) -> User | None:
         id=row["id"], sub=row["sub"], email=row["email"], name=row["name"], picture=row["picture"],
         is_admin=bool(row["is_admin"]), has_password=bool(row["has_password"]), created_at=row["created_at"],
         read_retention_days=row["read_retention_days"], sections=row["sections"],
+        signed_in_with=row["signed_in_with"],
     )
+
+
+def set_signed_in_with(conn: sqlite3.Connection, user_id: int, key: str) -> None:
+    """Remembers the sign-in an account just came through (see SignIn.trusts)."""
+    conn.execute("UPDATE users SET signed_in_with = ? WHERE id = ?", (key, user_id))
 
 
 def set_read_retention(conn: sqlite3.Connection, user_id: int, days: int) -> None:

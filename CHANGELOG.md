@@ -9,8 +9,9 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
 - **Set up Google or single sign-on in Settings.** Admins can now add Google, or any sign-in that speaks OpenID
   Connect (Pocket ID, Authentik, Authelia, Keycloak and more), under Settings → Admin → Sign-in, no server settings or
   restart needed. The form shows the address to give your provider and checks it when you save. You can add more
-  than one, turn one off or remove it, and keep the list of who can sign in that way there too. Providers already
-  set in the server's settings keep working and show up in the list.
+  than one, turn one off or remove it. Each one either lets in anyone it signs in, so you decide who gets in at
+  your provider (like a user group in Pocket ID), or only the addresses and domains on an allowed list. Providers
+  already set in the server's settings keep working and show up in the list.
 - **Try it before anyone sees it.** Each sign-in has a Try it button that runs a real sign-in in a new tab and
   tells you whether it worked and whether that person would be let in, without signing you out. It works while
   the button is still hidden.

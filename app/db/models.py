@@ -27,6 +27,7 @@ class User:
     created_at: int = 0
     read_retention_days: int = 30  # read articles are deleted this long after reading; 0 = only the server's cleanup
     sections: str = "both"  # which halves of the app they use: both, feeds or stash
+    signed_in_with: str | None = None  # the sign-in they last came through: "google", "oidc" or "p<id>"
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +43,7 @@ class SignInProvider:
     scopes: str
     icon: str  # "key", "shield", "lock", "none", or an image's address
     color: str  # "#rrggbb", or "" for the theme's
+    trust_all: bool  # lets in anyone it signs in, not only the allowed list
     enabled: bool
     position: int
     updated_at: int

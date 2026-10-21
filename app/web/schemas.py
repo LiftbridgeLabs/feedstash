@@ -51,6 +51,7 @@ class SignInProviderIn(BaseModel):
     scopes: str = Field(default="openid email profile", max_length=300)
     icon: str = Field(default="key", max_length=500)  # key, shield, lock, none, or an image's address
     color: str = Field(default="", max_length=7)  # #rrggbb, or empty for the theme's
+    trust_all: bool = False  # let in anyone it signs in, not only the allowed list
 
 
 class SignInProviderPatch(BaseModel):
@@ -61,6 +62,7 @@ class SignInProviderPatch(BaseModel):
     scopes: str | None = Field(default=None, max_length=300)
     icon: str | None = Field(default=None, max_length=500)
     color: str | None = Field(default=None, max_length=7)
+    trust_all: bool | None = None
     enabled: bool | None = None
 
 
@@ -78,6 +80,7 @@ class SignInProviderOut(BaseModel):
     scopes: str
     icon: str
     color: str
+    trust_all: bool = False
     enabled: bool
     from_server_settings: bool
     secret_unreadable: bool = False  # saved with a different SECRET_KEY: the secret has to be entered again

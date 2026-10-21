@@ -315,6 +315,13 @@ MIGRATIONS: list[str] = [
     ALTER TABLE feeds ADD COLUMN last_new_at INTEGER;
     UPDATE feeds SET last_new_at = (SELECT MAX(fetched_at) FROM articles WHERE articles.feed_id = feeds.id);
     """,
+    # 20: a sign-in that lets in anyone it signs in, instead of only the allowed list: for a provider you run
+    # yourself (Pocket ID, Authentik), where who may use FeedStash is decided there. Each account remembers which
+    # sign-in it last came through, since two clients of one provider share its account identities.
+    """
+    ALTER TABLE sign_in_providers ADD COLUMN trust_all INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE users ADD COLUMN signed_in_with TEXT;
+    """,
 ]
 
 

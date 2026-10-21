@@ -129,12 +129,24 @@ def test_admins_add_a_single_sign_on_in_settings(reader, oidc_provider):
     reader.js("(() => { const s = document.querySelector('[data-signin-switch-field]'); s.value = 'on'; s.dispatchEvent(new Event('change', { bubbles: true })); })()")
     assert reader.wait_for("reader.api('GET', '/api/admin/sign-in').then((s) => s.sso_enabled === true)")
 
+    # "Anyone it signs in" is a choice per sign-in, saved with it.
+    reader.js("document.querySelector('[data-signin=edit]').click()")
+    assert reader.wait_for("!!document.querySelector('dialog.modal [name=trust_all]')")
+    reader.js("(() => { const s = document.querySelector('dialog.modal [name=trust_all]'); s.value = 'anyone'; s.dispatchEvent(new Event('change', { bubbles: true })); })()")
+    assert "user group" in reader.js("document.querySelector('dialog.modal [data-access-hint]').textContent")
+    reader.js("document.querySelector('dialog.modal [type=submit]').click()")
+    assert reader.wait_for("reader.api('GET', '/api/admin/sign-in').then((s) => s.providers[0].trust_all === true)")
+    assert reader.wait_for("document.querySelector('[data-signin-list]').textContent.includes('lets in anyone it signs in')")
+
     # Choosing Google hides the issuer and name, and says where Google's setting is.
     reader.js("document.querySelector('[data-signin=add]').click()")
     assert reader.wait_for("!!document.querySelector('dialog.modal [name=kind]')")
     reader.js("(() => { const s = document.querySelector('dialog.modal [name=kind]'); s.value = 'google'; s.dispatchEvent(new Event('change', { bubbles: true })); })()")
     assert reader.js("document.querySelector('dialog.modal [name=issuer]').closest('[data-oidc-only]').hidden") is True
     assert "Google Cloud Console" in reader.js("document.querySelector('dialog.modal [data-where]').textContent")
+    # And warns what "anyone" means with Google.
+    reader.js("(() => { const s = document.querySelector('dialog.modal [name=trust_all]'); s.value = 'anyone'; s.dispatchEvent(new Event('change', { bubbles: true })); })()")
+    assert "anyone with a Google account" in reader.js("document.querySelector('dialog.modal [data-access-hint]').textContent")
     reader.js("document.querySelector('dialog.modal [data-cancel]').click()")
 
     reader.js("""(() => {

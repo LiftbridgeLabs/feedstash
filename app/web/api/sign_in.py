@@ -46,7 +46,7 @@ def _overview(request: Request, db: Database) -> SignInOut:
         SignInProviderOut(
             id=None, key=provider.key, kind=provider.kind, name=provider.label.removeprefix("Sign in with "),
             issuer="" if provider.kind == "google" else provider.discovery_url, client_id=provider.client_id,
-            scopes=provider.scopes, icon=provider.icon, color=provider.color,
+            scopes=provider.scopes, icon=provider.icon, color=provider.color, trust_all=provider.trust_all,
             enabled=sign_in.server_provider_enabled(provider.key), from_server_settings=True,
             callback_urls=_urls(request, provider.callback_path),
         )
@@ -57,7 +57,8 @@ def _overview(request: Request, db: Database) -> SignInOut:
     providers += [
         SignInProviderOut(
             id=row.id, key=f"p{row.id}", kind=row.kind, name=row.name, issuer="" if row.kind == "google" else row.issuer,
-            client_id=row.client_id, scopes=row.scopes, icon=row.icon, color=row.color, enabled=row.enabled,
+            client_id=row.client_id, scopes=row.scopes, icon=row.icon, color=row.color, trust_all=row.trust_all,
+            enabled=row.enabled,
             from_server_settings=False,
             secret_unreadable=sign_in.secret_unreadable(row.id), callback_urls=_urls(request, SSO_CALLBACK_PATH),
         )
@@ -96,6 +97,18 @@ def _ways_in_left(
     with db.transaction() as conn:
         rows = providers_repo.list_all(conn)
     return any((saved or {}).get(row.id, row.enabled) and not sign_in.secret_unreadable(row.id) for row in rows)
+
+
+def _keep_yourself_in(request: Request, user: User, provider_id: int) -> None:
+    """Refuses a change that would sign out the admin making it: they got in through this sign-in letting in anyone
+    it signs in, and have no password or place on the allowed list to fall back on."""
+    sign_in: SignIn = request.app.state.sign_in
+    if (not user.has_password and not sign_in.email_allowed(user.email)
+            and user.signed_in_with == f"p{provider_id}" and sign_in.trusts(user.signed_in_with)):
+        raise InvalidInput(
+            f"That would sign you out: you got in through this sign-in. Put {user.email} on the allowed list, or "
+            "give yourself a password first."
+        )
 
 
 def _reload(request: Request, db: Database) -> None:
@@ -137,7 +150,8 @@ async def add_provider(body: SignInProviderIn, request: Request, user: SessionUs
         with db.transaction() as conn:
             providers_repo.create(
                 conn, kind=body.kind, name=name, issuer=issuer, client_id=body.client_id.strip(),
-                client_secret=secret, scopes=_scopes(body.scopes), icon=icon, color=color, now=now(),
+                client_secret=secret, scopes=_scopes(body.scopes), icon=icon, color=color,
+                trust_all=body.trust_all, now=now(),
             )
         _reload(request, db)
         return _overview(request, db)
@@ -167,6 +181,8 @@ async def change_provider(
         changes["icon"] = check_icon(body.icon)
     if body.color is not None:
         changes["color"] = check_color(body.color)
+    if body.trust_all is not None:
+        changes["trust_all"] = int(body.trust_all)
     if body.enabled is not None:
         changes["enabled"] = int(body.enabled)
 
@@ -174,6 +190,8 @@ async def change_provider(
         with _CHANGES:
             if body.enabled is False and not _ways_in_left(request, db, saved={provider_id: False}):
                 raise InvalidInput(NO_WAY_IN)
+            if body.trust_all is False:
+                _keep_yourself_in(request, user, provider_id)
             with db.transaction() as conn:
                 providers_repo.update(conn, provider_id, now=now(), **changes)
             _reload(request, db)
@@ -190,6 +208,7 @@ async def remove_provider(provider_id: int, request: Request, user: SessionUserD
         with _CHANGES:
             if not _ways_in_left(request, db, saved={provider_id: False}):
                 raise InvalidInput(NO_WAY_IN)
+            _keep_yourself_in(request, user, provider_id)
             with db.transaction() as conn:
                 providers_repo.delete(conn, provider_id)
             _reload(request, db)
@@ -208,21 +227,23 @@ async def set_allowed(body: AllowedListIn, request: Request, user: SessionUserDe
     if bad := next((domain for domain in domains if "@" in domain or "." not in domain), None):
         raise InvalidInput(f"{bad} isn't a domain, like example.com")
     sign_in: SignIn = request.app.state.sign_in
-    # Signing in with Google or OIDC is checked against this list on every request, so taking yourself off it
-    # (without a password to fall back on) would sign you out on the spot.
-    if not user.has_password and not sign_in.email_allowed(user.email, emails=emails, domains=domains):
-        raise InvalidInput(
-            f"That would sign you out: keep {user.email} on the list, or give yourself a password first."
-        )
 
     def save() -> SignInOut:
-        with db.transaction() as conn:
-            app_settings_repo.set_many(conn, {
-                f"{SETTINGS_PREFIX}allowed_emails": ",".join(emails),
-                f"{SETTINGS_PREFIX}allowed_domains": ",".join(domains),
-            })
-        _reload(request, db)
-        return _overview(request, db)
+        with _CHANGES:  # checked and saved together, like every other change here
+            # Signing in with Google or OIDC is checked against this list on every request, so taking yourself off
+            # it (without a password or a sign-in that lets anyone in to fall back on) would sign you out on the spot.
+            if (not user.has_password and not sign_in.trusts(user.signed_in_with)
+                    and not sign_in.email_allowed(user.email, emails=emails, domains=domains)):
+                raise InvalidInput(
+                    f"That would sign you out: keep {user.email} on the list, or give yourself a password first."
+                )
+            with db.transaction() as conn:
+                app_settings_repo.set_many(conn, {
+                    f"{SETTINGS_PREFIX}allowed_emails": ",".join(emails),
+                    f"{SETTINGS_PREFIX}allowed_domains": ",".join(domains),
+                })
+            _reload(request, db)
+            return _overview(request, db)
 
     return await run_in_threadpool(save)
 

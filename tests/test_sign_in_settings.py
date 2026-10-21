@@ -311,3 +311,70 @@ def test_try_it_reports_what_happened_without_signing_anyone_in(start_server, oi
     kid = client_for(server)
     kid.post("/auth/password", json={"email": "kid@example.com", "password": "kid password"})
     assert kid.get(try_url).headers["location"] == "/?error=not_configured"
+
+
+def test_a_sign_in_set_to_anyone_lets_in_whoever_it_signs_in(start_server, oidc_provider):
+    server = start_server(DEV_LOGIN="false")
+    owner = set_up(server)
+    provider = add_pocket_id(owner, oidc_provider.issuer, trust_all=True).json()["providers"][0]
+    assert provider["trust_all"] is True
+    key = f"p{provider['id']}"
+
+    # Nobody is on the allowed list, and it doesn't matter.
+    oidc_provider.claims = {"sub": "zed-1", "email": "zed@anywhere.example", "email_verified": True}
+    zed = client_for(server, follow_redirects=True)
+    zed.get(f"/auth/login/{key}")
+    assert zed.get("/api/me").json()["email"] == "zed@anywhere.example"
+    assert zed.get("/api/tree").status_code == 200  # still signed in on the next request
+    token = zed.post("/api/tokens", json={"clientName": "phone"}).json()["token"]
+    assert httpx.get(server.base_url + "/api/me", headers={"Authorization": f"Bearer {token}"}).status_code == 200
+    oidc_provider.claims = {"sub": "zed-1", "email": "zed@anywhere.example", "email_verified": True}
+    assert "lets in anyone it signs in" in owner.get(f"/auth/login/{key}?try=1", follow_redirects=True).text
+
+    # Back to the allowed list: someone who isn't on it is out, phone included.
+    owner.patch(f"/api/admin/sign-in/providers/{provider['id']}", json={"trust_all": False})
+    assert zed.get("/api/me").status_code == 401
+    assert httpx.get(server.base_url + "/api/me", headers={"Authorization": f"Bearer {token}"}).status_code == 401
+
+
+def test_an_admin_who_got_in_through_it_cant_lock_themselves_out(start_server, oidc_provider):
+    server = start_server(DEV_LOGIN="false")
+    owner = set_up(server)
+    provider = add_pocket_id(owner, oidc_provider.issuer, trust_all=True).json()["providers"][0]
+    oidc_provider.claims = {"sub": "ann-1", "email": "ann@example.com", "email_verified": True}
+    ann = client_for(server, follow_redirects=True)
+    ann.get(f"/auth/login/p{provider['id']}")
+    owner.patch(f"/api/accounts/{ann.get('/api/me').json()['id']}", json={"is_admin": True})
+
+    provider_url = f"/api/admin/sign-in/providers/{provider['id']}"
+    for response in (ann.patch(provider_url, json={"trust_all": False}), ann.delete(provider_url)):
+        assert response.status_code == 400 and "would sign you out" in response.json()["detail"]
+    assert ann.get("/api/me").status_code == 200
+    # Clearing the allowed list is fine: this sign-in doesn't use it.
+    assert ann.put("/api/admin/sign-in/allowed", json={"emails": [], "domains": []}).status_code == 200
+    # On the list, the change goes through and ann stays in.
+    ann.put("/api/admin/sign-in/allowed", json={"emails": ["ann@example.com"]})
+    assert ann.patch(provider_url, json={"trust_all": False}).status_code == 200
+    assert ann.get("/api/me").status_code == 200
+
+
+def test_two_clients_of_one_provider_each_keep_their_own_rule(start_server, oidc_provider):
+    server = start_server(DEV_LOGIN="false")
+    owner = set_up(server)
+    open_door = add_pocket_id(owner, oidc_provider.issuer, name="Family", trust_all=True).json()["providers"][-1]
+    listed = add_pocket_id(owner, oidc_provider.issuer, name="Work").json()["providers"][-1]
+    owner.put("/api/admin/sign-in/allowed", json={"emails": ["bo@example.com"]})
+
+    # Bo comes in through the client that checks the list; the other client letting anyone in doesn't count.
+    oidc_provider.claims = {"sub": "bo-1", "email": "bo@example.com", "email_verified": True}
+    bo = client_for(server, follow_redirects=True)
+    bo.get(f"/auth/login/p{listed['id']}")
+    assert bo.get("/api/me").status_code == 200
+    owner.put("/api/admin/sign-in/allowed", json={"emails": []})
+    assert bo.get("/api/me").status_code == 401
+
+    # Through the open client, the same person is in again, whatever the list says.
+    oidc_provider.claims = {"sub": "bo-1", "email": "bo@example.com", "email_verified": True}
+    again = client_for(server, follow_redirects=True)
+    again.get(f"/auth/login/p{open_door['id']}")
+    assert again.get("/api/me").status_code == 200

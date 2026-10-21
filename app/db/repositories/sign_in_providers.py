@@ -6,11 +6,11 @@ import sqlite3
 from app.db.models import SignInProvider
 from app.errors import NotFound
 
-_COLUMNS = "id, kind, name, issuer, client_id, client_secret, scopes, icon, color, enabled, position, updated_at"
+_COLUMNS = "id, kind, name, issuer, client_id, client_secret, scopes, icon, color, trust_all, enabled, position, updated_at"
 
 
 def _provider(row: sqlite3.Row) -> SignInProvider:
-    return SignInProvider(**{**dict(row), "enabled": bool(row["enabled"])})
+    return SignInProvider(**{**dict(row), "enabled": bool(row["enabled"]), "trust_all": bool(row["trust_all"])})
 
 
 def list_all(conn: sqlite3.Connection) -> list[SignInProvider]:
@@ -26,23 +26,23 @@ def get(conn: sqlite3.Connection, provider_id: int) -> SignInProvider:
 
 def create(
     conn: sqlite3.Connection, *, kind: str, name: str, issuer: str, client_id: str, client_secret: str, scopes: str,
-    icon: str, color: str, now: int,
+    icon: str, color: str, trust_all: bool, now: int,
 ) -> SignInProvider:
     position = conn.execute("SELECT COALESCE(MAX(position) + 1, 0) FROM sign_in_providers").fetchone()[0]
     cursor = conn.execute(
         """INSERT INTO sign_in_providers
-               (kind, name, issuer, client_id, client_secret, scopes, icon, color, enabled, position, created_at,
-                updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)""",
-        (kind, name, issuer, client_id, client_secret, scopes, icon, color, position, now, now),
+               (kind, name, issuer, client_id, client_secret, scopes, icon, color, trust_all, enabled, position,
+                created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)""",
+        (kind, name, issuer, client_id, client_secret, scopes, icon, color, int(trust_all), position, now, now),
     )
     return get(conn, cursor.lastrowid)
 
 
 def update(conn: sqlite3.Connection, provider_id: int, *, now: int, **fields) -> SignInProvider:
-    """Changes the given columns (name, issuer, client_id, client_secret, scopes, icon, color, enabled)."""
+    """Changes the given columns (name, issuer, client_id, client_secret, scopes, icon, color, trust_all, enabled)."""
     get(conn, provider_id)
-    allowed = {"name", "issuer", "client_id", "client_secret", "scopes", "icon", "color", "enabled"}
+    allowed = {"name", "issuer", "client_id", "client_secret", "scopes", "icon", "color", "trust_all", "enabled"}
     changes = {key: value for key, value in fields.items() if key in allowed}
     if changes:
         assignments = ", ".join(f"{key} = ?" for key in changes)

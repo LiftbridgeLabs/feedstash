@@ -46,6 +46,7 @@ class Provider:
     icon: str = "key"  # one of BUILT_IN_ICONS, or an image's address; Google's button always has its own look
     color: str = ""  # "#rrggbb", or "" for the theme's
     shown: bool = True  # on the sign-in page; one that's turned off can still be tried from Settings
+    trust_all: bool = False  # anyone it signs in may use FeedStash, not only the allowed list
 
     @property
     def account_prefix(self) -> str:
@@ -137,7 +138,7 @@ class SignIn:
         url = GOOGLE_DISCOVERY_URL if row.kind == "google" else discovery_url(row.issuer)
         return Provider(
             f"p{row.id}", row.kind, f"Sign in with {row.name}", url, row.client_id, secret, row.scopes, row.icon,
-            row.color,
+            row.color, trust_all=row.trust_all,
         )
 
     # -------------------------------------------------------------- providers
@@ -186,6 +187,14 @@ class SignIn:
     @property
     def saved_domains(self) -> list[str]:
         return list(self._saved_domains)
+
+    def trusts(self, signed_in_with: str | None) -> bool:
+        """Whether the sign-in an account last came through lets in anyone it signs in (turned off or not: turning
+        one off hides its button, it doesn't lock out who already uses it). By the sign-in, not the account's
+        identity: two clients of one provider share identities, and only the one that let them in counts."""
+        return any(
+            provider.trust_all and provider.key == signed_in_with for provider in self._snapshot[0]
+        )
 
     def email_allowed(self, email: str, *, emails: list[str] | None = None, domains: list[str] | None = None) -> bool:
         """Whether an address may sign in with Google or OIDC. `emails` / `domains` stand in for the saved lists,
