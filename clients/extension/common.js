@@ -21,6 +21,23 @@ async function pageHtml(tabId) {
   }
 }
 
+/** The match pattern for your server, without the port: Firefox doesn't accept one, and none covers every port. */
+function serverPattern(apiBaseUrl) {
+  const { protocol, hostname } = new URL(apiBaseUrl);
+  return `${protocol}//${hostname}/*`;
+}
+
+const NOT_ALLOWED = 'FeedStash Capture isn\u2019t allowed to reach your server yet. Open its Settings and click Save.';
+
+/** The extension may reach only the server you allowed in Settings, not every site, so check before calling it. */
+async function serverAllowed(apiBaseUrl) {
+  try {
+    return await chrome.permissions.contains({ origins: [serverPattern(apiBaseUrl)] });
+  } catch {
+    return false; // not an address a browser can match
+  }
+}
+
 const PROXY_IN_THE_WAY = 'Something in front of FeedStash answered instead of it, probably a sign-in page. '
   + 'Let /api/ through your proxy (see the FeedStash README).';
 
@@ -49,6 +66,7 @@ async function saveItem(fields) {
   if (!apiBaseUrl || !apiToken) {
     throw new Error('Set your FeedStash server URL and token in the extension’s Settings first.');
   }
+  if (!(await serverAllowed(apiBaseUrl))) throw new Error(NOT_ALLOWED);
 
   const fd = new FormData();
   for (const [key, value] of Object.entries(fields)) {

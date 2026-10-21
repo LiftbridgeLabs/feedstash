@@ -30,6 +30,7 @@ function readRetentionOptions(current) {
 
 const REPO = 'https://github.com/LiftbridgeLabs/feedstash';
 const SUPPORT_EMAIL = 'support@liftbridgelabs.app';
+const COFFEE = 'https://buymeacoffee.com/liftbridgelabs';
 
 let me = null;
 
@@ -220,6 +221,7 @@ export function showSettings({ switching = false } = {}) {
           <a class="btn btn-sm" href="${REPO}/releases" target="_blank" rel="noopener">Release notes</a>
           <a class="btn btn-sm" href="${REPO}#readme" target="_blank" rel="noopener">Documentation</a>
           <a class="btn btn-sm" data-about-mail href="mailto:${SUPPORT_EMAIL}">${icon('mail')}Email support</a>
+          <a class="btn btn-sm" href="${COFFEE}" target="_blank" rel="noopener">Buy me a coffee</a>
         </div>
       </div>
     </div>`)}

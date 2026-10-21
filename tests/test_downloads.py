@@ -47,5 +47,9 @@ def test_the_firefox_download_has_firefox_s_manifest(server):
     assert "browser_specific_settings" not in chrome_manifest
     assert firefox_manifest["background"] == {"scripts": ["common.js", "background.js"]}
     assert firefox_manifest["browser_specific_settings"]["gecko"]["id"] == "feedstash-capture@liftbridgelabs.app"
+    # Neither asks for every website at install: only the server, allowed from the extension's Settings.
+    for manifest in (chrome_manifest, firefox_manifest):
+        assert "host_permissions" not in manifest
+        assert manifest["optional_host_permissions"] == ["http://*/*", "https://*/*"]
     # Everything else is the same extension.
     assert sorted(n.split("/", 1)[1] for n in chrome.namelist()) == sorted(n.split("/", 1)[1] for n in firefox.namelist())

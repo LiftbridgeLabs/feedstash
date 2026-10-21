@@ -33,6 +33,10 @@ async function init() {
     document.getElementById('status').textContent = 'Set your server URL + token in Settings first.';
     return;
   }
+  if (!(await serverAllowed(apiBaseUrl))) {
+    document.getElementById('status').textContent = NOT_ALLOWED;
+    return;
+  }
   loadFolders(apiBaseUrl, apiToken);
 }
 init();

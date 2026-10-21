@@ -30,5 +30,9 @@ A green badge flash on the toolbar icon means success; red means it failed (chec
 
 ## Notes
 
-- Firefox: Manifest V3 support differs slightly (background service worker vs. background scripts). This extension targets Chromium; a Firefox port would need `background.scripts` instead of `background.service_worker` in the manifest.
-- `host_permissions` is broad (`http://*/*`, `https://*/*`) so it can talk to whatever server URL you configure, since that's your own domain and not known ahead of time. If you publish this to the Chrome Web Store later, Google's review process will flag broad host permissions — for personal sideloading it's not an issue.
+- Firefox reads the same files with a slightly different manifest (background scripts instead of a service worker,
+  and an add-on id). FeedStash builds it for you: **Download for Firefox** in Settings → Apps.
+- The only site the extension can reach on its own is your FeedStash server, which it asks you to allow when you
+  click **Save** or **Test connection** in its Settings. It reads the page you're saving with the one-time access a
+  browser gives when you click its toolbar button or one of its right-click items, so it never asks for access to
+  every website.

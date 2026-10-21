@@ -17,12 +17,11 @@ document.getElementById('appearanceSelect').addEventListener('change', (e) => {
   else document.documentElement.dataset.theme = choice;
 });
 
-/** Firefox lets an extension reach a site only once you've allowed it; Chrome allowed it at install. Asked for
-    straight from the click, which is when a browser shows the prompt. */
+/** The extension may reach only the sites you allow, and your server is the only one it needs: the page you save is
+    read with the one-time access a click on its button or menu gives. Asked for straight from the click, which is
+    when a browser shows the prompt. */
 async function allowServer(apiBaseUrl) {
-  // Without the port: Firefox doesn't accept one in a match pattern, and a pattern with none covers every port.
-  const { protocol, hostname } = new URL(apiBaseUrl);
-  const granted = await chrome.permissions.request({ origins: [`${protocol}//${hostname}/*`] });
+  const granted = await chrome.permissions.request({ origins: [serverPattern(apiBaseUrl)] });
   if (!granted) throw new Error('FeedStash needs your permission to reach your server. Click again and choose Allow.');
 }
 

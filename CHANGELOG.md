@@ -10,6 +10,14 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
   one for Chrome, Edge and Brave.
 - **The extension saves into a folder** you pick, remembering the last one, and follows your system's light or dark
   look in FeedStash's colors. Snippets are called Notes there too, as in the web app.
+- **The extension no longer asks for access to every website.** It asks only to reach your FeedStash server, when you
+  set it up, and reads the page you're saving only when you click its button or menu.
+
+### After you update
+- If you use the browser extension in Chrome, Edge or Brave, download it again from Settings → Apps, put the new files
+  in your existing extension folder in place of the old ones, and click reload on the extension's card. A different
+  folder counts as a new extension, without your address and token. Then open its Settings and click **Save** once,
+  choosing **Allow** when the browser asks to let it reach your server.
 
 ## 0.9.0
 
