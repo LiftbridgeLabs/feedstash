@@ -39,6 +39,19 @@ def list_for_user(conn: sqlite3.Connection, user_id: int) -> list[ApiToken]:
     return [ApiToken(**dict(row)) for row in rows]
 
 
+def rename(conn: sqlite3.Connection, user_id: int, token_id: int, client_name: str) -> ApiToken:
+    """Gives a token a new name, so tokens for different apps or devices can be told apart. The token itself stays."""
+    name = clean_name(client_name, "Client name")
+    if not conn.execute(
+        "UPDATE api_tokens SET client_name = ? WHERE id = ? AND user_id = ?", (name, token_id, user_id)
+    ).rowcount:
+        raise NotFound("Not found")
+    row = conn.execute(
+        "SELECT id, client_name, hint, created_at, last_used_at FROM api_tokens WHERE id = ?", (token_id,)
+    ).fetchone()
+    return ApiToken(**dict(row))
+
+
 def delete(conn: sqlite3.Connection, user_id: int, token_id: int) -> None:
     if not conn.execute("DELETE FROM api_tokens WHERE id = ? AND user_id = ?", (token_id, user_id)).rowcount:
         raise NotFound("Not found")

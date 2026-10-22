@@ -128,7 +128,21 @@ def test_tokens_are_listed_and_revoked_but_never_readable(api, server):
     assert extension.get("/api/tokens").status_code == 403
     assert extension.post("/api/tokens", json={"clientName": "copy"}).status_code == 403
     assert extension.delete(f"/api/tokens/{listed['id']}").status_code == 403
+    assert extension.patch(f"/api/tokens/{listed['id']}", json={"clientName": "mine now"}).status_code == 403
     assert len(api.get("/api/tokens").json()) == 1
     assert api.delete(f"/api/tokens/{listed['id']}").status_code == 204
     assert extension.get("/api/items").status_code == 401
     assert api.post("/api/tokens", json={}).status_code == 400
+
+
+def test_a_token_can_be_renamed_and_keeps_working(api, server):
+    token = mint(api, "Phone or iPad")
+    (listed,) = api.get("/api/tokens").json()
+    renamed = api.patch(f"/api/tokens/{listed['id']}", json={"clientName": "  the kitchen iPad "})
+    assert renamed.status_code == 200, renamed.text
+    assert renamed.json()["clientName"] == "the kitchen iPad"
+    assert renamed.json()["tokenPreview"] == listed["tokenPreview"]
+    assert api.get("/api/tokens").json()[0]["clientName"] == "the kitchen iPad"
+    assert token_client(server, token).get("/api/items").status_code == 200
+    assert api.patch(f"/api/tokens/{listed['id']}", json={"clientName": "  "}).status_code == 400
+    assert api.patch("/api/tokens/9999", json={"clientName": "x"}).status_code == 404

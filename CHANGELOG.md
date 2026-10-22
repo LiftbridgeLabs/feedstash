@@ -10,6 +10,8 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
   one for Chrome, Edge and Brave.
 - **The extension saves into a folder** you pick, remembering the last one, and follows your system's light or dark
   look in FeedStash's colors. Snippets are called Notes there too, as in the web app.
+- **Rename a token.** Each one under Settings → Apps → Connected apps has a Rename button, so "Phone or iPad" can
+  become "the kitchen iPad" and you know which one to revoke. The app using it stays connected.
 - **The extension no longer asks for access to every website.** It asks only to reach your FeedStash server, when you
   set it up, and reads the page you're saving only when you click its button or menu.
 

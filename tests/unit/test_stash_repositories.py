@@ -174,3 +174,12 @@ def test_merging_several_tags_into_one_in_one_go(conn, user_id):
     assert [t.name for t in items.tag_counts(conn, user_id)] == ["listening"]
     with pytest.raises(InvalidInput):
         items.merge_tags(conn, user_id, ["listening"], "listening", now=12)  # nothing else to merge
+
+
+def test_only_the_owner_can_rename_a_token(conn, user_id):
+    token, _ = tokens.create(conn, user_id, "Phone or iPad", now=100)
+    other = users.upsert(conn, sub="sub-bob", email="bob@example.com", name=None, picture=None)
+    with pytest.raises(NotFound):
+        tokens.rename(conn, other, token.id, "Bob's now")
+    assert tokens.rename(conn, user_id, token.id, " iPad mini ").client_name == "iPad mini"
+    assert [t.client_name for t in tokens.list_for_user(conn, user_id)] == ["iPad mini"]

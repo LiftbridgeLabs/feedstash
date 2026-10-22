@@ -271,7 +271,7 @@ Read state lives on the server, so every device sees the same thing; there's no 
 - `GET /api/tags` → `[{name, count}]`, most used first; `GET /api/health`
 - `POST /api/tags/rename` `{name, newName}` → `{name, items, merged}`: renames a tag on every item; naming an existing tag merges the two. Smart lists and rules that use the old name follow it.
 - `POST /api/tags/merge` `{names, into}` → `{name, items, merged}`: replaces several tags with one on every item, in one go; `into` can be one of them or a new name.
-- `GET/POST /api/tokens`, `DELETE /api/tokens/{id}`
+- `GET/POST /api/tokens`, `PATCH /api/tokens/{id}` `{clientName}` (rename), `DELETE /api/tokens/{id}`
 - `GET /uploads/{name}`
 
 Every item has a `links` list of `{id, url, label}`, and `url` mirrors the first link, so clients that only know one URL keep working. `links` can be sent as a list of URLs or `{url, label}` objects, as a JSON string of either (for multipart), or one URL per line. `PATCH` with `links` replaces the whole list; `PATCH` with only `url` swaps the first link and keeps the rest.

@@ -54,6 +54,12 @@ def create_connect_code(
     return ConnectCodeOut(id=token.id, token=secret, clientName=token.client_name, codes=codes)
 
 
+@router.patch("/tokens/{token_id}", response_model=TokenOut)
+def rename_token(token_id: int, body: NewTokenIn, user: SessionUserDep, db: DatabaseDep) -> TokenOut:
+    with db.transaction() as conn:
+        return TokenOut.from_token(tokens_repo.rename(conn, user.id, token_id, body.clientName))
+
+
 @router.delete("/tokens/{token_id}", status_code=204)
 def revoke_token(token_id: int, request: Request, user: SessionUserDep, db: DatabaseDep) -> Response:
     if api_token_id(request) == token_id:

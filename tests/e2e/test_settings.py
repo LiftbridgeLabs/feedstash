@@ -41,6 +41,19 @@ def test_connect_a_phone_shows_a_qr_code(reader):
     assert reader.wait_for("document.querySelector('[data-token-list]').textContent.includes('Phone or iPad')")
 
 
+def test_a_token_can_be_renamed_from_its_row(reader):
+    reader.js("reader.api('POST', '/api/tokens', { clientName: 'Phone or iPad' })")
+    reader.js("location.hash = '#/settings'")
+    button = "document.querySelector('[data-settings=rename-token]')"
+    assert reader.wait_for(f"!!{button}")
+    reader.js(f"{button}.click()")
+    assert reader.wait_for("document.querySelector('dialog[open] [name=value]')?.value === 'Phone or iPad'")
+    reader.js("""(() => { const d = document.querySelector('dialog[open]');
+      d.querySelector('[name=value]').value = 'iPad mini'; d.querySelector('[type=submit]').click(); })()""")
+    assert reader.wait_for("document.querySelector('[data-token-list]').textContent.includes('iPad mini')")
+    assert reader.wait_for("reader.api('GET', '/api/tokens').then((t) => t[0].clientName === 'iPad mini')")
+
+
 def test_admins_see_about_with_where_to_get_help(reader):
     reader.js("location.hash = '#/settings'")
     assert reader.wait_for("!document.querySelector('[data-about-section]')?.hidden")

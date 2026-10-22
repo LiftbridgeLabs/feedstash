@@ -1,7 +1,7 @@
 /* Settings: your account, everyone's accounts (admins), and API tokens for the extension, email worker and apps. */
 
 import { api } from './api.js';
-import { modal, toast } from './dialogs.js';
+import { modal, promptDialog, toast } from './dialogs.js';
 import { icon } from './icons.js';
 import { importSectionHTML, renderImportPlan, wireImport } from './importlinks.js';
 import { loadMail, mailSectionHTML, wireMail } from './mailbox.js';
@@ -497,7 +497,8 @@ async function loadTokens() {
             <td><code>${esc(token.tokenPreview)}</code></td>
             <td>${esc(fullDate(timestamp(token.createdAt)))}</td>
             <td>${token.lastUsedAt ? esc(agoLong(timestamp(token.lastUsedAt))) : '<span class="muted">Never</span>'}</td>
-            <td class="row-actions"><button class="btn btn-sm" data-settings="revoke" data-id="${token.id}" data-name="${esc(token.clientName)}">Revoke</button></td>
+            <td class="row-actions"><button class="btn btn-sm" data-settings="rename-token" data-id="${token.id}" data-name="${esc(token.clientName)}">Rename</button>
+              <button class="btn btn-sm" data-settings="revoke" data-id="${token.id}" data-name="${esc(token.clientName)}">Revoke</button></td>
           </tr>`).join('')}</tbody></table></div>`
       : '<p class="muted">No tokens yet.</p>';
   } catch (err) {
@@ -584,6 +585,17 @@ async function newToken() {
   });
 }
 
+/** A clearer name for a token ("iPhone", "Work laptop's Firefox"), so you know which one to revoke later. */
+async function renameToken(id, name) {
+  const renamed = await promptDialog({
+    title: 'Rename token',
+    label: 'App name',
+    value: name,
+    onSubmit: (clientName) => api('PATCH', `/api/tokens/${id}`, { clientName }),
+  });
+  if (renamed) loadTokens();
+}
+
 async function revoke(id, name) {
   const ok = await modal({
     title: `Revoke “${name}”?`,
@@ -660,6 +672,7 @@ export function wireSettings() {
     switch (button.dataset.settings) {
       case 'new-token': newToken(); break;
       case 'connect-phone': connectPhone(); break;
+      case 'rename-token': renameToken(Number(id), name); break;
       case 'revoke': revoke(Number(id), name); break;
       case 'change-password': changePassword(); break;
       case 'sign-out-others': signOutOthers(); break;
