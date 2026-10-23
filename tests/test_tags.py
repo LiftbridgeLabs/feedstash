@@ -33,3 +33,43 @@ def test_merge_several_tags(api):
     merged = api.post("/api/tags/merge", json={"names": ["vibes", "vibing", "vibe"], "into": "vibe"})
     assert merged.status_code == 200 and merged.json() == {"name": "vibe", "items": 2, "merged": 2}
     assert {t["name"]: t["count"] for t in api.get("/api/tags").json()} == {"vibe": 2}
+
+
+def test_delete_a_tag_from_every_item(api):
+    keep = save(api, "Keep", ["recipes", "dinner"])
+    only = save(api, "Only", ["recipes"])
+    api.patch(f"/api/items/{only['id']}", json={"archived": True})  # archived items lose it too
+    folder = api.post("/api/stash/folders", json={"name": "Kitchen"}).json()
+    lists = {
+        "just": api.post("/api/stash/lists", json={"name": "Recipes", "tag": "recipes"}).json(),
+        "more": api.post("/api/stash/lists", json={"name": "Kitchen recipes", "tag": "recipes",
+                                                   "folderId": folder["id"]}).json(),
+    }
+    rules = {
+        "just": api.post("/api/stash/rules", json={"field": "title", "value": "soup", "addTag": "recipes"}).json(),
+        "more": api.post("/api/stash/rules", json={"field": "title", "value": "stew", "addTag": "recipes",
+                                                   "folderId": folder["id"]}).json(),
+    }
+
+    deleted = api.post("/api/tags/delete", json={"names": ["#recipes"]})
+    assert deleted.status_code == 200, deleted.text
+    assert deleted.json() == {"items": 2, "tags": 1, "lists": 1, "rules": 1}
+    assert {t["name"] for t in api.get("/api/tags").json()} == {"dinner"}
+    assert api.get(f"/api/items/{keep['id']}").json()["tags"] == ["dinner"]
+    assert api.get(f"/api/items/{only['id']}").json()["tags"] == []
+    # The list and rule that did nothing else are gone; the ones that do more stop using the tag.
+    remaining_lists = {l["id"]: l for l in api.get("/api/stash/lists").json()}
+    assert lists["just"]["id"] not in remaining_lists
+    assert remaining_lists[lists["more"]["id"]]["tag"] is None
+    remaining_rules = {r["id"]: r for r in api.get("/api/stash/rules").json()}
+    assert rules["just"]["id"] not in remaining_rules
+    assert remaining_rules[rules["more"]["id"]]["addTag"] is None
+
+    # A tag that doesn't exist, named alongside one that does, leaves lists and rules that mention it alone.
+    save(api, "Three", ["soup"])
+    planned = api.post("/api/stash/lists", json={"name": "Planned", "tag": "planned"}).json()
+    assert api.post("/api/tags/delete", json={"names": ["soup", "planned"]}).json()["lists"] == 0
+    assert planned["id"] in {l["id"] for l in api.get("/api/stash/lists").json()}
+
+    assert api.post("/api/tags/delete", json={"names": ["recipes"]}).status_code == 404
+    assert api.post("/api/tags/delete", json={"names": [" "]}).status_code == 400

@@ -271,6 +271,7 @@ Read state lives on the server, so every device sees the same thing; there's no 
 - `GET /api/tags` → `[{name, count}]`, most used first; `GET /api/health`
 - `POST /api/tags/rename` `{name, newName}` → `{name, items, merged}`: renames a tag on every item; naming an existing tag merges the two. Smart lists and rules that use the old name follow it.
 - `POST /api/tags/merge` `{names, into}` → `{name, items, merged}`: replaces several tags with one on every item, in one go; `into` can be one of them or a new name.
+- `POST /api/tags/delete` `{names}` → `{items, tags, lists, rules}`: takes tags off every item, archived ones too. Smart lists that filtered only on them and rules that only added them are deleted; others stop using them.
 - `GET/POST /api/tokens`, `PATCH /api/tokens/{id}` `{clientName}` (rename), `DELETE /api/tokens/{id}`
 - `GET /uploads/{name}`
 

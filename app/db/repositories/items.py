@@ -257,6 +257,39 @@ def merge_tags(conn: sqlite3.Connection, user_id: int, names: Sequence[str], int
     return target, len(rows), len(sources)
 
 
+def delete_tags(conn: sqlite3.Connection, user_id: int, names: Sequence[str], *, now: int) -> tuple[int, int, int, int]:
+    """Takes tags off every item, archived ones too, and forgets them. A smart list left with nothing to filter on
+    would show everything, and a rule left doing nothing would bring nothing, so those go too; lists and rules that do
+    more just stop using the tag. Returns (items changed, tags deleted, smart lists deleted, rules deleted)."""
+    wanted = list(dict.fromkeys(tag for raw in names for tag in normalize_tags([raw])))
+    if not wanted:
+        raise InvalidInput("Choose a tag to delete")
+    found = conn.execute(
+        f"SELECT id, name FROM tags WHERE user_id = ? AND name IN ({','.join('?' * len(wanted))})", (user_id, *wanted)
+    ).fetchall()
+    if not found:
+        raise NotFound(f"There's no #{wanted[0]} tag" if len(wanted) == 1 else "None of those tags exist")
+    # Only the tags that existed: a list or rule naming one that doesn't is left alone.
+    tag_ids, wanted = [row["id"] for row in found], [row["name"] for row in found]
+    marks = ",".join("?" * len(wanted))
+    id_marks = ",".join("?" * len(tag_ids))
+    item_ids = [row["item_id"] for row in conn.execute(
+        f"SELECT DISTINCT item_id FROM item_tags WHERE tag_id IN ({id_marks})", tag_ids)]
+    conn.execute(f"DELETE FROM tags WHERE id IN ({id_marks})", tag_ids)  # their item_tags rows go with them
+    lists = conn.execute(
+        f"""DELETE FROM smart_lists WHERE user_id = ? AND tag IN ({marks})
+            AND COALESCE(query, '') = '' AND type IS NULL AND folder_id IS NULL""", (user_id, *wanted)).rowcount
+    conn.execute(f"UPDATE smart_lists SET tag = NULL WHERE user_id = ? AND tag IN ({marks})", (user_id, *wanted))
+    rules = conn.execute(
+        f"""DELETE FROM stash_rules WHERE user_id = ? AND add_tag IN ({marks})
+            AND folder_id IS NULL AND NOT mark_reviewed AND NOT archive""", (user_id, *wanted)).rowcount
+    conn.execute(f"UPDATE stash_rules SET add_tag = NULL WHERE user_id = ? AND add_tag IN ({marks})", (user_id, *wanted))
+    for item_id in item_ids:
+        conn.execute("UPDATE items SET updated_at = ? WHERE id = ?", (now, item_id))  # so clients pick it up
+        search_index.index_item(conn, item_id)
+    return len(item_ids), len(tag_ids), lists, rules
+
+
 def tag_counts(conn: sqlite3.Connection, user_id: int) -> list[TagCount]:
     """Tags on at least one active (non-archived) item, with how many."""
     rows = conn.execute(

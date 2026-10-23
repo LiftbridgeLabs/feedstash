@@ -1,5 +1,6 @@
 /* Settings → Tags: every tag with a checkbox and its count. Check two or more and merge them into one (every item with
-   any of them gets the merged tag), or check one and rename it. Look-alike groups are offered to check in one click. */
+   any of them gets the merged tag), check one and rename it, or delete the checked ones from every item. Look-alike
+   groups are offered to check in one click. */
 
 import { api } from './api.js';
 import { modal, toast } from './dialogs.js';
@@ -14,7 +15,7 @@ export function tagsSectionHTML() {
   return `
     <h3 data-tags-heading>Tags</h3>
     <p class="muted">Check two or more tags and merge them into one: every item with any of them gets the merged tag.
-      Check one to rename it.</p>
+      Check one to rename it, or delete tags to take them off everything.</p>
     <div data-tag-settings><p class="muted">Loading…</p></div>`;
 }
 
@@ -50,6 +51,7 @@ function render(box) {
       <span class="muted" data-checked-count></span>
       <button type="button" class="btn btn-sm btn-primary" data-tag-action="merge">Merge into…</button>
       <button type="button" class="btn btn-sm" data-tag-action="rename">Rename…</button>
+      <button type="button" class="btn btn-sm" data-tag-action="delete">Delete…</button>
       <button type="button" class="btn btn-sm" data-tag-action="clear">Clear</button>
     </div>
     <div class="tag-settings-list">${tags.map((tag) => `
@@ -72,6 +74,7 @@ function updateBar(box) {
   $('[data-checked-count]', box).textContent = count ? `${count} checked` : '';
   $('[data-tag-action=merge]', box).disabled = count < 2;
   $('[data-tag-action=rename]', box).disabled = count !== 1;
+  $('[data-tag-action=delete]', box).disabled = count === 0;
   $('[data-tag-action=clear]', box).disabled = count === 0;
 }
 
@@ -111,6 +114,26 @@ async function renameChecked(root) {
   toast(result.merged ? `Merged #${tag.name} into #${result.name}` : `Renamed #${tag.name} to #${result.name}`);
 }
 
+async function deleteChecked(root) {
+  const chosen = checkedTags();
+  const names = chosen.map((tag) => `#${esc(tag.name)}`).join(', ');
+  const result = await modal({
+    title: chosen.length === 1 ? `Delete #${chosen[0].name}?` : `Delete ${chosen.length} tags?`,
+    confirmText: 'Delete',
+    danger: true,
+    html: `<p>${names} ${chosen.length === 1 ? 'comes' : 'come'} off every item that has ${chosen.length === 1 ? 'it' : 'them'},
+      archived ones too. The items themselves stay. A smart list that only shows ${chosen.length === 1 ? 'this tag' : 'these tags'},
+      or a rule that only adds ${chosen.length === 1 ? 'it' : 'them'}, is deleted as well.</p>`,
+    onSubmit: () => api('POST', '/api/tags/delete', { names: chosen.map((tag) => tag.name) }),
+  });
+  if (!result || result === true) return;
+  checked.clear();
+  await loadTagSettings(root);
+  const also = [result.lists && `${result.lists} smart list${result.lists === 1 ? '' : 's'}`,
+    result.rules && `${result.rules} rule${result.rules === 1 ? '' : 's'}`].filter(Boolean);
+  toast(`Deleted ${chosen.length === 1 ? `#${chosen[0].name}` : `${result.tags} tags`} from ${result.items} item${result.items === 1 ? '' : 's'}${also.length ? `, and ${also.join(' and ')}` : ''}`);
+}
+
 export function wireTagSettings(root) {
   root.addEventListener('change', (e) => {
     const box = e.target.closest('[data-tag-settings]');
@@ -136,6 +159,7 @@ export function wireTagSettings(root) {
     switch (e.target.closest('[data-tag-action]')?.dataset.tagAction) {
       case 'merge': mergeChecked(root); break;
       case 'rename': renameChecked(root); break;
+      case 'delete': deleteChecked(root); break;
       case 'clear': checked.clear(); render(box); break;
     }
   });

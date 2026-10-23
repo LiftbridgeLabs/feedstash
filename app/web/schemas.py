@@ -541,6 +541,17 @@ class TagMergeOut(BaseModel):
     merged: int  # how many tags were folded into it
 
 
+class TagDeleteIn(BaseModel):
+    names: list[str] = Field(min_length=1, max_length=500)
+
+
+class TagDeleteOut(BaseModel):
+    items: int  # how many items they came off
+    tags: int  # how many tags were deleted
+    lists: int  # smart lists deleted because the tag was all they filtered on
+    rules: int  # rules deleted because adding the tag was all they did
+
+
 class TagRenameOut(BaseModel):
     name: str  # the tag's name now
     items: int  # how many items were changed

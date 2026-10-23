@@ -63,3 +63,20 @@ def test_settings_tags_merge_the_checked_ones_into_one(reader):
     rows = "[...document.querySelectorAll('[data-tag-name]')].map(c => c.dataset.tagName).join()"
     assert reader.wait_for(f"{rows} === 'vibe,design'")
     assert not reader.js("document.querySelector('[data-check-group]')")  # nothing left that looks alike
+
+
+def test_settings_tags_delete_the_checked_ones(reader):
+    for title, tags in (("One", ["recipes", "dinner"]), ("Two", ["recipes"])):
+        reader.js(f"reader.api('POST', '/api/items', {{type: 'snippet', title: '{title}', content: 'x', tags: {tags!r}}})")
+    reader.js("location.hash = '#/settings/stash'")
+    box = "document.querySelector('[data-tag-settings]')"
+    assert reader.wait_for(f"!!{box}?.querySelector('[data-tag-name=recipes]')", timeout=20)
+    assert reader.js("document.querySelector('[data-tag-action=delete]').disabled") is True
+    reader.js("document.querySelector('[data-tag-name=recipes]').click()")
+    assert reader.wait_for("document.querySelector('[data-tag-action=delete]').disabled === false")
+    reader.js("document.querySelector('[data-tag-action=delete]').click()")
+    assert reader.wait_for("document.querySelector('dialog[open]')?.textContent.includes('Delete #recipes?')")
+    reader.js("document.querySelector('dialog[open] form').requestSubmit()")
+    assert reader.wait_for("document.body.textContent.includes('Deleted #recipes from 2 items')")
+    rows = "[...document.querySelectorAll('[data-tag-name]')].map(c => c.dataset.tagName).join()"
+    assert reader.wait_for(f"{rows} === 'dinner'")

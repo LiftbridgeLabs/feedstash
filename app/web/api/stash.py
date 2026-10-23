@@ -29,6 +29,8 @@ from app.web.schemas import (
     StashItemOut,
     StashSummaryOut,
     TagCountOut,
+    TagDeleteIn,
+    TagDeleteOut,
     TagMergeIn,
     TagMergeOut,
     TagRenameIn,
@@ -171,6 +173,14 @@ def merge_tags(body: TagMergeIn, user: UserDep, db: DatabaseDep) -> TagMergeOut:
     with db.transaction() as conn:
         name, items, merged = items_repo.merge_tags(conn, user.id, body.names, body.into, now=now())
     return TagMergeOut(name=name, items=items, merged=merged)
+
+
+@router.post("/tags/delete", response_model=TagDeleteOut)
+def delete_tags(body: TagDeleteIn, user: UserDep, db: DatabaseDep) -> TagDeleteOut:
+    """Takes tags off every item; smart lists and rules that only used them go too."""
+    with db.transaction() as conn:
+        items, tags, lists, rules = items_repo.delete_tags(conn, user.id, body.names, now=now())
+    return TagDeleteOut(items=items, tags=tags, lists=lists, rules=rules)
 
 
 @router.get("/stash/summary", response_model=StashSummaryOut)

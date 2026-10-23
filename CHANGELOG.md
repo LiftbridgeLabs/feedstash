@@ -10,6 +10,8 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
   one for Chrome, Edge and Brave.
 - **The extension saves into a folder** you pick, remembering the last one, and follows your system's light or dark
   look in FeedStash's colors. Snippets are called Notes there too, as in the web app.
+- **Delete a tag.** In Settings → Stash → Tags, check one or more tags and choose Delete to take them off every
+  item. A smart list that only showed that tag, or a rule that only added it, goes too.
 - **Rename a token.** Each one under Settings → Apps → Connected apps has a Rename button, so "Phone or iPad" can
   become "the kitchen iPad" and you know which one to revoke. The app using it stays connected.
 - **The extension no longer asks for access to every website.** It asks only to reach your FeedStash server, when you
