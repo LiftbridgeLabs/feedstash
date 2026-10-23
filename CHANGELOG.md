@@ -6,6 +6,8 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
 ## Unreleased
 
 ### New
+- **The browser extension is on the Chrome Web Store**, for Chrome, Edge and Brave: Settings → Apps has a button
+  for it, and it updates itself. Loading it from a download still works.
 - **The browser extension works in Firefox.** Settings → Apps has a Firefox download with its own steps, next to the
   one for Chrome, Edge and Brave.
 - **The extension saves into a folder** you pick, remembering the last one, and follows your system's light or dark
@@ -18,10 +20,9 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
   set it up, and reads the page you're saving only when you click its button or menu.
 
 ### After you update
-- If you use the browser extension in Chrome, Edge or Brave, download it again from Settings → Apps, put the new files
-  in your existing extension folder in place of the old ones, and click reload on the extension's card. A different
-  folder counts as a new extension, without your address and token. Then open its Settings and click **Save** once,
-  choosing **Allow** when the browser asks to let it reach your server.
+- If you loaded the browser extension yourself in Chrome, Edge or Brave, switch to the Chrome Web Store version from
+  Settings → Apps: remove the old one, add it from the store, then enter your address and token in its Settings and
+  click **Save**, choosing **Allow** when the browser asks to let it reach your server.
 
 ## 0.9.0
 

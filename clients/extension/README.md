@@ -2,21 +2,21 @@
 
 Manifest V3 extension for Chrome/Edge/Brave (Chromium-based). Right-click a link, selection, or page to save it; or click the toolbar icon for a quick-capture popup with a live screenshot option.
 
-## Load it (unpacked, for personal use — no store listing needed)
+## Install it
 
-The easiest way to get it is from FeedStash itself: **Settings → Apps → Browser extension → Download the extension**,
-then unzip it. (From a checkout of this repository, use this `extension/` folder instead.)
+**Chrome, Edge or Brave:** from the Chrome Web Store,
+https://chromewebstore.google.com/detail/feedstash-capture/kedkaohofjncmokoknimfofbnmgomcob (in Edge, allow
+extensions from other stores when it asks). Then click the toolbar icon → "Settings", enter your server URL and an API
+token, click **Save** and choose **Allow** when the browser asks to let it reach your server.
 
-1. Go to `chrome://extensions` (`edge://extensions` in Edge)
-2. Enable "Developer mode" (top right)
-3. Click "Load unpacked" and select the unzipped `feedstash-extension` folder
-4. Click the new toolbar icon → "Settings" (or right-click the icon → Options)
-5. Enter your server URL (e.g. `https://notes.yourdomain.com`) and an API token
+**Or load it yourself:** get the folder from FeedStash's **Settings → Apps → Browser extension** (the "Download it" link
+under the Chrome steps) and unzip it, or use the `clients/extension/` folder of a checkout (the one with this README).
+Go to `chrome://extensions` (`edge://extensions` in Edge, `brave://extensions` in Brave), turn on "Developer mode",
+click "Load unpacked" and choose the folder.
 
-Make a dedicated token for the extension in the web app, under **Settings → Connected apps → New token**, so you can
-revoke it on its own later. (Tokens can only be made from a signed-in web session, not with another token.)
-
-6. Click "Test connection" in the options page to confirm it's wired up.
+Make a dedicated token for the extension in the web app, under **Settings → Apps → Connected apps → New token**, so
+you can revoke it on its own later. (Tokens can only be made from a signed-in web session, not with another token.)
+Click "Test connection" in the extension's Settings to confirm it's wired up.
 
 ## What it does
 

@@ -31,6 +31,7 @@ function readRetentionOptions(current) {
 const REPO = 'https://github.com/LiftbridgeLabs/feedstash';
 const SUPPORT_EMAIL = 'support@liftbridgelabs.app';
 const COFFEE = 'https://buymeacoffee.com/liftbridgelabs';
+const CHROME_STORE = 'https://chromewebstore.google.com/detail/feedstash-capture/kedkaohofjncmokoknimfofbnmgomcob';
 
 let me = null;
 
@@ -123,17 +124,19 @@ export function showSettings({ switching = false } = {}) {
       button. It also sends FeedStash the page as you see it, so sites that turn servers away still get a readable
       copy.</p>
     <div class="org-actions">
-      <a class="btn btn-sm btn-primary" href="/downloads/feedstash-extension.zip" download>Download for Chrome, Edge or Brave</a>
+      <a class="btn btn-sm btn-primary" href="${CHROME_STORE}" target="_blank" rel="noopener">Get it for Chrome, Edge or Brave</a>
       <a class="btn btn-sm btn-primary" href="/downloads/feedstash-extension-firefox.zip" download>Download for Firefox</a>
     </div>
     <p class="steps-title"><b>Chrome, Edge or Brave</b></p>
     <ol class="steps">
-      <li>Unzip the download. You get a folder called <b>feedstash-extension</b>; keep it somewhere it can stay.</li>
-      <li>Open <code>chrome://extensions</code> in Chrome or Brave, or <code>edge://extensions</code> in Edge, and
-        turn on <b>Developer mode</b> (top right).</li>
-      <li>Click <b>Load unpacked</b> and choose the <b>feedstash-extension</b> folder. Pin the FeedStash icon to the
-        toolbar if you like.</li>
+      <li>Click <b>Get it for Chrome, Edge or Brave</b>, then the store's add button (<b>Add to Chrome</b>,
+        <b>Add to Brave</b> or <b>Get</b> in Edge). In Edge, choose <b>Allow extensions from other stores</b> if it
+        asks first.</li>
+      <li>Pin the FeedStash icon to the toolbar if you like. It updates itself from the store.</li>
     </ol>
+    <p class="muted">Would rather not use the store? <a href="/downloads/feedstash-extension.zip" download>Download it</a>,
+      unzip it, open <code>chrome://extensions</code> (<code>edge://extensions</code> in Edge,
+      <code>brave://extensions</code> in Brave), turn on <b>Developer mode</b> and choose <b>Load unpacked</b>.</p>
     <p class="steps-title"><b>Firefox</b></p>
     <ol class="steps">
       <li>Unzip the download. You get a folder called <b>feedstash-extension-firefox</b>.</li>
