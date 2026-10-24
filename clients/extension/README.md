@@ -1,6 +1,6 @@
 # FeedStash Capture (browser extension)
 
-Manifest V3 extension for Chrome/Edge/Brave (Chromium-based). Right-click a link, selection, or page to save it; or click the toolbar icon for a quick-capture popup with a live screenshot option.
+Manifest V3 extension for Chrome, Edge and Brave, and for Firefox (the same files with a Firefox manifest). Right-click a link, selection, or page to save it; or click the toolbar icon for a quick-capture popup with a live screenshot option.
 
 ## Install it
 
@@ -8,6 +8,10 @@ Manifest V3 extension for Chrome/Edge/Brave (Chromium-based). Right-click a link
 https://chromewebstore.google.com/detail/feedstash-capture/kedkaohofjncmokoknimfofbnmgomcob (in Edge, allow
 extensions from other stores when it asks). Then click the toolbar icon → "Settings", enter your server URL and an API
 token, click **Save** and choose **Allow** when the browser asks to let it reach your server.
+
+**Firefox:** from Firefox Add-ons, https://addons.mozilla.org/firefox/addon/feedstash-capture/, then the same Settings
+steps. (A copy loaded by hand is only a temporary add-on, removed when Firefox restarts; FeedStash's
+`/downloads/feedstash-extension-firefox.zip` is the package that goes to Mozilla.)
 
 **Or load it yourself:** get the folder from FeedStash's **Settings → Apps → Browser extension** (the "Download it" link
 under the Chrome steps) and unzip it, or use the `clients/extension/` folder of a checkout (the one with this README).
@@ -31,7 +35,7 @@ A green badge flash on the toolbar icon means success; red means it failed (chec
 ## Notes
 
 - Firefox reads the same files with a slightly different manifest (background scripts instead of a service worker,
-  and an add-on id). FeedStash builds it for you: **Download for Firefox** in Settings → Apps.
+  and an add-on id). FeedStash builds that package at `/downloads/feedstash-extension-firefox.zip`.
 - The only site the extension can reach on its own is your FeedStash server, which it asks you to allow when you
   click **Save** or **Test connection** in its Settings. It reads the page you're saving with the one-time access a
   browser gives when you click its toolbar button or one of its right-click items, so it never asks for access to

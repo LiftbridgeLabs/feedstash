@@ -8,8 +8,8 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
 ### New
 - **The browser extension is on the Chrome Web Store**, for Chrome, Edge and Brave: Settings → Apps has a button
   for it, and it updates itself. Loading it from a download still works.
-- **The browser extension works in Firefox.** Settings → Apps has a Firefox download with its own steps, next to the
-  one for Chrome, Edge and Brave.
+- **The browser extension works in Firefox**, from Firefox Add-ons: Settings → Apps has a button for it, next to the
+  one for Chrome, Edge and Brave, and it updates itself.
 - **The extension saves into a folder** you pick, remembering the last one, and follows your system's light or dark
   look in FeedStash's colors. Snippets are called Notes there too, as in the web app.
 - **Delete a tag.** In Settings → Stash → Tags, check one or more tags and choose Delete to take them off every

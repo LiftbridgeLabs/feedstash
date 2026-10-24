@@ -207,3 +207,4 @@ def test_apps_says_when_the_address_is_local_and_when_the_worker_isnt_bundled(re
     assert "Cloudflare can't reach" in reader.js(cloudflare)
     assert reader.js("!!document.querySelector('a[href=\"/downloads/feedstash-extension.zip\"]')")
     assert reader.js("!!document.querySelector('a[href^=\"https://chromewebstore.google.com/detail/feedstash-capture/\"]')")
+    assert reader.js("!!document.querySelector('a[href=\"https://addons.mozilla.org/firefox/addon/feedstash-capture/\"]')")

@@ -31,6 +31,7 @@ function readRetentionOptions(current) {
 const REPO = 'https://github.com/LiftbridgeLabs/feedstash';
 const SUPPORT_EMAIL = 'support@liftbridgelabs.app';
 const COFFEE = 'https://buymeacoffee.com/liftbridgelabs';
+const FIREFOX_STORE = 'https://addons.mozilla.org/firefox/addon/feedstash-capture/';
 const CHROME_STORE = 'https://chromewebstore.google.com/detail/feedstash-capture/kedkaohofjncmokoknimfofbnmgomcob';
 
 let me = null;
@@ -125,7 +126,7 @@ export function showSettings({ switching = false } = {}) {
       copy.</p>
     <div class="org-actions">
       <a class="btn btn-sm btn-primary" href="${CHROME_STORE}" target="_blank" rel="noopener">Get it for Chrome, Edge or Brave</a>
-      <a class="btn btn-sm btn-primary" href="/downloads/feedstash-extension-firefox.zip" download>Download for Firefox</a>
+      <a class="btn btn-sm btn-primary" href="${FIREFOX_STORE}" target="_blank" rel="noopener">Get it for Firefox</a>
     </div>
     <p class="steps-title"><b>Chrome, Edge or Brave</b></p>
     <ol class="steps">
@@ -139,12 +140,9 @@ export function showSettings({ switching = false } = {}) {
       <code>brave://extensions</code> in Brave), turn on <b>Developer mode</b> and choose <b>Load unpacked</b>.</p>
     <p class="steps-title"><b>Firefox</b></p>
     <ol class="steps">
-      <li>Unzip the download. You get a folder called <b>feedstash-extension-firefox</b>.</li>
-      <li>Open <code>about:debugging#/runtime/this-firefox</code>, click <b>Load Temporary Add-on…</b> and choose
-        the <b>manifest.json</b> file inside that folder.</li>
-      <li>Firefox only keeps add-ons that Mozilla has signed, so it removes this one, settings and all, when Firefox
-        restarts: load it again and enter the address and token again. Keep the token somewhere safe, like your
-        password manager, since FeedStash shows it only once.</li>
+      <li>Click <b>Get it for Firefox</b>, then <b>Add to Firefox</b> on Firefox Add-ons, and <b>Add</b> when Firefox
+        asks.</li>
+      <li>Pin the FeedStash icon to the toolbar if you like. It updates itself from Firefox Add-ons.</li>
     </ol>
     <p class="steps-title"><b>Then, in any browser</b></p>
     <ol class="steps">
