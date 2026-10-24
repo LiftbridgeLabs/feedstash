@@ -1,5 +1,9 @@
 let currentType = 'link';
 let activeTab = null;
+const FOLDER_WAIT_MS = 5000;
+
+// Not until the popup knows its tab and folders: a click before then would save outside the remembered folder.
+document.getElementById('saveBtn').disabled = true;
 
 function updateFields() {
   document.querySelectorAll('.field[data-for]').forEach((f) => {
@@ -22,6 +26,14 @@ document.getElementById('optionsLink').addEventListener('click', (e) => {
 });
 
 async function init() {
+  try {
+    await prepare();
+  } finally {
+    document.getElementById('saveBtn').disabled = false;
+  }
+}
+
+async function prepare() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   activeTab = tab;
   document.getElementById('urlInput').value = tab.url || '';
@@ -37,19 +49,20 @@ async function init() {
     document.getElementById('status').textContent = NOT_ALLOWED;
     return;
   }
-  loadFolders(apiBaseUrl, apiToken);
+  await loadFolders(apiBaseUrl, apiToken);
 }
 init();
 
-/** Your stash folders, with the one you saved to last chosen. Saving works without them if they can't be loaded. */
+/** Your stash folders, with the one you saved to last chosen. Saving works without them if they can't be loaded, or
+    take more than a few seconds. */
 async function loadFolders(apiBaseUrl, apiToken) {
   const select = document.getElementById('folderSelect');
-  const saveBtn = document.getElementById('saveBtn');
-  // Not until the list is in: saving meanwhile would go to "No folder" and forget the last one.
-  saveBtn.disabled = true;
+  const timeout = new AbortController();
+  const timer = setTimeout(() => timeout.abort(), FOLDER_WAIT_MS);
   try {
     const folders = await feedstashFetch(`${apiBaseUrl.replace(/\/$/, '')}/api/stash/folders`, {
       headers: { Authorization: `Bearer ${apiToken}` },
+      signal: timeout.signal,
     });
     const { lastFolderId } = await chrome.storage.local.get('lastFolderId');
     for (const folder of [...folders].sort((a, b) => a.position - b.position)) {
@@ -60,9 +73,9 @@ async function loadFolders(apiBaseUrl, apiToken) {
     }
     if (lastFolderId && folders.some((f) => String(f.id) === lastFolderId)) select.value = lastFolderId;
   } catch {
-    // Keep "No folder": an older server, or the server unreachable, which saving will report.
+    // Keep "No folder": an older server, or the server unreachable or slow, which saving will report.
   } finally {
-    saveBtn.disabled = false;
+    clearTimeout(timer);
   }
 }
 

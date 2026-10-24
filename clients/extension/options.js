@@ -47,7 +47,10 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
     const { apiBaseUrl, warning } = readAddress();
     await allowServer(apiBaseUrl);
     const apiToken = document.getElementById('tokenInput').value.trim();
+    const before = await getSettings();
     await chrome.storage.local.set({ apiBaseUrl, apiToken });
+    // Folder ids belong to one server and account: another one's folder 3 isn't this one's.
+    if (before.apiBaseUrl !== apiBaseUrl || before.apiToken !== apiToken) await chrome.storage.local.remove('lastFolderId');
     status.textContent = 'Saved.' + warning;
   } catch (err) {
     status.textContent = err.message;

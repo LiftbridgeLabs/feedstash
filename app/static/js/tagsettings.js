@@ -10,6 +10,8 @@ import { $, $$, esc } from './util.js';
 
 const checked = new Set();
 let tags = [];
+/** Called after a merge, rename or delete, which can change or remove smart lists: Settings refreshes the sidebar. */
+let onChanged = () => {};
 
 export function tagsSectionHTML() {
   return `
@@ -96,6 +98,7 @@ async function mergeChecked(root) {
   if (!result || result === true) return;
   checked.clear();
   await loadTagSettings(root);
+  onChanged();
   toast(`Merged ${chosen.length} tags into #${result.name} (${result.items} item${result.items === 1 ? '' : 's'})`);
 }
 
@@ -111,6 +114,7 @@ async function renameChecked(root) {
   if (!result || result === true) return;
   checked.clear();
   await loadTagSettings(root);
+  onChanged();
   toast(result.merged ? `Merged #${tag.name} into #${result.name}` : `Renamed #${tag.name} to #${result.name}`);
 }
 
@@ -129,12 +133,14 @@ async function deleteChecked(root) {
   if (!result || result === true) return;
   checked.clear();
   await loadTagSettings(root);
+  onChanged();
   const also = [result.lists && `${result.lists} smart list${result.lists === 1 ? '' : 's'}`,
     result.rules && `${result.rules} rule${result.rules === 1 ? '' : 's'}`].filter(Boolean);
   toast(`Deleted ${chosen.length === 1 ? `#${chosen[0].name}` : `${result.tags} tags`} from ${result.items} item${result.items === 1 ? '' : 's'}${also.length ? `, and ${also.join(' and ')}` : ''}`);
 }
 
-export function wireTagSettings(root) {
+export function wireTagSettings(root, changed = () => {}) {
+  onChanged = changed;
   root.addEventListener('change', (e) => {
     const box = e.target.closest('[data-tag-settings]');
     const name = e.target.dataset?.tagName;

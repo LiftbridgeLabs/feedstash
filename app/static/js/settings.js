@@ -657,7 +657,14 @@ export function wireSettings() {
   wireLogs(els.settings);
   wireSignIn(els.settings);
   wireRules(els.settings);
-  wireTagSettings(els.settings);
+  wireTagSettings(els.settings, async () => {
+    try {
+      state.stash.summary = await api('GET', '/api/stash/summary'); // smart lists a tag change edited or removed
+      renderNav();
+    } catch {
+      /* the sidebar catches up on the next refresh */
+    }
+  });
   els.settings.addEventListener('change', (e) => {
     if (e.target.matches('[data-settings-field=read-retention]')) saveReadRetention(e.target);
     if (e.target.matches('[data-settings-field=sections]')) saveSections(e.target);

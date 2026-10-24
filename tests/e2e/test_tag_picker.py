@@ -68,6 +68,9 @@ def test_settings_tags_merge_the_checked_ones_into_one(reader):
 def test_settings_tags_delete_the_checked_ones(reader):
     for title, tags in (("One", ["recipes", "dinner"]), ("Two", ["recipes"])):
         reader.js(f"reader.api('POST', '/api/items', {{type: 'snippet', title: '{title}', content: 'x', tags: {tags!r}}})")
+    reader.js("reader.api('POST', '/api/stash/lists', {name: 'Recipe list', tag: 'recipes'})")
+    reader.js("location.reload()")
+    assert reader.wait_for("!!window.reader && document.querySelector('#sidebar, nav, body').textContent.includes('Recipe list')", timeout=20)
     reader.js("location.hash = '#/settings/stash'")
     box = "document.querySelector('[data-tag-settings]')"
     assert reader.wait_for(f"!!{box}?.querySelector('[data-tag-name=recipes]')", timeout=20)
@@ -80,3 +83,5 @@ def test_settings_tags_delete_the_checked_ones(reader):
     assert reader.wait_for("document.body.textContent.includes('Deleted #recipes from 2 items')")
     rows = "[...document.querySelectorAll('[data-tag-name]')].map(c => c.dataset.tagName).join()"
     assert reader.wait_for(f"{rows} === 'dinner'")
+    # The smart list that only showed #recipes is gone from the sidebar too, without a reload.
+    assert reader.wait_for("!document.body.textContent.includes('Recipe list')")
