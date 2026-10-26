@@ -239,8 +239,11 @@ export async function discoverDialog() {
         const all = e.target.closest('[data-follow-pack]');
         if (!all) return;
         all.disabled = true;
+        const done = $('[type=submit]', dialog);
+        done.disabled = true;  // so the sidebar is refreshed after the whole pack, not partway through
         // One at a time: each follow checks the feed, and a site shouldn't see a burst from one server.
         for (const button of $$('[data-follow-url]', all.closest('.discover-pack'))) await follow(button);
+        done.disabled = false;
         all.remove();
       });
     },
