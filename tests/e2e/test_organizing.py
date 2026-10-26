@@ -123,3 +123,15 @@ def test_organize_has_a_way_back_to_settings(reader):
     reader.js("document.querySelector('[data-org-back]').click()")
     # Back to the Feeds group, where the Organize link is.
     assert reader.wait_for("location.hash === '#/settings/feeds' && !document.querySelector('#settings').hidden && !document.querySelector('[data-group=feeds]').hidden")
+
+
+def test_feed_info_from_a_feeds_menu(reader, subscriptions):
+    feed_id = subscriptions.tech["id"]
+    row = f"document.querySelector('[data-feed=\"{feed_id}\"]')"
+    assert reader.wait_for(f"!!{row}")
+    reader.js(f"reader.openContextMenu('feed', {feed_id}, {row})")
+    reader.js("[...document.querySelectorAll('#context-menu button')].find(b => b.textContent === 'Feed info').click()")
+    assert reader.wait_for("document.querySelector('dialog[open] .feed-info')?.textContent.includes('Posts')")
+    text = reader.js("document.querySelector('dialog[open]').textContent")
+    assert "Test Tech" in text and "Feed address" in text and "Last checked" in text
+    assert reader.js("document.querySelector('dialog[open] [data-cancel]').hidden") is True

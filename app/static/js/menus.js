@@ -1,7 +1,7 @@
 /* The toolbar (refresh, mark-as-read menu, view options) and the sidebar's ⋯ context menus. */
 
 import {
-  addFeedDialog, deleteFolder, markScope, moveFeedDialog, refresh, renameFeed, renameFolder, unfollowFeed,
+  addFeedDialog, deleteFolder, markScope, moveFeedDialog, refresh, renameFeed, renameFolder, showFeedInfo, unfollowFeed,
 } from './actions.js';
 import { api } from './api.js';
 import { flushMarks, resetList } from './articles.js';
@@ -87,6 +87,7 @@ function feedMenuItems(id) {
   const at = siblings.indexOf(id);
   const items = [
     ...markItems('feed', id),
+    ['Feed info', () => showFeedInfo(id)],
     ['Rename', () => renameFeed(id)],
     ['Move to folder…', () => moveFeedDialog(id)],
   ];

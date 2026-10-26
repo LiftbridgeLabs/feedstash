@@ -2,7 +2,7 @@ import sqlite3
 from collections.abc import Sequence
 
 from app.clock import now
-from app.db.models import Feed, FeedFetchState, Scope
+from app.db.models import Feed, FeedFetchState, FeedStats, Scope
 from app.db.repositories import folders as folders_repo
 from app.db.repositories._common import clean_name, next_position, ordered_ids
 from app.errors import Conflict, NotFound
@@ -38,6 +38,26 @@ def get(conn: sqlite3.Connection, user_id: int, feed_id: int) -> Feed:
     if row is None:
         raise NotFound("Feed not found")
     return _feed(row)
+
+
+STATS_DAYS = 28
+
+
+def stats(conn: sqlite3.Connection, user_id: int, feed_id: int, *, now: int, read_retention_days: int) -> FeedStats:
+    """A feed's last four weeks: how much it posted and how much of that was read, starred or saved. Read articles
+    older than the account's read retention are gone, so a shorter retention means a shorter window."""
+    get(conn, user_id, feed_id)  # yours, or NotFound
+    window = min(STATS_DAYS, read_retention_days) if read_retention_days > 0 else STATS_DAYS
+    since = now - window * 86_400
+    row = conn.execute(
+        """SELECT COUNT(*) AS posted, COUNT(read_at) AS read, COUNT(starred_at) AS starred
+           FROM articles WHERE feed_id = ? AND published_at >= ?""",
+        (feed_id, since),
+    ).fetchone()
+    saved = conn.execute(
+        "SELECT COUNT(*) FROM items WHERE user_id = ? AND feed_id = ? AND created_at >= ?", (user_id, feed_id, since)
+    ).fetchone()[0]
+    return FeedStats(window_days=window, posted=row["posted"], read=row["read"], starred=row["starred"], saved=saved)
 
 
 def is_followed(conn: sqlite3.Connection, user_id: int, url: str) -> bool:

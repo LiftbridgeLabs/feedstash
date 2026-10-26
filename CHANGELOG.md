@@ -8,6 +8,8 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
 ### New
 - **Right-click saves say whether they worked.** A short note on the page says it was saved, or why it wasn't, and
   if the extension isn't set up yet, right-clicking opens its Settings to finish that first.
+- **Feed info.** A feed's menu has Feed info: how often it posts, how much of it you read, starred or saved, when it
+  last brought something new and its addresses, to help you decide which feeds to keep.
 - **Videos and photo galleries in articles.** A YouTube video in a feed now shows as its picture with a link to watch
   it (Vimeo as a link), where it used to vanish, and several photos in a row become a strip you swipe through. This
   applies to articles that arrive after you update.

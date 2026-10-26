@@ -272,6 +272,7 @@ Read state lives on the server, so every device sees the same thing; there's no 
 - `POST /api/tags/rename` `{name, newName}` → `{name, items, merged}`: renames a tag on every item; naming an existing tag merges the two. Smart lists and rules that use the old name follow it.
 - `POST /api/tags/merge` `{names, into}` → `{name, items, merged}`: replaces several tags with one on every item, in one go; `into` can be one of them or a new name.
 - `POST /api/tags/delete` `{names}` → `{items, tags, lists, rules}`: takes tags off every item, archived ones too. Smart lists that filtered only on them and rules that only added them are deleted; others stop using them.
+- `GET /api/feeds/{id}/stats` → `{window_days, posted, posts_per_week, read, starred, saved}`: what a feed posted in the last four weeks (less with a short read retention) and how much of it was read, starred or saved to the stash.
 - `GET/POST /api/tokens`, `PATCH /api/tokens/{id}` `{clientName}` (rename), `DELETE /api/tokens/{id}`
 - `GET /uploads/{name}`
 

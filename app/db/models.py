@@ -73,6 +73,16 @@ class Feed:
 
 
 @dataclass(frozen=True, slots=True)
+class FeedStats:
+    """What a feed brought in a recent window, and what became of it."""
+    window_days: int
+    posted: int  # articles published in the window
+    read: int  # of those, read (or marked read)
+    starred: int
+    saved: int  # stash items saved from it in the window
+
+
+@dataclass(frozen=True, slots=True)
 class FeedFetchState:
     """What the refresher needs to know about a feed."""
 

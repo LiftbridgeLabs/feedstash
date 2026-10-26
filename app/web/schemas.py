@@ -166,6 +166,15 @@ class FeedOut(BaseModel):
     last_new_at: int | None = None  # when it last brought in a new article, to spot feeds that went quiet
 
 
+class FeedStatsOut(BaseModel):
+    window_days: int  # the stats cover this many days back (four weeks, less with a short read retention)
+    posted: int
+    posts_per_week: float
+    read: int
+    starred: int
+    saved: int  # stash items saved from it
+
+
 class TreeOut(BaseModel):
     folders: list[FolderOut]
     feeds: list[FeedOut]

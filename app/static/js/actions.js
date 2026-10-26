@@ -8,7 +8,7 @@ import { reorderFeeds } from './ordering.js';
 import { applyRoute, navigate } from './router.js';
 import { loadTree } from './sidebar.js';
 import { feedById, feedIdsIn, feedsInScope, folderById, state } from './state.js';
-import { $, esc, hoursLabel, plural } from './util.js';
+import { $, agoLong, esc, hoursLabel, plural } from './util.js';
 
 /* ---- marking read & refreshing */
 
@@ -188,6 +188,42 @@ export async function addFeedDialog() {
   await loadTree();
   navigate(`#/feed/${feed.id}`);
   toast(`Following ${feed.title}`);
+}
+
+/** How much a feed posts and how much of it you read, starred or saved: for deciding whether to keep it. */
+export async function showFeedInfo(id) {
+  const feed = feedById(id);
+  if (!feed) return;
+  let stats;
+  try {
+    stats = await api('GET', `/api/feeds/${id}/stats`);
+  } catch (err) {
+    toast(err.message, { error: true });
+    return;
+  }
+  const span = stats.window_days === 28 ? 'the last 4 weeks' : `the last ${plural(stats.window_days, 'day')}`;
+  const share = stats.posted ? ` (${Math.round((stats.read / stats.posted) * 100)}%)` : '';
+  const link = (url) => `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>`;
+  const rows = [
+    ['Posts', stats.posted ? `About ${stats.posts_per_week} a week, ${plural(stats.posted, 'article')} in ${span}`
+      : `Nothing in ${span}`],
+    ['You', stats.posted ? `Read ${stats.read} of them${share} · starred ${stats.starred} · saved ${stats.saved} to your stash`
+      : `Saved ${stats.saved} to your stash`],
+    ['Last received', feed.last_new_at ? agoLong(feed.last_new_at) : 'Nothing yet'],
+    ['Last checked', feed.last_fetched_at ? agoLong(feed.last_fetched_at) : 'Not yet'],
+  ];
+  if (feed.last_error) rows.push(['Problem', feed.last_error]);
+  // Escaped below like the rest; these two are links built here from escaped addresses.
+  const links = [['Feed address', link(feed.url)]];
+  if (feed.site_url) links.push(['Website', link(feed.site_url)]);
+  await modal({
+    title: feed.title,
+    confirmText: 'Done',
+    html: `<dl class="feed-info">${rows.map(([label, value]) => `<dt>${esc(label)}</dt><dd>${esc(value)}</dd>`).join('')}${
+      links.map(([label, value]) => `<dt>${esc(label)}</dt><dd>${value}</dd>`).join('')}</dl>
+      <p class="muted">Read counts include articles you marked read without opening.</p>`,
+    onOpen: (dialog) => { $('[data-cancel]', dialog).hidden = true; },
+  });
 }
 
 export async function renameFeed(id) {

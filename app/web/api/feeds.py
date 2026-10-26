@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from starlette.concurrency import run_in_threadpool
 
 from app.db.models import Scope
+from app.clock import now
 from app.db.repositories import feeds as feeds_repo
 from app.feeds import ingest
 from app.services import subscriptions
@@ -9,6 +10,7 @@ from app.web.deps import DatabaseDep, SettingsDep, UserDep
 from app.web.schemas import (
     FeedOrderOut,
     FeedOut,
+    FeedStatsOut,
     FeedReorderIn,
     FeedUpdateIn,
     FollowIn,
@@ -54,6 +56,17 @@ async def update_feed(feed_id: int, body: FeedUpdateIn, user: UserDep, db: Datab
             return to_schema(FeedOut, feeds_repo.get(conn, user.id, feed_id))
 
     return await run_in_threadpool(apply_rest)
+
+
+@router.get("/feeds/{feed_id}/stats", response_model=FeedStatsOut)
+def feed_stats(feed_id: int, user: UserDep, db: DatabaseDep) -> FeedStatsOut:
+    """How much a feed posted lately, and how much of it was read, starred or saved: for pruning feeds."""
+    with db.transaction() as conn:
+        stats = feeds_repo.stats(conn, user.id, feed_id, now=now(), read_retention_days=user.read_retention_days)
+    return FeedStatsOut(
+        window_days=stats.window_days, posted=stats.posted, posts_per_week=round(stats.posted * 7 / stats.window_days, 1),
+        read=stats.read, starred=stats.starred, saved=stats.saved,
+    )
 
 
 @router.delete("/feeds/{feed_id}", response_model=OkOut)
