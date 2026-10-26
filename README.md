@@ -143,7 +143,7 @@ The image runs on amd64 and arm64. It starts as root just long enough to give `/
 
 ### unRAID
 
-Use the template in `deploy/unraid/feedstash.xml`: copy it to `/boot/config/plugins/dockerMan/templates-user/my-feedstash.xml`, then **Docker → Add Container** and pick **feedstash**. Or add the container by hand:
+Use the template in `deploy/unraid/feedstash.xml`: copy it to `/boot/config/plugins/dockerMan/templates-user/my-feedstash.xml`, then **Docker → Add Container** and pick **feedstash**. Google and single sign-on are set up after install, in **Settings → Admin → Sign-in**, so the template leaves out the server settings for them; add `GOOGLE_*`, `OIDC_*` or `ALLOWED_*` as variables if you'd rather set sign-in on the server. Or add the container by hand:
 
 | Field | Value |
 |---|---|
