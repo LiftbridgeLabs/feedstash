@@ -11,13 +11,14 @@ function updateFields() {
   });
 }
 
+function selectType(type) {
+  document.querySelectorAll('.type-btn').forEach((b) => b.classList.toggle('active', b.dataset.type === type));
+  currentType = type;
+  updateFields();
+}
+
 document.querySelectorAll('.type-btn').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.type-btn').forEach((b) => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentType = btn.dataset.type;
-    updateFields();
-  });
+  btn.addEventListener('click', () => selectType(btn.dataset.type));
 });
 
 document.getElementById('optionsLink').addEventListener('click', (e) => {
@@ -34,10 +35,20 @@ async function init() {
 }
 
 async function prepare() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  // Opened by "Save to FeedStash…" in the right-click menu: that tab, and the link or text clicked on.
+  const pending = await chrome.runtime.sendMessage({ type: 'pending-capture' }).catch(() => null);
+  const [tab] = pending?.tab ? [pending.tab] : await chrome.tabs.query({ active: true, currentWindow: true });
   activeTab = tab;
   document.getElementById('urlInput').value = tab.url || '';
   document.getElementById('titleInput').value = tab.title || '';
+  if (pending?.selectionText) {
+    document.getElementById('contentInput').value = pending.selectionText;
+    selectType('snippet');
+  } else if (pending?.linkUrl) {
+    document.getElementById('urlInput').value = pending.linkUrl;
+    // Left empty unless the browser gives the link's text: FeedStash then uses the linked page's title.
+    document.getElementById('titleInput').value = pending.linkText || '';
+  }
   updateFields();
 
   const { apiBaseUrl, apiToken } = await getSettings();

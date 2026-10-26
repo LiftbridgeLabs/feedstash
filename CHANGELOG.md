@@ -3,6 +3,14 @@
 What changed in each FeedStash release, newest first. Before you update, check **Before you update** for anything
 to do first, like taking a backup. Admins see the rest of a release's notes in FeedStash after updating.
 
+## Unreleased
+
+### New
+- **Right-click saves say whether they worked.** A short note on the page says it was saved, or why it wasn't, and
+  if the extension isn't set up yet, right-clicking opens its Settings to finish that first.
+- **Save to FeedStash… in the right-click menu** opens the extension's form already filled in with the link, the text
+  you selected or the page, so you can add tags, a folder or a note before saving.
+
 ## 0.10.0
 
 ### New

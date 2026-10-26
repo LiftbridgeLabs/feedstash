@@ -5,6 +5,13 @@ async function load() {
   let appearance = 'auto';
   try { appearance = localStorage.getItem('appearance') || 'auto'; } catch { /* storage blocked */ }
   document.getElementById('appearanceSelect').value = appearance;
+  // Opened by a right-click save that couldn't go through yet: say what's missing.
+  const status = document.getElementById('status');
+  if (!apiBaseUrl || !apiToken) {
+    status.textContent = 'Enter your server address and a token, then click Save, to start saving to FeedStash.';
+  } else if (!(await serverAllowed(apiBaseUrl))) {
+    status.textContent = 'Click Save and choose Allow, so FeedStash Capture can reach your server.';
+  }
 }
 load();
 
