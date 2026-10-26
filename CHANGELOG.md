@@ -3,26 +3,30 @@
 What changed in each FeedStash release, newest first. Before you update, check **Before you update** for anything
 to do first, like taking a backup. Admins see the rest of a release's notes in FeedStash after updating.
 
-## Unreleased
+## 0.10.0
 
 ### New
-- **The browser extension is on the Chrome Web Store**, for Chrome, Edge and Brave: Settings → Apps has a button
-  for it, and it updates itself. Loading it from a download still works.
-- **The browser extension works in Firefox**, from Firefox Add-ons: Settings → Apps has a button for it, next to the
-  one for Chrome, Edge and Brave, and it updates itself.
-- **The extension saves into a folder** you pick, remembering the last one, and follows your system's light or dark
-  look in FeedStash's colors. Snippets are called Notes there too, as in the web app.
+- **Get the browser extension from the store.** FeedStash Capture is now on the Chrome Web Store (for Chrome, Edge
+  and Brave) and on Firefox Add-ons. Settings → Apps has a button for each. It installs in one click, keeps its
+  settings, and updates itself.
+- **The extension asks for less.** It no longer asks for access to every website, only for your FeedStash server,
+  when you set it up. It reads the page you're saving only when you click its button or menu.
+- **Save into a folder from the extension.** Pick a folder when you save, and it remembers the last one. The
+  extension also follows your system's light or dark look in FeedStash's colors, and snippets are called Notes there
+  too, as in the web app.
 - **Delete a tag.** In Settings → Stash → Tags, check one or more tags and choose Delete to take them off every
   item. A smart list that only showed that tag, or a rule that only added it, goes too.
-- **Rename a token.** Each one under Settings → Apps → Connected apps has a Rename button, so "Phone or iPad" can
+- **Rename a token.** Each token under Settings → Apps → Connected apps has a Rename button, so "Phone or iPad" can
   become "the kitchen iPad" and you know which one to revoke. The app using it stays connected.
-- **The extension no longer asks for access to every website.** It asks only to reach your FeedStash server, when you
-  set it up, and reads the page you're saving only when you click its button or menu.
+- **Buy me a coffee.** Settings → Admin → About has a link, if FeedStash is useful to you.
+
+### Before you update
+- As always, it's a good idea to back up before updating. This release doesn't change the database.
 
 ### After you update
-- If you loaded the browser extension yourself in Chrome, Edge or Brave, switch to the Chrome Web Store version from
-  Settings → Apps: remove the old one, add it from the store, then enter your address and token in its Settings and
-  click **Save**, choosing **Allow** when the browser asks to let it reach your server.
+- If you loaded the browser extension yourself, switch to the store version from Settings → Apps. Remove the old one
+  and add it from the store. Then open its Settings, enter your server address and token, click **Save**, and choose
+  **Allow** when the browser asks to let it reach your server.
 
 ## 0.9.0
 
