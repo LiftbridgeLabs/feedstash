@@ -166,6 +166,26 @@ class FeedOut(BaseModel):
     last_new_at: int | None = None  # when it last brought in a new article, to spot feeds that went quiet
 
 
+class DiscoverFeedOut(BaseModel):
+    title: str
+    url: str
+    site: str
+    about: str
+    cadence: str
+    followed: bool  # already followed, on either http:// or https://
+
+
+class DiscoverPackOut(BaseModel):
+    id: str
+    name: str
+    description: str
+    feeds: list[DiscoverFeedOut]
+
+
+class DiscoverOut(BaseModel):
+    packs: list[DiscoverPackOut]
+
+
 class FeedStatsOut(BaseModel):
     window_days: int  # the stats cover this many days back (four weeks, less with a short read retention)
     posted: int

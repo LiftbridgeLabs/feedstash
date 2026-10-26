@@ -1,6 +1,6 @@
 /* The sidebar: folders and feeds with unread counts, collapsing, and drag-and-drop ordering. */
 
-import { addFeedDialog, moveFeed, newFolder } from './actions.js';
+import { addFeedDialog, discoverDialog, moveFeed, newFolder } from './actions.js';
 import { api } from './api.js';
 import { icon } from './icons.js';
 import { closeMenus, openContextMenu, openMenu } from './menus.js';
@@ -91,7 +91,7 @@ export function renderNav() {
 
   if (showsFeeds()) html += feedFoldersHTML(folders, feeds, folderBlock);
   if (showsFeeds() && !feeds.length && !folders.length) {
-    html += `<div class="nav-empty">You're not following anything yet. Use <b>+ Add → Follow a feed</b>, or bring
+    html += `<div class="nav-empty">You're not following anything yet. Use <b>+ Add → Discover feeds</b> or <b>Follow a feed</b>, or bring
       feeds in from Feedly or an OPML file under <a href="#/settings/feeds">Settings</a>.</div>`;
   }
 
@@ -170,6 +170,7 @@ export function wireNav() {
     if (feedsMenu) {
       return openMenu([
         ['Follow a feed…', () => addFeedDialog()],
+        ['Discover feeds…', () => discoverDialog()],
         ['New folder…', () => newFolder()],
       ], feedsMenu);
     }

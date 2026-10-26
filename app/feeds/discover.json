@@ -1,0 +1,93 @@
+{
+  "packs": [
+    {
+      "id": "apple",
+      "name": "Apple",
+      "description": "News, rumors and opinion about Apple and its devices.",
+      "feeds": [
+        {"title": "9to5Mac", "url": "https://9to5mac.com/feed/", "site": "https://9to5mac.com/", "about": "Apple news and how-tos.", "cadence": "Many a day"},
+        {"title": "MacRumors", "url": "https://www.macrumors.com/macrumors.xml", "site": "https://www.macrumors.com/", "about": "Apple news and rumors.", "cadence": "Many a day"},
+        {"title": "AppleInsider", "url": "https://appleinsider.com/rss/news/", "site": "https://appleinsider.com/", "about": "Apple news, reviews and deals.", "cadence": "Many a day"},
+        {"title": "Six Colors", "url": "https://sixcolors.com/feed/", "site": "https://sixcolors.com/", "about": "Jason Snell and friends on Apple and technology.", "cadence": "Daily"},
+        {"title": "Daring Fireball", "url": "https://daringfireball.net/feeds/main", "site": "https://daringfireball.net/", "about": "John Gruber on Apple and technology.", "cadence": "A few a day"}
+      ]
+    },
+    {
+      "id": "tech",
+      "name": "Tech",
+      "description": "The big technology news sites, and what developers are reading.",
+      "feeds": [
+        {"title": "The Verge", "url": "https://www.theverge.com/rss/index.xml", "site": "https://www.theverge.com/", "about": "Technology, science and culture.", "cadence": "Many a day"},
+        {"title": "Ars Technica", "url": "https://feeds.arstechnica.com/arstechnica/index", "site": "https://arstechnica.com/", "about": "In-depth technology and science.", "cadence": "Many a day"},
+        {"title": "TechCrunch", "url": "https://techcrunch.com/feed/", "site": "https://techcrunch.com/", "about": "Startups and the tech business.", "cadence": "Many a day"},
+        {"title": "Engadget", "url": "https://www.engadget.com/rss.xml", "site": "https://www.engadget.com/", "about": "Gadgets and consumer tech.", "cadence": "Many a day"},
+        {"title": "Hacker News", "url": "https://news.ycombinator.com/rss", "site": "https://news.ycombinator.com/", "about": "The front page of Hacker News.", "cadence": "Constantly"}
+      ]
+    },
+    {
+      "id": "selfhosting",
+      "name": "Self-hosting",
+      "description": "Running your own apps and servers at home.",
+      "feeds": [
+        {"title": "selfh.st", "url": "https://selfh.st/rss/", "site": "https://selfh.st/", "about": "Self-Host Weekly and news about self-hosted apps.", "cadence": "A few a week"},
+        {"title": "r/selfhosted", "url": "https://www.reddit.com/r/selfhosted/.rss", "site": "https://www.reddit.com/r/selfhosted/", "about": "The self-hosting community on Reddit.", "cadence": "Constantly"},
+        {"title": "Noted", "url": "https://noted.lol/rss/", "site": "https://noted.lol/", "about": "Guides and reviews of self-hosted apps.", "cadence": "A few a week"},
+        {"title": "Jeff Geerling", "url": "https://www.jeffgeerling.com/blog.xml", "site": "https://www.jeffgeerling.com/", "about": "Homelabs, Raspberry Pi and open source.", "cadence": "A few a month"},
+        {"title": "FeedStash releases", "url": "https://github.com/LiftbridgeLabs/feedstash/releases.atom", "site": "https://github.com/LiftbridgeLabs/feedstash", "about": "What's new in each FeedStash release.", "cadence": "Every few weeks"}
+      ]
+    },
+    {
+      "id": "cooking",
+      "name": "Cooking",
+      "description": "Recipes and kitchen know-how.",
+      "feeds": [
+        {"title": "Smitten Kitchen", "url": "https://smittenkitchen.com/feed/", "site": "https://smittenkitchen.com/", "about": "Home-cooking recipes from Deb Perelman.", "cadence": "A few a month"},
+        {"title": "Budget Bytes", "url": "https://www.budgetbytes.com/feed/", "site": "https://www.budgetbytes.com/", "about": "Recipes that don't cost much.", "cadence": "A few a week"},
+        {"title": "The Kitchn", "url": "https://www.thekitchn.com/main.rss", "site": "https://www.thekitchn.com/", "about": "Recipes, cooking tips and kitchens.", "cadence": "Many a day"},
+        {"title": "Bon Appétit", "url": "https://www.bonappetit.com/feed/rss", "site": "https://www.bonappetit.com/", "about": "Recipes and food culture.", "cadence": "Several a day"},
+        {"title": "101 Cookbooks", "url": "https://www.101cookbooks.com/feed", "site": "https://www.101cookbooks.com/", "about": "Vegetarian recipes from Heidi Swanson.", "cadence": "A few a month"},
+        {"title": "Minimalist Baker", "url": "https://minimalistbaker.com/feed/", "site": "https://minimalistbaker.com/", "about": "Simple recipes with ten ingredients or fewer.", "cadence": "Weekly"}
+      ]
+    },
+    {
+      "id": "science",
+      "name": "Science & space",
+      "description": "Discoveries, research and what's happening in space.",
+      "feeds": [
+        {"title": "Quanta Magazine", "url": "https://www.quantamagazine.org/feed/", "site": "https://www.quantamagazine.org/", "about": "Math, physics, biology and computer science, explained.", "cadence": "A few a week"},
+        {"title": "NASA", "url": "https://www.nasa.gov/feed/", "site": "https://www.nasa.gov/", "about": "News from NASA.", "cadence": "Daily"},
+        {"title": "ScienceDaily", "url": "https://www.sciencedaily.com/rss/all.xml", "site": "https://www.sciencedaily.com/", "about": "The latest research news.", "cadence": "Many a day"},
+        {"title": "Space.com", "url": "https://www.space.com/feeds/all", "site": "https://www.space.com/", "about": "Space news, skywatching and missions.", "cadence": "Many a day"}
+      ]
+    },
+    {
+      "id": "news",
+      "name": "World news",
+      "description": "Headlines from around the world.",
+      "feeds": [
+        {"title": "BBC News: World", "url": "https://feeds.bbci.co.uk/news/world/rss.xml", "site": "https://www.bbc.com/news/world", "about": "World news from the BBC.", "cadence": "Many a day"},
+        {"title": "NPR News", "url": "https://feeds.npr.org/1001/rss.xml", "site": "https://www.npr.org/", "about": "Top stories from NPR.", "cadence": "Many a day"},
+        {"title": "The Guardian: World", "url": "https://www.theguardian.com/world/rss", "site": "https://www.theguardian.com/world", "about": "World news from The Guardian.", "cadence": "Many a day"}
+      ]
+    },
+    {
+      "id": "web",
+      "name": "Web & design",
+      "description": "Building and designing for the web.",
+      "feeds": [
+        {"title": "Smashing Magazine", "url": "https://www.smashingmagazine.com/feed/", "site": "https://www.smashingmagazine.com/", "about": "Web design and development.", "cadence": "A few a week"},
+        {"title": "CSS-Tricks", "url": "https://css-tricks.com/feed/", "site": "https://css-tricks.com/", "about": "CSS and front-end development.", "cadence": "Now and then"}
+      ]
+    },
+    {
+      "id": "curious",
+      "name": "Curious reads",
+      "description": "Interesting things from around the web.",
+      "feeds": [
+        {"title": "Kottke", "url": "https://www.kottke.org/index.xml", "site": "https://kottke.org/", "about": "Jason Kottke's long-running blog of interesting things.", "cadence": "Several a day"},
+        {"title": "Atlas Obscura", "url": "https://www.atlasobscura.com/feeds/latest", "site": "https://www.atlasobscura.com/", "about": "Unusual places, food and history.", "cadence": "Several a day"},
+        {"title": "xkcd", "url": "https://xkcd.com/atom.xml", "site": "https://xkcd.com/", "about": "A webcomic of romance, sarcasm, math and language.", "cadence": "Three a week"}
+      ]
+    }
+  ]
+}

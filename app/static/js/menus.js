@@ -1,7 +1,7 @@
 /* The toolbar (refresh, mark-as-read menu, view options) and the sidebar's ⋯ context menus. */
 
 import {
-  addFeedDialog, deleteFolder, markScope, moveFeedDialog, refresh, renameFeed, renameFolder, showFeedInfo, unfollowFeed,
+  addFeedDialog, deleteFolder, discoverDialog, markScope, moveFeedDialog, refresh, renameFeed, renameFolder, showFeedInfo, unfollowFeed,
 } from './actions.js';
 import { api } from './api.js';
 import { flushMarks, resetList } from './articles.js';
@@ -199,6 +199,7 @@ export function wireToolbar() {
     if (!choice) return;
     closeMenus();
     if (choice === 'save') captureDialog();
+    else if (choice === 'discover') discoverDialog();
     else addFeedDialog();
   });
   $('#capture-btn').addEventListener('click', () => captureDialog());
@@ -239,6 +240,7 @@ export function setPref(key, value) {
 export function applySections() {
   $('#add-menu [data-add="save"]').hidden = !showsStash();
   $('#add-menu [data-add="follow"]').hidden = !showsFeeds();
+  $('#add-menu [data-add="discover"]').hidden = !showsFeeds();
   $('#capture-btn').hidden = !showsStash();
 }
 

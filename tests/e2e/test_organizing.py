@@ -135,3 +135,13 @@ def test_feed_info_from_a_feeds_menu(reader, subscriptions):
     text = reader.js("document.querySelector('dialog[open]').textContent")
     assert "Test Tech" in text and "Feed address" in text and "Last checked" in text
     assert reader.js("document.querySelector('dialog[open] [data-cancel]').hidden") is True
+
+
+def test_discover_feeds_lists_starter_packs(reader):
+    reader.js("document.querySelector('[data-dropdown=\"add-menu\"]').click()")
+    reader.js("document.querySelector('#add-menu [data-add=\"discover\"]').click()")
+    assert reader.wait_for("document.querySelectorAll('dialog[open] .discover-pack').length >= 5")
+    text = reader.js("document.querySelector('dialog[open]').textContent")
+    assert "Apple" in text and "Self-hosting" in text and "Follow all" in text
+    assert reader.js("document.querySelectorAll('dialog[open] [data-follow-url]').length") >= 20
+    assert reader.js("document.querySelector('dialog[open] [data-cancel]').hidden") is True

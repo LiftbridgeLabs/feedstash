@@ -8,7 +8,7 @@ import { reorderFeeds } from './ordering.js';
 import { applyRoute, navigate } from './router.js';
 import { loadTree } from './sidebar.js';
 import { feedById, feedIdsIn, feedsInScope, folderById, state } from './state.js';
-import { $, agoLong, esc, hoursLabel, plural } from './util.js';
+import { $, $$, agoLong, esc, hoursLabel, plural } from './util.js';
 
 /* ---- marking read & refreshing */
 
@@ -188,6 +188,66 @@ export async function addFeedDialog() {
   await loadTree();
   navigate(`#/feed/${feed.id}`);
   toast(`Following ${feed.title}`);
+}
+
+/** Starter packs of feeds (the server's discover.json): follow one feed or a whole pack, each into a folder named
+    after its pack. */
+export async function discoverDialog() {
+  let packs;
+  try {
+    ({ packs } = await api('GET', '/api/discover'));
+  } catch (err) {
+    toast(err.message, { error: true });
+    return;
+  }
+  const feedRow = (pack, feed) => `<li>
+      <div class="grow"><b>${esc(feed.title)}</b> <span class="muted">· ${esc(feed.cadence)}</span>
+        <div class="muted">${esc(feed.about)}</div></div>
+      ${feed.followed ? '<span class="muted">Following</span>'
+        : `<button type="button" class="btn btn-sm" data-follow-url="${esc(feed.url)}" data-pack="${esc(pack.name)}">Follow</button>`}
+    </li>`;
+  let followed = 0;
+  await modal({
+    title: 'Discover feeds',
+    confirmText: 'Done',
+    html: `<p class="muted">Feeds to start with, in packs. Each one you follow goes into a folder named after its pack.</p>
+      ${packs.map((pack) => `<section class="discover-pack">
+        <div class="discover-head"><div class="grow"><h3>${esc(pack.name)}</h3><p class="muted">${esc(pack.description)}</p></div>
+          ${pack.feeds.some((f) => !f.followed) ? `<button type="button" class="btn btn-sm" data-follow-pack="${esc(pack.id)}">Follow all</button>` : ''}</div>
+        <ul>${pack.feeds.map((feed) => feedRow(pack, feed)).join('')}</ul>
+      </section>`).join('')}`,
+    onOpen: (dialog) => {
+      $('[data-cancel]', dialog).hidden = true;
+      const follow = async (button) => {
+        button.disabled = true;
+        button.textContent = 'Following…';
+        try {
+          await api('POST', '/api/feeds', { url: button.dataset.followUrl, folder_name: button.dataset.pack });
+          button.replaceWith(Object.assign(document.createElement('span'), { className: 'muted', textContent: 'Following' }));
+          followed += 1;
+          return true;
+        } catch (err) {
+          button.disabled = false;
+          button.textContent = 'Try again';
+          toast(err.message, { error: true });
+          return false;
+        }
+      };
+      dialog.addEventListener('click', async (e) => {
+        const one = e.target.closest('[data-follow-url]');
+        if (one) return follow(one);
+        const all = e.target.closest('[data-follow-pack]');
+        if (!all) return;
+        all.disabled = true;
+        // One at a time: each follow checks the feed, and a site shouldn't see a burst from one server.
+        for (const button of $$('[data-follow-url]', all.closest('.discover-pack'))) await follow(button);
+        all.remove();
+      });
+    },
+  });
+  if (!followed) return;
+  await loadTree();
+  toast(`Following ${plural(followed, 'new feed')}`);
 }
 
 /** How much a feed posts and how much of it you read, starred or saved: for deciding whether to keep it. */

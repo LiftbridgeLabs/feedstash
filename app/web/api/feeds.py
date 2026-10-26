@@ -4,10 +4,13 @@ from starlette.concurrency import run_in_threadpool
 from app.db.models import Scope
 from app.clock import now
 from app.db.repositories import feeds as feeds_repo
-from app.feeds import ingest
+from app.feeds import discover, ingest
 from app.services import subscriptions
 from app.web.deps import DatabaseDep, SettingsDep, UserDep
 from app.web.schemas import (
+    DiscoverFeedOut,
+    DiscoverOut,
+    DiscoverPackOut,
     FeedOrderOut,
     FeedOut,
     FeedStatsOut,
@@ -56,6 +59,20 @@ async def update_feed(feed_id: int, body: FeedUpdateIn, user: UserDep, db: Datab
             return to_schema(FeedOut, feeds_repo.get(conn, user.id, feed_id))
 
     return await run_in_threadpool(apply_rest)
+
+
+@router.get("/discover", response_model=DiscoverOut)
+def discover_feeds(user: UserDep, db: DatabaseDep) -> DiscoverOut:
+    """Starter packs of feeds to follow, each feed marked if you already follow it. Follow with POST /api/feeds."""
+    with db.transaction() as conn:
+        return DiscoverOut(packs=[
+            DiscoverPackOut(id=pack.id, name=pack.name, description=pack.description, feeds=[
+                DiscoverFeedOut(title=feed.title, url=feed.url, site=feed.site, about=feed.about, cadence=feed.cadence,
+                                followed=feeds_repo.is_followed(conn, user.id, feed.url))
+                for feed in pack.feeds
+            ])
+            for pack in discover.packs()
+        ])
 
 
 @router.get("/feeds/{feed_id}/stats", response_model=FeedStatsOut)
