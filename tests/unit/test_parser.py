@@ -82,3 +82,44 @@ def test_a_page_advertising_thousands_of_feeds_yields_only_a_few():
     page = f"<html><head>{links}{links}</head></html>"
     found = find_feed_links(page, "https://site.example.com/")
     assert found == [f"https://site.example.com/feed{i}.xml" for i in range(10)]
+
+
+def _one_entry(description: str):
+    rss = ('<?xml version="1.0"?><rss version="2.0"><channel><title>T</title><item><title>A</title><guid>a</guid>'
+           f"<description><![CDATA[{description}]]></description></item></channel></rss>").encode()
+    return parse_feed(rss, "https://blog.example.com/feed.xml", "application/rss+xml", now=LATER).entries[0]
+
+
+def test_youtube_and_vimeo_players_become_links_other_iframes_are_dropped():
+    entry = _one_entry(
+        '<p>Watch:</p><iframe width="560" src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?si=x" '
+        'onload="steal()"></iframe><iframe src="//player.vimeo.com/video/76979871"></iframe>'
+        '<iframe src="https://evil.example.com/embed/x"></iframe><iframe src="javascript:alert(1)"></iframe>')
+    assert '<a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ">' in entry.content
+    assert 'src="https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg"' in entry.content
+    assert "Watch on YouTube" in entry.content
+    assert '<a href="https://vimeo.com/76979871">' in entry.content
+    for gone in ("<iframe", "evil.example.com", "javascript:", "onload", "steal"):
+        assert gone not in entry.content
+
+
+def test_a_youtube_address_that_isnt_a_plain_video_id_stays_dropped():
+    entry = _one_entry('<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ&quot;onerror=x"></iframe>'
+                       '<iframe src="https://www.youtube.com/embed/short"></iframe>')
+    assert "<iframe" not in entry.content and "onerror" not in entry.content and "youtube.com/watch" not in entry.content
+
+
+def test_pictures_in_a_row_become_a_gallery():
+    entry = _one_entry('<p>Before</p><p><img src="https://x.example.com/1.jpg"></p>\n<p><img src="https://x.example.com/2.jpg"></p>'
+                       '<br><figure><img src="https://x.example.com/3.jpg"><figcaption>Three</figcaption></figure>'
+                       '<p>After <img src="https://x.example.com/4.jpg"> alone</p>')
+    assert entry.content.count('<div class="fs-gallery">') == 1
+    gallery = entry.content.split('<div class="fs-gallery">')[1].split("</div>")[0]
+    assert "1.jpg" in gallery and "2.jpg" in gallery and "3.jpg" in gallery and "Three" in gallery
+    assert "4.jpg" not in gallery  # one picture in a paragraph of text isn't a gallery
+
+
+def test_scripts_inside_a_would_be_gallery_are_still_removed():
+    entry = _one_entry('<img src="https://x.example.com/1.jpg" onerror="steal()"><script>alert(1)</script>'
+                       '<img src="https://x.example.com/2.jpg">')
+    assert "<script" not in entry.content and "onerror" not in entry.content and "alert(1)" not in entry.content

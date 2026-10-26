@@ -324,6 +324,13 @@ body.resizing { cursor: col-resize; user-select: none; }
 .reader-body { font-size: 17px; line-height: 1.7; overflow-wrap: anywhere; }
 .reader-body img, .reader-body video { display: block; max-width: 100%; height: auto; border-radius: 4px; margin: 14px 0; }
 .reader-body figure { margin: 1.2em 0; }
+/* Pictures in a row (server-made, app/feeds/embeds.py): a strip to scroll sideways through. */
+.reader-body .fs-gallery { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; margin: 14px 0;
+  padding-bottom: 6px; }
+.reader-body .fs-gallery > * { flex: 0 0 85%; max-width: 560px; margin: 0; scroll-snap-align: center; }
+.reader-body .fs-gallery img { width: 100%; height: auto; max-height: 360px; object-fit: contain; margin: 0; }
+.reader-body .fs-gallery figcaption { color: var(--text-muted); font-size: 13px; margin-top: 4px; }
+.reader-body .fs-video img { margin-bottom: 6px; }
 .reader-body pre { overflow-x: auto; background: var(--bg-sidebar); padding: 12px; border-radius: 6px; font-size: 14px; }
 .reader-body code { font-size: .9em; }
 .reader-body blockquote { margin: 1em 0; padding-left: 16px; border-left: 3px solid var(--border); color: var(--text-muted); }

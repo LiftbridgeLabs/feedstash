@@ -9,8 +9,10 @@ from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse
 
 import feedparser
+from feedparser.sanitizer import _sanitize_html
 
 from app import clock
+from app.feeds.embeds import galleries, video_links
 
 MAX_ENTRIES = 250
 FEED_LINK_TYPES = frozenset({"application/rss+xml", "application/atom+xml", "application/rdf+xml"})
@@ -42,11 +44,13 @@ class ParsedFeed:
 def parse_feed(content: bytes, url: str, content_type: str | None = None, *, now: int | None = None) -> ParsedFeed | None:
     """Parses a feed, or returns None if the document isn't RSS or Atom.
 
-    feedparser sanitizes entry HTML (scripts, event handlers, iframes...) and resolves relative links
-    against `url`. Dates in the future are clamped to `now`.
+    feedparser resolves relative links against `url`. Entry HTML is sanitized here (scripts, event handlers,
+    iframes...) with feedparser's own sanitizer, after video embeds become links (`embeds`), which sanitizing would
+    otherwise drop. Dates in the future are clamped to `now`.
     """
     parsed = feedparser.parse(
-        content, response_headers={"content-location": url, "content-type": content_type or "application/xml"}
+        content, response_headers={"content-location": url, "content-type": content_type or "application/xml"},
+        sanitize_html=False,  # see _clean_html: every HTML value used is sanitized there
     )
     if not (parsed.get("version") or parsed.entries):
         return None
@@ -121,11 +125,17 @@ def _entry(entry, now: int) -> ParsedEntry:
     )
 
 
+def _clean_html(raw: str, content_type: str = "text/html") -> str:
+    """Feed HTML made safe: video players become links first, then feedparser's sanitizer, then galleries."""
+    return galleries(_sanitize_html(video_links(raw), "utf-8", content_type))
+
+
 def _detail_html(detail) -> str:
     value = detail.get("value") or ""
-    if (detail.get("type") or "") == "text/plain":
+    content_type = detail.get("type") or ""
+    if content_type == "text/plain":
         return html.escape(value).replace("\n", "<br>")
-    return value
+    return _clean_html(value, "application/xhtml+xml" if content_type == "application/xhtml+xml" else "text/html")
 
 
 def _content_html(entry) -> str:
@@ -133,7 +143,7 @@ def _content_html(entry) -> str:
     if entry.get("summary_detail"):
         candidates.append(_detail_html(entry.summary_detail))
     elif entry.get("summary"):
-        candidates.append(entry.summary)
+        candidates.append(_clean_html(entry.summary))
     return max(candidates, key=len, default="")
 
 

@@ -8,6 +8,8 @@ const DROP_TAGS = new Set(('script style iframe frame frameset object embed appl
 const ALLOWED_ATTRS = new Set(['href', 'src', 'srcset', 'alt', 'title', 'width', 'height', 'colspan', 'rowspan',
   'datetime', 'cite', 'controls', 'poster', 'type', 'sizes', 'media', 'start', 'reversed', 'lang', 'dir', 'open']);
 const URL_ATTRS = new Set(['href', 'src', 'poster', 'cite']);
+/* The server marks galleries and video links (app/feeds/embeds.py) with these; no other class is kept. */
+const ALLOWED_CLASSES = new Set(['fs-gallery', 'fs-video']);
 
 function safeUrl(value, allowDataImage) {
   // Browsers ignore whitespace/control characters inside a scheme ("java\tscript:"), so strip them first.
@@ -34,7 +36,9 @@ export function sanitize(html) {
       }
       for (const attr of [...child.attributes]) {
         const name = attr.name.toLowerCase();
-        if (!ALLOWED_ATTRS.has(name)) child.removeAttribute(attr.name);
+        if (name === 'class') {
+          if (!ALLOWED_CLASSES.has(attr.value.trim())) child.removeAttribute(attr.name);
+        } else if (!ALLOWED_ATTRS.has(name)) child.removeAttribute(attr.name);
         else if (URL_ATTRS.has(name) && !safeUrl(attr.value, tag === 'img')) child.removeAttribute(attr.name);
         else if (name === 'srcset' && /(javascript|data):/i.test(attr.value)) child.removeAttribute(attr.name);
       }
