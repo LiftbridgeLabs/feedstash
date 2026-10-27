@@ -3,6 +3,15 @@
 What changed in each FeedStash release, newest first. Before you update, check **Before you update** for anything
 to do first, like taking a backup. Admins see the rest of a release's notes in FeedStash after updating.
 
+## Unreleased
+
+### Fixes
+- **A feed followed twice, on http and on https, no longer brings every story twice.** Adding the same feed on both
+  addresses was possible before 0.9.0, and since 0.9.0 both copies fill up. The http copy now stops updating and
+  says so in Organize: unfollow it. Changing a feed's address also treats http and https as the same feed.
+- **Sites that only let web browsers in say so.** When a site's bot check refuses FeedStash (netcup's, Cloudflare's
+  challenge and others), the feed's error says that's why, instead of a bare "HTTP 403".
+
 ## 0.11.0
 
 ### New

@@ -83,6 +83,14 @@ def store_result(db: Database, feed: FeedFetchState, result: FetchResult, *, ret
         if not feeds_repo.exists(conn, feed.id):
             return 0  # unfollowed while we were fetching
         if result.url == secure_url(feed.url):  # it answered on https after refusing http (or redirected there)
+            twin = feeds_repo.followed_as_another(conn, feed.id, result.url)
+            if twin is not None:
+                # Also followed on https (possible before 0.9.0): storing here would bring every story twice.
+                feeds_repo.record_checked(conn, feed.id, fetched_at=now, error=(
+                    f"You also follow this feed on https ({twin}), so this http copy no longer updates. "
+                    "Unfollow this one."
+                ))
+                return 0
             feeds_repo.upgrade_to_https(conn, feed.id, feed.url, result.url)
         if result.not_modified:
             feeds_repo.record_checked(conn, feed.id, fetched_at=now, error=None)

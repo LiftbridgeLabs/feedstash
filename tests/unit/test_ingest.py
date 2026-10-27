@@ -1,6 +1,9 @@
+import pytest
+
 from app.db import Database
 from app.db.models import FeedFetchState, Scope
 from app.db.repositories import feeds, users
+from app.errors import Conflict
 from app.feeds import ingest
 from app.feeds.fetcher import FetchResult
 from app.feeds.parser import ParsedEntry, ParsedFeed
@@ -199,6 +202,38 @@ def test_a_feed_that_answers_on_https_keeps_that_address(tmp_path):
     ingest.store_result(db, state, FetchResult(url="https://c.example.com/feed", feed=parsed(entry("y", None))), retention_days=90)
     with db.transaction() as conn:
         assert feeds.get(conn, user_id, edited).url == "https://elsewhere.example.com/rss"
+
+
+def test_an_http_copy_of_a_feed_also_followed_on_https_stops_bringing_stories(tmp_path):
+    # Before 0.9.0 the same feed could be followed on http and https; the https fallback then filled both.
+    db = Database(tmp_path / "reader.db")
+    db.initialize()
+    with db.transaction() as conn:
+        user_id = users.upsert(conn, sub="s", email="s@example.com", name=None, picture=None)
+        old = feeds.create(conn, user_id, url="http://b.example.com/feed", title="B")
+        feeds.create(conn, user_id, url="https://b.example.com/feed", title="B on https")
+    state = FeedFetchState(id=old, url="http://b.example.com/feed", etag=None, last_modified=None, last_fetched_at=None)
+    added = ingest.store_result(
+        db, state, FetchResult(url="https://b.example.com/feed", feed=parsed(entry("x", None))), retention_days=90,
+    )
+    with db.transaction() as conn:
+        assert added == 0
+        assert conn.execute("SELECT COUNT(*) FROM articles WHERE feed_id = ?", (old,)).fetchone()[0] == 0
+        copy = feeds.get(conn, user_id, old)
+        assert copy.url == "http://b.example.com/feed"
+        assert "B on https" in copy.last_error and "Unfollow" in copy.last_error
+
+
+def test_editing_an_address_to_one_followed_on_the_other_scheme_is_refused(conn, user_id):
+    feeds.create(conn, user_id, url="https://b.example.com/feed", title="B")
+    other = feeds.create(conn, user_id, url="https://c.example.com/feed", title="C")
+    with pytest.raises(Conflict):
+        feeds.change_source(conn, user_id, other, url="http://b.example.com/feed", site_url=None, etag=None,
+                            last_modified=None, fetched_at=1)
+    # Its own address on the other scheme is fine.
+    feeds.change_source(conn, user_id, other, url="http://c.example.com/feed", site_url=None, etag=None,
+                        last_modified=None, fetched_at=1)
+    assert feeds.get(conn, user_id, other).url == "http://c.example.com/feed"
 
 
 def test_a_feed_remembers_when_it_last_brought_something_new(conn, user_id):

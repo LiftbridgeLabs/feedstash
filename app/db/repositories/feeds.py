@@ -60,13 +60,24 @@ def stats(conn: sqlite3.Connection, user_id: int, feed_id: int, *, now: int, rea
     return FeedStats(window_days=window, posted=row["posted"], read=row["read"], starred=row["starred"], saved=saved)
 
 
-def is_followed(conn: sqlite3.Connection, user_id: int, url: str) -> bool:
-    """Whether the user follows this address, on either http:// or https://: a feed that moved to https (see
-    upgrade_to_https) is still the one an old OPML file lists as http."""
+def is_followed(conn: sqlite3.Connection, user_id: int, url: str, *, other_than: int | None = None) -> bool:
+    """Whether the user follows this address (as a feed other than `other_than`), on either http:// or https://: a
+    feed that moved to https (see upgrade_to_https) is still the one an old OPML file lists as http."""
     rest = url.split("://", 1)[1] if "://" in url else url
     return conn.execute(
-        "SELECT 1 FROM feeds WHERE user_id = ? AND url IN (?, ?, ?)", (user_id, url, f"http://{rest}", f"https://{rest}")
+        "SELECT 1 FROM feeds WHERE user_id = ? AND url IN (?, ?, ?) AND id IS NOT ?",
+        (user_id, url, f"http://{rest}", f"https://{rest}", other_than),
     ).fetchone() is not None
+
+
+def followed_as_another(conn: sqlite3.Connection, feed_id: int, url: str) -> str | None:
+    """The name of the owner's other feed at exactly this address, if there is one."""
+    row = conn.execute(
+        """SELECT other.title FROM feeds other JOIN feeds this ON other.user_id = this.user_id
+           WHERE this.id = ? AND other.url = ? AND other.id <> this.id""",
+        (feed_id, url),
+    ).fetchone()
+    return row["title"] if row else None
 
 
 def exists(conn: sqlite3.Connection, feed_id: int) -> bool:
@@ -111,7 +122,7 @@ def change_source(
 ) -> None:
     """Points a feed at a new URL that has just been fetched successfully, clearing any old error."""
     get(conn, user_id, feed_id)
-    if conn.execute("SELECT 1 FROM feeds WHERE user_id = ? AND url = ? AND id <> ?", (user_id, url, feed_id)).fetchone():
+    if is_followed(conn, user_id, url, other_than=feed_id):
         raise Conflict("You already follow that feed")
     conn.execute(
         """UPDATE feeds SET url = ?, site_url = COALESCE(?, site_url), etag = ?, last_modified = ?,
