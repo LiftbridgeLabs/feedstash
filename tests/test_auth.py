@@ -32,6 +32,23 @@ def test_anonymous_visitors_get_the_login_page_with_security_headers(server):
     assert proxied.headers["strict-transport-security"] == "max-age=31536000"
 
 
+def test_pages_and_api_answers_carry_the_security_headers(api, server):
+    """The CSP is what makes "no inline scripts" enforceable, so it must be on the app's page and on API answers,
+    including errors."""
+    responses = {
+        "app page": api.get("/"),
+        "API answer": api.get("/api/tree"),
+        "API error": httpx.get(server.base_url + "/api/tree"),
+    }
+    for name, response in responses.items():
+        headers = response.headers
+        assert "script-src 'self';" in headers.get("content-security-policy", ""), name
+        assert headers.get("x-content-type-options") == "nosniff", name
+        assert headers.get("referrer-policy") == "no-referrer", name
+    assert 'id="articles"' in responses["app page"].text
+    assert responses["API answer"].status_code == 200 and responses["API error"].status_code == 401
+
+
 def test_api_requires_sign_in(server):
     assert httpx.get(server.base_url + "/api/tree").status_code == 401
 
@@ -152,6 +169,35 @@ def test_sign_in_with_an_openid_connect_provider(start_server, oidc_provider):
     again = client_for(server, follow_redirects=True)
     again.get("/auth/login/oidc")
     assert again.get("/api/me").json()["email"] == "ann@example.com"
+
+
+def test_an_unverified_address_from_a_provider_cant_take_over_a_password_account(start_server, oidc_provider):
+    """Anyone who can register owner@example.com at an OIDC provider that doesn't verify addresses must not get the
+    owner's password account. A password account is let in past the allowed list, so this is the case that matters."""
+    server = start_server(
+        DEV_LOGIN="false", OIDC_NAME="Pocket ID", OIDC_ISSUER=oidc_provider.issuer, OIDC_CLIENT_ID=CLIENT_ID,
+        OIDC_CLIENT_SECRET=CLIENT_SECRET,
+    )
+    owner = set_up(server)
+    owner_id = owner.get("/api/me").json()["id"]
+
+    for claims in (
+        {"sub": "mallory-1", "email": "owner@example.com"},  # says nothing about verification
+        {"sub": "mallory-2", "email": "Owner@Example.com", "email_verified": False},
+        {"sub": "mallory-3", "email": "owner@example.com", "email_verified": "false"},
+    ):
+        oidc_provider.claims = claims
+        intruder = client_for(server, follow_redirects=True)
+        response = intruder.get("/auth/login/oidc")
+        assert response.url.params.get("error") == "unverified", (claims, str(response.url))
+        assert intruder.get("/api/me").status_code == 401, claims
+    assert [account["email"] for account in owner.get("/api/accounts").json()] == ["owner@example.com"]
+
+    # The provider vouching for the address does sign into the same account.
+    oidc_provider.claims = {"sub": "owner-1", "email": "owner@example.com", "email_verified": True}
+    verified = client_for(server, follow_redirects=True)
+    verified.get("/auth/login/oidc")
+    assert verified.get("/api/me").json()["id"] == owner_id
 
 
 def test_sign_in_returns_to_whichever_address_the_browser_used(start_server, oidc_provider):
