@@ -6,7 +6,7 @@ httpx==0.28.1
 # were found to be recoverable (disclosed 2026-10-20); pinned so no build can pick up an older list.
 certifi==2026.10.19
 feedparser==6.0.14
-Authlib==1.8.0
+Authlib==1.9.1
 itsdangerous==2.2.0
 python-multipart==0.0.32
 defusedxml==0.7.1
