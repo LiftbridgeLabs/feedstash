@@ -169,13 +169,18 @@ export function showSettings({ switching = false } = {}) {
           <li><code>FEEDSTASH_API_BASE</code>: this server's address as the internet sees it${isLocalAddress(origin) ? '' : ' (below)'}</li>
           <li><code>FEEDSTASH_API_TOKEN</code>: the token, added as a <b>Secret</b></li>
           <li><code>ALLOWED_SENDERS</code>: the addresses you send from, separated by commas. Mail from anyone else
-            is turned away.</li>
+            is turned away, though a determined sender can fake an address.</li>
+          <li><code>ADDRESS_SECRET</code> (recommended): a code only you know, like <code>${esc(secretCode())}</code>.
+            Mail then has to go to <code>stash+${esc(secretCode())}@yourdomain.com</code>, so knowing your address
+            isn't enough to post into your stash.</li>
         </ul></li>
       <li>Open your domain → <b>Email</b> → <b>Email Routing</b> (turn it on if asked), and add a routing rule:
         your address, like <code>stash@yourdomain.com</code>, with the action <b>Send to a Worker</b> →
-        <code>feedstash-email-worker</code>.</li>
-      <li>Email that address with a subject like <code>Test #testing</code>. It shows up in your stash within a few
-        seconds; if it doesn't, the email bounces back with the reason.</li>
+        <code>feedstash-email-worker</code>. If you set <code>ADDRESS_SECRET</code>, also turn on
+        <b>Settings → Subaddressing</b> there.</li>
+      <li>Email that address (with <code>+</code> and your code, if you set one) with a subject like
+        <code>Test #testing</code>. It shows up in your stash within a few seconds; if it doesn't, the email bounces
+        back with the reason.</li>
     </ol>
     ${isLocalAddress(origin)
       ? `<p class="server-address">You're on <code>${esc(origin)}</code>, an address on your own network, which Cloudflare
@@ -274,6 +279,16 @@ function selectGroup(group) {
 }
 
 /** An address only reachable at home: localhost, private ranges, Tailscale's 100.64/10, or a .local name. */
+/** A suggested ADDRESS_SECRET for the email worker: ten random letters and digits, the same until the page reloads. */
+let suggestedSecret = '';
+function secretCode() {
+  if (!suggestedSecret) {
+    const chars = 'abcdefghjkmnpqrstuvwxyz23456789';  // nothing that reads two ways (l/1, o/0)
+    suggestedSecret = [...crypto.getRandomValues(new Uint8Array(10))].map((b) => chars[b % chars.length]).join('');
+  }
+  return suggestedSecret;
+}
+
 function isLocalAddress(origin) {
   let host;
   try {

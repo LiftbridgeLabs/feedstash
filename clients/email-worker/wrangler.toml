@@ -8,10 +8,14 @@ compatibility_flags = ["nodejs_compat"]
 FEEDSTASH_API_BASE = "https://feedstash.invalid"  # replace: .invalid never resolves, so a missed edit fails safely
 
 # Who may send to this address, comma separated: whole addresses (you@example.com), whole domains
-# (@example.com), or * for anyone. Leave it empty and anyone who learns the address can post into your
-# stash, so set it. Note this matches who sent the mail, so auto-forwarded newsletters arrive as the
-# newsletter's address, not yours.
-ALLOWED_SENDERS = "you@example.com, @yourdomain.com"
+# (@example.com or example.com), or * for anyone. Leave it empty and anyone who learns the address can post into
+# your stash, so set it. It matches who sent the mail, so auto-forwarded newsletters arrive as the newsletter's
+# address, not yours. It's a spam filter, not a lock: a determined sender can fake the sender address.
+ALLOWED_SENDERS = "you@example.com"
+
+# The lock (recommended): a random code that must follow a "+" in the address mail is sent to, like
+# stash+k7q2x9m4@yourdomain.com. Turn on Email Routing -> Settings -> Subaddressing in Cloudflare too.
+# ADDRESS_SECRET = "k7q2x9m4"
 
 # FEEDSTASH_API_TOKEN is a secret, NOT set here.
 # After deploying the worker, run:

@@ -5,10 +5,23 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
 
 ## Unreleased
 
+### New
+- **Lock your email-to-stash address.** The Cloudflare email worker takes an optional `ADDRESS_SECRET`: a code that
+  has to follow a `+` in the address, like `stash+k7q2x9m4@yourdomain.com`. Mail sent without it bounces, so knowing
+  your address isn't enough to post into your stash. Settings → Apps → Email with Cloudflare suggests a code.
+
 ### Fixes
+- **The email worker never drops mail silently.** Anything unexpected now bounces back to you, and a message over
+  15 MB bounces before the worker spends its time on it. `ALLOWED_SENDERS` also takes a domain written without
+  the `@` (`example.com`).
 - **Easier-to-read colors in every scheme.** Links, gray text and red warnings now meet the usual contrast guideline
   (4.5:1) on every background, in light and dark. Light schemes got a touch darker and a few dark ones a touch
   lighter, each keeping its look. Red buttons in dark mode now have dark text, like the green ones.
+
+### After you update
+- **If you use the Cloudflare email worker,** download the new script (Settings → Apps → Email with Cloudflare →
+  Download the worker script), paste it over the old one in the Cloudflare dashboard and deploy. To lock your
+  address, add `ADDRESS_SECRET` and turn on Subaddressing as that page describes.
 
 ## 0.11.1
 

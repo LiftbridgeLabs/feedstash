@@ -20,16 +20,14 @@ worker script**. The same page lists these steps.
    starter, named `feedstash-email-worker`, then deploy it.
 3. **Paste the script:** **Edit code**, replace everything with the downloaded script, and **Deploy**.
 4. **Set its variables:** the worker's **Settings → Variables and Secrets**: `FEEDSTASH_API_BASE` (your FeedStash
-   address as the internet sees it), `FEEDSTASH_API_TOKEN` (the token, as a **Secret**) and `ALLOWED_SENDERS`
-   (see below).
+   address as the internet sees it), `FEEDSTASH_API_TOKEN` (the token, as a **Secret**), `ALLOWED_SENDERS` and,
+   recommended, `ADDRESS_SECRET` (both under **Keep strangers out** below).
 5. Wire up the address as described under **Wire up the address**.
 
 ## Or set it up with wrangler
 
 1. **Make a token:** in FeedStash, **Settings → Connected apps → New token**, name it `email-worker`, and copy it. It's shown only once.
-2. **Point the worker at your server:** edit `wrangler.toml` and set `FEEDSTASH_API_BASE` to your FeedStash address and `ALLOWED_SENDERS` to who may write to it. Anyone else is bounced, and an empty list lets in anyone who learns the address.
-
-   `ALLOWED_SENDERS` is a comma-separated list of whole addresses (`you@example.com`), whole domains (`@example.com`), or `*` for anyone. It matches **who sent the mail**: if you auto-forward newsletters to this address, they arrive as the newsletter's address, not yours, so allow those senders (or their domains) too.
+2. **Point the worker at your server:** edit `wrangler.toml` and set `FEEDSTASH_API_BASE` to your FeedStash address, `ALLOWED_SENDERS` to who may write to it and, recommended, `ADDRESS_SECRET` (see **Keep strangers out** below).
 3. **Install and deploy:**
    ```bash
    cd clients/email-worker
@@ -42,6 +40,19 @@ worker script**. The same page lists these steps.
    npx wrangler secret put FEEDSTASH_API_TOKEN
    ```
    Paste the token from step 1 when prompted.
+
+## Keep strangers out
+
+- **`ALLOWED_SENDERS`** is a comma-separated list of whole addresses (`you@example.com`), whole domains
+  (`@example.com` or `example.com`), or `*` for anyone; mail from anyone else is bounced, and an empty list lets in
+  anyone who learns the address. It matches **who sent the mail**: if you auto-forward newsletters here, they arrive
+  as the newsletter's address, not yours, so allow those senders (or their domains) too. It's a spam filter, not a
+  lock: the sender address is something a determined sender can fake.
+- **`ADDRESS_SECRET`** is the lock. Pick a random code (letters and digits, like `k7q2x9m4`), set it as the worker's
+  `ADDRESS_SECRET`, and in Cloudflare turn on **Email Routing → Settings → Subaddressing**. Then send to
+  `stash+k7q2x9m4@yourdomain.com`: the routing rule for `stash@` still delivers it, and the worker bounces anything
+  sent to the address without the code. Knowing your address isn't enough to post into your stash; knowing the code
+  is. Save it in your contacts so you don't have to type it.
 
 ## Wire up the address
 
@@ -60,9 +71,13 @@ worker script**. The same page lists these steps.
 - **HTTP 401** — the token is wrong or was revoked. Make a new one and `wrangler secret put` it again.
 - **A network or 5xx error** — the worker can't reach `FEEDSTASH_API_BASE` from the internet.
 - **"only accepts mail from its owner"** — the sender isn't in `ALLOWED_SENDERS`.
+- **"does not accept mail"** — `ADDRESS_SECRET` is set and the mail went to the address without it (or with the
+  wrong one), or Subaddressing is off in Email Routing.
+- **"too large"** — the message is over 15 MB.
 
 Stash rules (**Settings → Stash rules**) run on everything that arrives this way, so you can tag mail from a given domain, file it in a folder, or archive it straight away.
 
 ## Limits
 
-Cloudflare Email Routing caps incoming messages at 25 MB, so very large attachments never reach the worker.
+Cloudflare Email Routing caps incoming messages at 25 MB, and the worker bounces anything over 15 MB rather than
+risk running past a free Worker's time limit and losing it.
