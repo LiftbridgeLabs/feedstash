@@ -121,6 +121,25 @@ def test_feeds_are_asked_for_by_name_and_refusals_say_so():
         run(lambda request: httpx.Response(403), lambda f: f.fetch("https://x.example.com/feed"))
 
 
+def test_a_bot_check_says_the_site_only_lets_browsers_in():
+    challenges = [
+        {"cf-mitigated": "challenge"},  # Cloudflare
+        {"x-anx-pow": "true"},  # Anexia's proof of work (netcup)
+        {"x-datadome": "protected"},
+        {"x-amzn-waf-action": "captcha"},
+    ]
+    for headers in challenges:
+        refuse = lambda request, headers=headers: httpx.Response(403, headers=headers, text="<html>checking</html>")
+        with pytest.raises(FetchError, match="only lets web browsers in"):
+            run(refuse, lambda f: f.fetch("https://x.example.com/feed"))
+        # Following it says so too, not just "returned HTTP 403".
+        with pytest.raises(FetchError, match="only lets web browsers in"):
+            run(refuse, lambda f: f.discover("https://x.example.com/"))
+    # A plain refusal keeps its own wording.
+    with pytest.raises(FetchError, match="turned FeedStash away"):
+        run(lambda request: httpx.Response(403), lambda f: f.discover("https://x.example.com/"))
+
+
 async def _agent() -> str:
     async with fetcher_module.create_client() as client:
         return client.headers["user-agent"]

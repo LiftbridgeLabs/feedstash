@@ -107,7 +107,7 @@ class Fetcher:
         except httpx.HTTPError as exc:
             raise FetchError(f"Couldn't reach {host}: {exc.__class__.__name__}") from exc
         if response.status_code >= 400:
-            raise FetchError(f"{host} returned HTTP {response.status_code}")
+            raise _http_error(response)
         feed = await self._parse(response, body)
         if feed is not None:
             return self._result(response, feed)
@@ -196,9 +196,26 @@ def _http_error(response: httpx.Response) -> FetchError:
             f"{host} asked FeedStash to slow down (HTTP 429). It will try again later.",
             _retry_after(response.headers.get("retry-after")),
         )
+    if _is_bot_check(response):
+        return FetchError(
+            f"{host} only lets web browsers in: it checks every visitor for bots, and feed readers can't pass "
+            f"(HTTP {code}). Some sites will let their feed through if you ask them."
+        )
     if code == 403:
         return FetchError(f"{host} turned FeedStash away (HTTP 403). Some sites block feed readers.")
     return FetchError(f"{host} returned HTTP {code}")
+
+
+def _is_bot_check(response: httpx.Response) -> bool:
+    """A refusal from bot protection that only lets browsers in, told by the header its challenge carries:
+    Cloudflare's challenge, Anexia's proof of work (netcup), DataDome, AWS WAF's challenge or captcha."""
+    headers = response.headers
+    return (
+        headers.get("cf-mitigated", "").lower() == "challenge"
+        or "x-anx-pow" in headers
+        or "x-datadome" in headers
+        or headers.get("x-amzn-waf-action", "").lower() in ("challenge", "captcha")
+    )
 
 
 def _retry_after(value: str | None) -> int | None:
