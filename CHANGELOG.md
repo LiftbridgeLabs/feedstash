@@ -14,14 +14,17 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
 - **The email worker never drops mail silently.** Anything unexpected now bounces back to you, and a message over
   15 MB bounces before the worker spends its time on it. `ALLOWED_SENDERS` also takes a domain written without
   the `@` (`example.com`).
+- **Sign-in security update.** The library behind Google and OpenID sign-in is updated and fixes several security
+  issues, one in how OpenID sign-in checks its login token.
 - **Easier-to-read colors in every scheme.** Links, gray text and red warnings now meet the usual contrast guideline
   (4.5:1) on every background, in light and dark. Light schemes got a touch darker and a few dark ones a touch
   lighter, each keeping its look. Red buttons in dark mode now have dark text, like the green ones.
 
 ### After you update
-- **If you use the Cloudflare email worker,** download the new script (Settings → Apps → Email with Cloudflare →
-  Download the worker script), paste it over the old one in the Cloudflare dashboard and deploy. To lock your
-  address, add `ADDRESS_SECRET` and turn on Subaddressing as that page describes.
+- **If you use the Cloudflare email worker, redeploy it:** it includes a security update for reading incoming mail.
+  Download the new script (Settings → Apps → Email with Cloudflare → Download the worker script), paste it over
+  the old one in the Cloudflare dashboard and deploy. To lock your address as well, add `ADDRESS_SECRET` and turn on
+  Subaddressing as that page describes; without it, the worker works as before.
 
 ## 0.11.1
 
