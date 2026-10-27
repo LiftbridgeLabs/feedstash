@@ -788,7 +788,10 @@ function kindOf({ notes, links, pictures }) {
   return 'snippet';
 }
 
-export async function captureDialog() {
+/** The Save form. It starts in `folderId` when given (a folder's "Add to this folder"), else the folder on screen. */
+export async function captureDialog({ folderId } = {}) {
+  const viewRef = stashViewRef(state.route.id);
+  const startFolder = folderId ?? (viewRef.kind === 'folder' ? viewRef.id : null);
   let dialogEl = null;
   let pictures = null;
   const filled = () => ({
@@ -806,7 +809,7 @@ export async function captureDialog() {
       <div class="field-group"><span class="field-label">Links</span>${linkRowsHTML()}</div>
       ${picturePickerHTML()}
       <label><span>Tags (optional) <small>(separate with commas)</small></span><input type="text" name="tags" placeholder="reading, later" autocomplete="off"></label>
-      ${folderFieldHTML(stashViewRef(state.route.id).kind === 'folder' ? stashViewRef(state.route.id).id : null)}
+      ${folderFieldHTML(startFolder)}
       <p class="muted save-kind" data-save-kind></p>`,
     onOpen: (dialog) => {
       dialogEl = dialog;
@@ -854,7 +857,8 @@ export async function captureDialog() {
     if (belongsInView(item, state.route.id)) reloadItems();
     toast('Saved to your stash');
   } else {
-    toast('Saved to your stash', { action: 'View', onAction: () => navigate('#/stash/all') });
+    const where = item.folderId ? `#/stash/folder/${item.folderId}` : '#/stash/all';
+    toast('Saved to your stash', { action: 'View', onAction: () => navigate(where) });
   }
 }
 

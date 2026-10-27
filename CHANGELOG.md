@@ -5,6 +5,10 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
 
 ## Unreleased
 
+### New
+- **Add straight into a stash folder.** A stash folder's ⋯ menu has Add to this folder, which opens the Save form
+  with that folder already chosen, so a link, note or screenshot lands right where you want it.
+
 ### Fixes
 - **A feed followed twice no longer brings every story twice.** Before 0.9.0 the same feed could be added again on
   https next to its old http address, and since 0.9.0 both copies fill up. The older copy (http, or an old address

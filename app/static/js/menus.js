@@ -140,7 +140,10 @@ export async function toggleFullText(id) {
 function stashFolderMenuItems(id) {
   const order = (state.stash.summary.folders || []).map((f) => f.id);
   const at = order.indexOf(id);
-  const items = [['Rename', () => renameStashFolder(id)]];
+  const items = [
+    ['Add to this folder…', () => captureDialog({ folderId: id })],
+    ['Rename', () => renameStashFolder(id)],
+  ];
   if (at > 0) items.push(['Move up', () => moveStashFolderBy(id, -1)]);
   if (at >= 0 && at < order.length - 1) items.push(['Move down', () => moveStashFolderBy(id, 1)]);
   items.push([`Delete folder${stashFolderById(id)?.count ? ' (keeps its items)' : ''}`, () => deleteStashFolder(id), 'danger']);

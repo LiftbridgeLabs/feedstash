@@ -24,6 +24,37 @@ def test_filing_a_saved_item_in_a_folder(reader):
     assert page.js("document.getElementById('view-title').textContent") == "Project X"
 
 
+def test_adding_straight_into_a_folder_from_its_menu(reader):
+    page = reader
+    page.js("reader.api('POST', '/api/stash/folders', { name: 'Elsewhere' })")
+    page.js("reader.api('POST', '/api/stash/folders', { name: 'Recipes' }).then(() => reader.loadTree())")
+    assert page.wait_for("document.querySelectorAll('#nav [data-stash-folder]').length === 2", timeout=10)
+    recipes = page.js(
+        "[...document.querySelectorAll('#nav [data-stash-folder]')]"
+        ".find((r) => r.querySelector('.nav-label').textContent === 'Recipes').dataset.stashFolder"
+    )
+
+    # From the feeds side, so the folder comes from the menu and not from the view on screen.
+    page.js(f"document.querySelector('#nav [data-menu=\"stash-folder\"][data-id=\"{recipes}\"]').click()")
+    assert page.wait_for("!!document.querySelector('#context-menu:not([hidden])')")
+    page.js("""(() => {
+      const add = [...document.querySelectorAll('#context-menu button')].find((b) => b.textContent.startsWith('Add to this folder'));
+      add.click();
+    })()""")
+    assert page.wait_for("!!document.querySelector('dialog[open] select[name=folder]')")
+    assert page.js("document.querySelector('dialog[open] select[name=folder]').value") == recipes
+
+    page.js("document.querySelector('dialog[open] textarea[name=content]').value = 'A soup to try'")
+    page.js("document.querySelector('dialog[open] [type=submit]').click()")
+    assert page.wait_for("!document.querySelector('dialog[open]')", timeout=10)
+
+    items = page.js(f"reader.api('GET', '/api/items?folder={recipes}')")
+    assert [(i["type"], i["content"], i["folderId"]) for i in items] == [("snippet", "A soup to try", int(recipes))]
+    assert page.wait_for(
+        f"document.querySelector('#nav [data-stash-folder=\"{recipes}\"] .nav-count')?.textContent === '1'", timeout=10
+    )
+
+
 def test_searching_the_stash_from_the_toolbar(reader):
     page = reader
     page.js("reader.api('POST', '/api/items', { type: 'snippet', content: 'Nudibranch sightings' })")
