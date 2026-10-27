@@ -3,6 +3,13 @@
 What changed in each FeedStash release, newest first. Before you update, check **Before you update** for anything
 to do first, like taking a backup. Admins see the rest of a release's notes in FeedStash after updating.
 
+## Unreleased
+
+### Fixes
+- **Easier-to-read colors in every scheme.** Links, gray text and red warnings now meet the usual contrast guideline
+  (4.5:1) on every background, in light and dark. Light schemes got a touch darker and a few dark ones a touch
+  lighter, each keeping its look. Red buttons in dark mode now have dark text, like the green ones.
+
 ## 0.11.1
 
 ### New
