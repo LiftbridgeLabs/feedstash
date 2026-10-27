@@ -76,7 +76,7 @@ def test_the_sidebar_plus_menus_and_row_spacing(reader):
     menu_labels = "[...document.querySelectorAll('#context-menu button')].map((b) => b.textContent).join('|')"
 
     page.js("document.querySelector('[data-action=\"feeds-menu\"]').click()")
-    assert page.wait_for(f"{menu_labels} === 'Follow a feed…|New folder…'")
+    assert page.wait_for(f"{menu_labels} === 'Follow a feed…|Discover feeds…|New folder…'")
     page.js("document.querySelector('#context-menu button:last-child').click()")
     assert page.wait_for("!!document.querySelector('dialog[open]')")
     page.js("document.querySelector('dialog[open] [data-cancel]').click()")
