@@ -104,28 +104,35 @@ def with_primary(url: str | None, links: Iterable[ItemLink]) -> list[ItemLink]:
     return result
 
 
-def _set_links(conn: sqlite3.Connection, item_id: int, links: Sequence[ItemLink]) -> None:
-    conn.execute("DELETE FROM item_links WHERE item_id = ?", (item_id,))
+# The item_links, item_images and item_tags writes below name the owner too (_OWNED_ITEM), as a second guard behind
+# the get() that every caller does first.
+_OWNED_ITEM = "item_id IN (SELECT id FROM items WHERE id = ? AND user_id = ?)"
+
+
+def _set_links(conn: sqlite3.Connection, user_id: int, item_id: int, links: Sequence[ItemLink]) -> None:
+    conn.execute(f"DELETE FROM item_links WHERE {_OWNED_ITEM}", (item_id, user_id))
     conn.executemany(
         "INSERT INTO item_links (item_id, url, label, position) VALUES (?, ?, ?, ?)",
         [(item_id, link.url, link.label, position) for position, link in enumerate(links)],
     )
 
 
-def _set_images(conn: sqlite3.Connection, item_id: int, names: Sequence[str]) -> None:
+def _set_images(conn: sqlite3.Connection, user_id: int, item_id: int, names: Sequence[str]) -> None:
     """Replaces the item's pictures, in this order, and mirrors the first in items.image_name."""
     if len(names) > MAX_IMAGES:
         raise InvalidInput(f"An item can have at most {MAX_IMAGES} pictures")
-    conn.execute("DELETE FROM item_images WHERE item_id = ?", (item_id,))
+    conn.execute(f"DELETE FROM item_images WHERE {_OWNED_ITEM}", (item_id, user_id))
     conn.executemany(
         "INSERT INTO item_images (item_id, position, image_name) VALUES (?, ?, ?)",
         [(item_id, position, name) for position, name in enumerate(names)],
     )
-    conn.execute("UPDATE items SET image_name = ? WHERE id = ?", (names[0] if names else None, item_id))
+    conn.execute(
+        "UPDATE items SET image_name = ? WHERE id = ? AND user_id = ?", (names[0] if names else None, item_id, user_id)
+    )
 
 
 def _set_tags(conn: sqlite3.Connection, user_id: int, item_id: int, tags: Iterable[str]) -> None:
-    conn.execute("DELETE FROM item_tags WHERE item_id = ?", (item_id,))
+    conn.execute(f"DELETE FROM item_tags WHERE {_OWNED_ITEM}", (item_id, user_id))
     for name in normalize_tags(tags):
         conn.execute("INSERT OR IGNORE INTO tags (user_id, name) VALUES (?, ?)", (user_id, name))
         tag_id = conn.execute("SELECT id FROM tags WHERE user_id = ? AND name = ?", (user_id, name)).fetchone()[0]
@@ -221,17 +228,18 @@ def rename_tag(conn: sqlite3.Connection, user_id: int, name: str, new_name: str,
     item_ids = [row["item_id"] for row in conn.execute("SELECT item_id FROM item_tags WHERE tag_id = ?", (old_id,))]
     new_row = conn.execute("SELECT id FROM tags WHERE user_id = ? AND name = ?", (user_id, new)).fetchone()
     if new_row is None:
-        conn.execute("UPDATE tags SET name = ? WHERE id = ?", (new, old_id))
+        conn.execute("UPDATE tags SET name = ? WHERE id = ? AND user_id = ?", (new, old_id, user_id))
     else:
         conn.execute(
             "INSERT OR IGNORE INTO item_tags (item_id, tag_id) SELECT item_id, ? FROM item_tags WHERE tag_id = ?",
             (new_row["id"], old_id),
         )
-        conn.execute("DELETE FROM tags WHERE id = ?", (old_id,))  # its item_tags rows go with it
+        conn.execute("DELETE FROM tags WHERE id = ? AND user_id = ?", (old_id, user_id))  # its item_tags rows go too
     conn.execute("UPDATE smart_lists SET tag = ? WHERE user_id = ? AND tag = ?", (new, user_id, old))
     conn.execute("UPDATE stash_rules SET add_tag = ? WHERE user_id = ? AND add_tag = ?", (new, user_id, old))
     for item_id in item_ids:
-        conn.execute("UPDATE items SET updated_at = ? WHERE id = ?", (now, item_id))  # so clients pick it up
+        # So clients pick it up.
+        conn.execute("UPDATE items SET updated_at = ? WHERE id = ? AND user_id = ?", (now, item_id, user_id))
         search_index.index_item(conn, item_id)
     return new, len(item_ids), new_row is not None
 
@@ -275,7 +283,8 @@ def delete_tags(conn: sqlite3.Connection, user_id: int, names: Sequence[str], *,
     id_marks = ",".join("?" * len(tag_ids))
     item_ids = [row["item_id"] for row in conn.execute(
         f"SELECT DISTINCT item_id FROM item_tags WHERE tag_id IN ({id_marks})", tag_ids)]
-    conn.execute(f"DELETE FROM tags WHERE id IN ({id_marks})", tag_ids)  # their item_tags rows go with them
+    # Their item_tags rows go with them.
+    conn.execute(f"DELETE FROM tags WHERE id IN ({id_marks}) AND user_id = ?", (*tag_ids, user_id))
     lists = conn.execute(
         f"""DELETE FROM smart_lists WHERE user_id = ? AND tag IN ({marks})
             AND COALESCE(query, '') = '' AND type IS NULL AND folder_id IS NULL""", (user_id, *wanted)).rowcount
@@ -285,7 +294,8 @@ def delete_tags(conn: sqlite3.Connection, user_id: int, names: Sequence[str], *,
             AND folder_id IS NULL AND NOT mark_reviewed AND NOT archive""", (user_id, *wanted)).rowcount
     conn.execute(f"UPDATE stash_rules SET add_tag = NULL WHERE user_id = ? AND add_tag IN ({marks})", (user_id, *wanted))
     for item_id in item_ids:
-        conn.execute("UPDATE items SET updated_at = ? WHERE id = ?", (now, item_id))  # so clients pick it up
+        # So clients pick it up.
+        conn.execute("UPDATE items SET updated_at = ? WHERE id = ? AND user_id = ?", (now, item_id, user_id))
         search_index.index_item(conn, item_id)
     return len(item_ids), len(tag_ids), lists, rules
 
@@ -353,9 +363,9 @@ def create(
          now if reviewed else None, now if archived else None, now, now, folder_id, feed_id),
     ).lastrowid
     _set_tags(conn, user_id, item_id, tags)
-    _set_links(conn, item_id, links)
+    _set_links(conn, user_id, item_id, links)
     if image_names:
-        _set_images(conn, item_id, image_names)
+        _set_images(conn, user_id, item_id, image_names)
     pages_repo.queue(conn, item_id, links[0].url if links else None, now=now)
     search_index.index_item(conn, item_id)
     return get(conn, user_id, item_id)
@@ -419,10 +429,10 @@ def update(
     if tags is not None:
         _set_tags(conn, user_id, item_id, tags)
     if new_links is not None:
-        _set_links(conn, item_id, new_links)
+        _set_links(conn, user_id, item_id, new_links)
         pages_repo.queue(conn, item_id, url, now=now)
     if image_names is not None:
-        _set_images(conn, item_id, image_names)
+        _set_images(conn, user_id, item_id, image_names)
     search_index.index_item(conn, item_id)
     return get(conn, user_id, item_id)
 
@@ -430,7 +440,7 @@ def update(
 def add_images(conn: sqlite3.Connection, user_id: int, item_id: int, names: Sequence[str], *, now: int) -> StashItem:
     """Adds pictures after the item's others."""
     current = get(conn, user_id, item_id)
-    _set_images(conn, item_id, [*current.image_names, *names])
+    _set_images(conn, user_id, item_id, [*current.image_names, *names])
     conn.execute("UPDATE items SET updated_at = ? WHERE id = ? AND user_id = ?", (now, item_id, user_id))
     return get(conn, user_id, item_id)
 
