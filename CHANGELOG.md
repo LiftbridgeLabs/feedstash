@@ -6,9 +6,10 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
 ## Unreleased
 
 ### Fixes
-- **A feed followed twice, on http and on https, no longer brings every story twice.** Adding the same feed on both
-  addresses was possible before 0.9.0, and since 0.9.0 both copies fill up. The http copy now stops updating and
-  says so in Organize: unfollow it. Changing a feed's address also treats http and https as the same feed.
+- **A feed followed twice no longer brings every story twice.** Before 0.9.0 the same feed could be added again on
+  https next to its old http address, and since 0.9.0 both copies fill up. The older copy (http, or an old address
+  that now leads to one you follow) stops updating and says so in Organize: unfollow it. Changing a feed's address
+  also treats http and https as the same feed.
 - **Sites that only let web browsers in say so.** When a site's bot check refuses FeedStash (netcup's, Cloudflare's
   challenge and others), the feed's error says that's why, instead of a bare "HTTP 403".
 

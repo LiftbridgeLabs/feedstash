@@ -204,24 +204,35 @@ def test_a_feed_that_answers_on_https_keeps_that_address(tmp_path):
         assert feeds.get(conn, user_id, edited).url == "https://elsewhere.example.com/rss"
 
 
-def test_an_http_copy_of_a_feed_also_followed_on_https_stops_bringing_stories(tmp_path):
-    # Before 0.9.0 the same feed could be followed on http and https; the https fallback then filled both.
+def test_a_second_copy_of_a_followed_feed_stops_bringing_stories(tmp_path):
+    # Before 0.9.0 the same feed could be followed twice under different addresses, and both copies filled up.
     db = Database(tmp_path / "reader.db")
     db.initialize()
     with db.transaction() as conn:
         user_id = users.upsert(conn, sub="s", email="s@example.com", name=None, picture=None)
-        old = feeds.create(conn, user_id, url="http://b.example.com/feed", title="B")
-        feeds.create(conn, user_id, url="https://b.example.com/feed", title="B on https")
-    state = FeedFetchState(id=old, url="http://b.example.com/feed", etag=None, last_modified=None, last_fetched_at=None)
-    added = ingest.store_result(
-        db, state, FetchResult(url="https://b.example.com/feed", feed=parsed(entry("x", None))), retention_days=90,
-    )
-    with db.transaction() as conn:
+        refused = feeds.create(conn, user_id, url="http://b.example.com/feed", title="B")  # answered on https
+        working = feeds.create(conn, user_id, url="http://c.example.com/feed", title="C")  # http still works
+        moved = feeds.create(conn, user_id, url="https://d.example.com/old", title="D")  # redirects to /new
+        for url in ("https://b.example.com/feed", "https://c.example.com/feed", "https://d.example.com/new"):
+            kept = feeds.create(conn, user_id, url=url, title=f"{url[8]} on https")
+    cases = ((refused, "http://b.example.com/feed", "https://b.example.com/feed"),
+             (working, "http://c.example.com/feed", "http://c.example.com/feed"),
+             (moved, "https://d.example.com/old", "https://d.example.com/new"))
+    for feed_id, url, answered in cases:
+        state = FeedFetchState(id=feed_id, url=url, etag=None, last_modified=None, last_fetched_at=None)
+        added = ingest.store_result(db, state, FetchResult(url=answered, feed=parsed(entry("x", None))), retention_days=90)
         assert added == 0
-        assert conn.execute("SELECT COUNT(*) FROM articles WHERE feed_id = ?", (old,)).fetchone()[0] == 0
-        copy = feeds.get(conn, user_id, old)
-        assert copy.url == "http://b.example.com/feed"
-        assert "B on https" in copy.last_error and "Unfollow" in copy.last_error
+    # The copy at the address that answers keeps updating.
+    state = FeedFetchState(id=kept, url="https://d.example.com/new", etag=None, last_modified=None, last_fetched_at=None)
+    result = FetchResult(url="https://d.example.com/new", feed=parsed(entry("x", None)))
+    assert ingest.store_result(db, state, result, retention_days=90) == 1
+    with db.transaction() as conn:
+        for feed_id, url, _ in cases:
+            assert conn.execute("SELECT COUNT(*) FROM articles WHERE feed_id = ?", (feed_id,)).fetchone()[0] == 0
+            copy = feeds.get(conn, user_id, feed_id)
+            assert copy.url == url
+            assert "on https" in copy.last_error and "Unfollow" in copy.last_error
+        assert feeds.get(conn, user_id, kept).last_error is None
 
 
 def test_editing_an_address_to_one_followed_on_the_other_scheme_is_refused(conn, user_id):

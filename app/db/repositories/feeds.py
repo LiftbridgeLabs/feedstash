@@ -70,12 +70,15 @@ def is_followed(conn: sqlite3.Connection, user_id: int, url: str, *, other_than:
     ).fetchone() is not None
 
 
-def followed_as_another(conn: sqlite3.Connection, feed_id: int, url: str) -> str | None:
-    """The name of the owner's other feed at exactly this address, if there is one."""
+def followed_as_another(conn: sqlite3.Connection, feed_id: int, urls: Sequence[str]) -> str | None:
+    """The name of the owner's other feed at exactly one of these addresses, if there is one."""
+    if not urls:
+        return None
+    marks = ", ".join("?" * len(urls))
     row = conn.execute(
-        """SELECT other.title FROM feeds other JOIN feeds this ON other.user_id = this.user_id
-           WHERE this.id = ? AND other.url = ? AND other.id <> this.id""",
-        (feed_id, url),
+        f"""SELECT other.title FROM feeds other JOIN feeds this ON other.user_id = this.user_id
+            WHERE this.id = ? AND other.url IN ({marks}) AND other.id <> this.id""",
+        (feed_id, *urls),
     ).fetchone()
     return row["title"] if row else None
 
