@@ -3,21 +3,22 @@
 What changed in each FeedStash release, newest first. Before you update, check **Before you update** for anything
 to do first, like taking a backup. Admins see the rest of a release's notes in FeedStash after updating.
 
-## Unreleased
+## 0.11.0
 
 ### New
-- **Right-click saves say whether they worked.** A short note on the page says it was saved, or why it wasn't, and
-  if the extension isn't set up yet, right-clicking opens its Settings to finish that first.
 - **Discover feeds.** + Add → Discover feeds offers starter packs (Apple, tech, self-hosting, cooking, science, world
-  news, web design and curious reads), each feed with a line about it and how often it posts. Follow one, or a whole
-  pack into its own folder.
+  news and curious reads), each feed with a line about it and how often it posts. Follow one, or a whole pack into
+  its own folder.
 - **Feed info.** A feed's menu has Feed info: how often it posts, how much of it you read, starred or saved, when it
   last brought something new and its addresses, to help you decide which feeds to keep.
 - **Videos and photo galleries in articles.** A YouTube video in a feed now shows as its picture with a link to watch
   it (Vimeo as a link), where it used to vanish, and several photos in a row become a strip you swipe through. This
   applies to articles that arrive after you update.
-- **Save to FeedStash… in the right-click menu** opens the extension's form already filled in with the link, the text
-  you selected or the page, so you can add tags, a folder or a note before saving.
+- **Browser extension 1.0.3**, which updates itself from the Chrome Web Store and Firefox Add-ons:
+  - **Right-click saves say whether they worked.** A short note on the page says it was saved, or why it wasn't,
+    and if the extension isn't set up yet, right-clicking opens its Settings to finish that first.
+  - **Save to FeedStash… in the right-click menu** opens the extension's form already filled in with the link, the
+    text you selected or the page, so you can add tags, a folder or a note before saving.
 
 ## 0.10.0
 

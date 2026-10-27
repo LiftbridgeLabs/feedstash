@@ -71,15 +71,6 @@
       ]
     },
     {
-      "id": "web",
-      "name": "Web & design",
-      "description": "Building and designing for the web.",
-      "feeds": [
-        {"title": "Smashing Magazine", "url": "https://www.smashingmagazine.com/feed/", "site": "https://www.smashingmagazine.com/", "about": "Web design and development.", "cadence": "A few a week"},
-        {"title": "CSS-Tricks", "url": "https://css-tricks.com/feed/", "site": "https://css-tricks.com/", "about": "CSS and front-end development.", "cadence": "Now and then"}
-      ]
-    },
-    {
       "id": "curious",
       "name": "Curious reads",
       "description": "Interesting things from around the web.",
