@@ -31,8 +31,9 @@ def ok(response: httpx.Response) -> dict | list:
 
 
 @pytest.fixture(scope="module")
-def world(tmp_path_factory, feed_server):
+def world(request, tmp_path_factory, feed_server):
     server = launch_server(tmp_path_factory.mktemp("isolation"), DEV_LOGIN="false", PAGE_CAPTURE="true")
+    request.addfinalizer(server.stop)  # straight away, so a failure while setting up doesn't leave it running
     owner = client(server)
     ok(owner.post("/auth/setup", json={"email": "owner@example.com", "name": "Owner", "password": OWNER_PASSWORD}))
     ok(owner.post("/api/accounts", json={"email": "other@example.com", "name": "Other", "password": OTHER_PASSWORD}))
@@ -78,7 +79,6 @@ def world(tmp_path_factory, feed_server):
     )
     for c in (owner, other, reader):
         c.close()
-    server.stop()
 
 
 FEED_FIELDS = ("id", "folder_id", "title", "position", "url", "site_url", "unread", "auto_stash", "full_text")
