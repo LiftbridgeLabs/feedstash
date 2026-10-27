@@ -74,47 +74,57 @@ class ReaderServer:
         self.log_file.close()
 
 
+def launch_server(directory: Path, db_path: Path | None = None, **env: str) -> ReaderServer:
+    """Starts a reader server whose database and log live in `directory`. The caller stops it."""
+    port = free_port()
+    base_url = f"http://127.0.0.1:{port}"
+    db_path = db_path or directory / f"reader-{port}.db"
+    log_path = directory / f"server-{port}.log"
+    environment = {
+        **os.environ,
+        # Deliberate, not an oversight: API tests start signed in as one local user so they can test what they're
+        # about. Real sign-in (first-run setup, passwords, sessions, OIDC and Google, allowed lists) is tested with
+        # DEV_LOGIN off, in tests/test_auth.py, tests/test_sign_in_settings.py, tests/test_hardening.py,
+        # tests/test_isolation.py (two password accounts) and tests/e2e/test_sign_in.py.
+        "DEV_LOGIN": "true",
+        "BASE_URL": base_url,
+        "DATABASE_PATH": str(db_path),
+        "SECRET_KEY": "test-secret-key",
+        "PAGE_CAPTURE": "false",  # tests save example.com links; only page tests turn fetching on
+        "UPDATE_CHECK": "false",  # never ask GitHub from a test
+        **env,
+    }
+    # A test can list extra addresses around the server's own, e.g. BASE_URL="https://x.example.com,{server}".
+    environment["BASE_URL"] = environment["BASE_URL"].replace("{server}", base_url)
+    log_file = open(log_path, "wb")
+    process = subprocess.Popen(
+        [sys.executable, *APP_COMMAND, "--host", "127.0.0.1", "--port", str(port)],
+        cwd=PROJECT_ROOT,
+        env=environment,
+        stdout=log_file,
+        stderr=subprocess.STDOUT,
+    )
+    server = ReaderServer(base_url, db_path, process, log_path, log_file)
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline and process.poll() is None:
+        try:
+            if httpx.get(base_url + "/healthz", timeout=1).status_code == 200:
+                return server
+        except httpx.HTTPError:
+            time.sleep(0.2)
+    server.stop()
+    pytest.fail(f"Reader server didn't start:\n{log_path.read_text(errors='replace')}")
+
+
 @pytest.fixture
 def start_server(tmp_path):
     """Factory: start_server(db_path=None, **env) -> ReaderServer."""
     started: list[ReaderServer] = []
 
     def start(db_path: Path | None = None, **env: str) -> ReaderServer:
-        port = free_port()
-        base_url = f"http://127.0.0.1:{port}"
-        db_path = db_path or tmp_path / f"reader-{port}.db"
-        log_path = tmp_path / f"server-{port}.log"
-        environment = {
-            **os.environ,
-            "DEV_LOGIN": "true",
-            "BASE_URL": base_url,
-            "DATABASE_PATH": str(db_path),
-            "SECRET_KEY": "test-secret-key",
-            "PAGE_CAPTURE": "false",  # tests save example.com links; only page tests turn fetching on
-            "UPDATE_CHECK": "false",  # never ask GitHub from a test
-            **env,
-        }
-        # A test can list extra addresses around the server's own, e.g. BASE_URL="https://x.example.com,{server}".
-        environment["BASE_URL"] = environment["BASE_URL"].replace("{server}", base_url)
-        log_file = open(log_path, "wb")
-        process = subprocess.Popen(
-            [sys.executable, *APP_COMMAND, "--host", "127.0.0.1", "--port", str(port)],
-            cwd=PROJECT_ROOT,
-            env=environment,
-            stdout=log_file,
-            stderr=subprocess.STDOUT,
-        )
-        server = ReaderServer(base_url, db_path, process, log_path, log_file)
+        server = launch_server(tmp_path, db_path, **env)
         started.append(server)
-        deadline = time.monotonic() + 30
-        while time.monotonic() < deadline and process.poll() is None:
-            try:
-                if httpx.get(base_url + "/healthz", timeout=1).status_code == 200:
-                    return server
-            except httpx.HTTPError:
-                time.sleep(0.2)
-        server.stop()
-        pytest.fail(f"Reader server didn't start:\n{log_path.read_text(errors='replace')}")
+        return server
 
     yield start
     for server in started:
