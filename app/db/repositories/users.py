@@ -158,6 +158,14 @@ def set_password(conn: sqlite3.Connection, user_id: int, password_hash: str) -> 
         raise NotFound("No such account")
 
 
+def upgrade_password_hash(conn: sqlite3.Connection, user_id: int, old_hash: str, new_hash: str) -> None:
+    """Swaps a password's hash for one with stronger settings, for the same password. Unlike set_password it keeps
+    the account's sessions, and it changes nothing if the password changed since `old_hash` was read."""
+    conn.execute(
+        "UPDATE users SET password_hash = ? WHERE id = ? AND password_hash = ?", (new_hash, user_id, old_hash)
+    )
+
+
 def set_admin(conn: sqlite3.Connection, user_id: int, is_admin: bool) -> None:
     if conn.execute("UPDATE users SET is_admin = ? WHERE id = ?", (int(is_admin), user_id)).rowcount == 0:
         raise NotFound("No such account")

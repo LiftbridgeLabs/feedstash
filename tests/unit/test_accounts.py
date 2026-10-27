@@ -37,6 +37,30 @@ def test_setup_works_once_and_passwords_are_checked(db):
     assert accounts.authenticate(db, "nobody@example.com", PASSWORD) is None
 
 
+def test_a_sign_in_redoes_an_older_hash_and_keeps_the_sessions(db):
+    from app import passwords
+
+    owner = accounts.setup_first_account(db, email="owner@example.com", name=None, password=PASSWORD)
+    old_settings = passwords._P
+    passwords._P = 1
+    try:
+        old_hash = passwords.hash_password(PASSWORD)
+    finally:
+        passwords._P = old_settings
+    with db.transaction() as conn:
+        conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (old_hash, owner.id))
+        sessions_before = users.session_version(conn, owner.id)
+
+    assert accounts.authenticate(db, "owner@example.com", PASSWORD) is not None
+    with db.transaction() as conn:
+        upgraded = users.get_password_hash(conn, owner.id)
+        assert users.session_version(conn, owner.id) == sessions_before
+    assert upgraded != old_hash and not passwords.needs_rehash(upgraded)
+    assert accounts.authenticate(db, "owner@example.com", PASSWORD) is not None
+    with db.transaction() as conn:
+        assert users.get_password_hash(conn, owner.id) == upgraded  # done once, not on every sign-in
+
+
 def test_a_sign_in_checked_while_the_password_changes_gets_a_session_that_doesnt_count(db):
     owner = accounts.setup_first_account(db, email="owner@example.com", name=None, password=PASSWORD)
     _, number_read_with_old_password = accounts.authenticate(db, "owner@example.com", PASSWORD)

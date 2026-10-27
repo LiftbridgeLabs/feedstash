@@ -9,7 +9,9 @@ from app.errors import InvalidInput
 
 MIN_LENGTH = 8
 MAX_LENGTH = 1024
-_N, _R, _P, _KEY_BYTES = 2**15, 8, 1, 32
+# 32 MB per check (128 x N x r bytes), the most a small NAS should spend on several sign-ins at once. p=3 is one of
+# OWASP's settings at that memory: three times the work of p=1, so a stolen database is three times slower to crack.
+_N, _R, _P, _KEY_BYTES = 2**15, 8, 3, 32
 _MAX_MEMORY = 64 * 1024 * 1024
 
 
@@ -38,6 +40,15 @@ def verify_password(password: str, stored: str | None) -> bool:
     except (ValueError, TypeError):
         return False
     return hmac.compare_digest(actual, expected)
+
+
+def needs_rehash(stored: str | None) -> bool:
+    """Whether a hash that just verified was made with older settings than new hashes get (p=1 before 0.12)."""
+    try:
+        scheme, n, r, p, _salt, _digest = (stored or "").split("$")
+        return scheme != "scrypt" or (int(n), int(r), int(p)) != (_N, _R, _P)
+    except ValueError:
+        return True
 
 
 def check_new_password(password: str) -> str:

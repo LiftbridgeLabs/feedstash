@@ -8,7 +8,7 @@ from app.db.repositories import items as items_repo
 from app.db.repositories import users as users_repo
 from app.errors import Conflict, InvalidInput, NotFound
 from app.images import ImageStore
-from app.passwords import DUMMY_HASH, check_new_password, hash_password, verify_password
+from app.passwords import DUMMY_HASH, check_new_password, hash_password, needs_rehash, verify_password
 
 ALREADY_SET_UP = "FeedStash is already set up. Sign in instead."
 
@@ -41,7 +41,11 @@ def authenticate(db: Database, email: str, password: str) -> tuple[User, int] | 
     user_id, stored, session_version = found
     if not verify_password(password, stored):
         return None
+    # A hash from before stronger settings is redone while the password is at hand; nobody notices but this sign-in.
+    upgraded = hash_password(password) if needs_rehash(stored) else None
     with db.transaction() as conn:
+        if upgraded:
+            users_repo.upgrade_password_hash(conn, user_id, stored, upgraded)
         user = users_repo.get(conn, user_id)
     return (user, session_version) if user else None
 

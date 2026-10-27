@@ -40,7 +40,7 @@ PROVIDER_ERRORS = (OAuthError, httpx.HTTPError, ValueError, KeyError)
 
 router = APIRouter()
 
-# Each password check costs scrypt's 32 MB and about a tenth of a second, so a flood of sign-ins could exhaust the
+# Each password check costs scrypt's 32 MB and a third of a second or so, so a flood of sign-ins could exhaust the
 # machine. A few at a time; the rest wait their turn.
 PASSWORD_CHECKS = asyncio.Semaphore(4)
 
