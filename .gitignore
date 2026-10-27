@@ -24,3 +24,8 @@ secret.key
 # Local assistant settings: machine paths and private repo names
 .claude/
 .qwen/
+
+# Coverage data (pytest --cov)
+.coverage
+.coverage.*
+htmlcov/

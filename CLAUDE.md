@@ -88,6 +88,8 @@ READER_E2E_BROWSER="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 - `tests/e2e/` drives headless Chrome over CDP (`tests/e2e/cdp.py`). The `reader` fixture **fails the test on any
   JavaScript error**, which is how module-cycle and CSP mistakes get caught. `window.reader` exposes app internals
   (`reader.api`, `reader.pollForNew`, `reader.setPref`) for tests.
+- Coverage, locally: `pytest --cov=app --cov-report=term-missing` (`.coveragerc` follows the server processes the
+  tests start). There's no threshold and CI doesn't measure it.
 - The full run takes 5–8 minutes (~235 tests). There's no JS unit runner; for a quick syntax check, copy a module to
   a `.mjs` file and run `node --check` on it.
 - Running as root on Linux (a container or cloud VM), set `CI=1` so Chrome gets `--no-sandbox`

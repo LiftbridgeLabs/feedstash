@@ -1,0 +1,7 @@
+# Only used by `pytest --cov=app` (see CLAUDE.md, Testing). Most tests drive a real server in its own process, so
+# coverage follows subprocesses, and saves when the tests stop a server (SIGTERM), or it would see none of the app.
+[run]
+source = app
+patch = subprocess
+parallel = true
+sigterm = true
