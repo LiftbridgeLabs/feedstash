@@ -3,6 +3,13 @@
 What changed in each FeedStash release, newest first. Before you update, check **Before you update** for anything
 to do first, like taking a backup. Admins see the rest of a release's notes in FeedStash after updating.
 
+## Unreleased
+
+### Fixes
+- **Browser extension 1.0.4**, which updates itself from the Chrome Web Store and Firefox Add-ons: easier-to-read
+  colors, like the web app's in 0.12.0. The green Save button and the notes after a right-click save now meet the
+  usual contrast guideline.
+
 ## 0.12.0
 
 ### New
