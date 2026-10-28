@@ -198,6 +198,8 @@ CASES = [
      lambda w: w.other.post("/api/stash/rules", json={"field": "title", "value": "x", "folderId": w.stash_folder}),
      NOT_FOUND, None),
     ("apply rules", lambda w: w.other.post("/api/stash/rules/apply"), 200, {"changed": 0}),
+    ("stash changes", lambda w: w.other.get("/api/items/changes"), 200,
+     lambda body: [i["content"] for i in body["items"]] == ["Theirs"] and body["deleted"] == []),
     # Muted words
     ("unmute their word", lambda w: w.other.delete(f"/api/muted-words/{w.muted}"), NOT_FOUND, None),
     ("mute in their feed", lambda w: w.other.post("/api/muted-words", json={"phrase": "x", "feed_id": w.feed}),

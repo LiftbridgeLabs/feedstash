@@ -129,10 +129,12 @@ def test_summary_counts_inbox_types_and_archive(api):
     reviewed = create(api, type="snippet", content="two").json()
     api.patch(f"/api/items/{reviewed['id']}", json={"reviewed": True})
     api.patch(f"/api/items/{link['id']}", json={"archived": True})
-    assert api.get("/api/stash/summary").json() == {
+    summary = api.get("/api/stash/summary").json()
+    assert summary == {
         "inbox": 1, "total": 2, "archived": 1, "by_type": {"link": 0, "snippet": 2, "screenshot": 0, "email": 0},
-        "folders": [], "lists": [],
+        "folders": [], "lists": [], "changes_cursor": api.get("/api/items/changes").json()["cursor"],
     }
+    assert summary["changes_cursor"] > 0
 
 
 def test_each_user_only_sees_their_own_stash(api, server):
@@ -188,3 +190,25 @@ def test_inputs_that_used_to_crash_get_a_readable_400(api):
     # Tests run with PAGE_CAPTURE off: asking to save the page again says why it can't, instead of "ok".
     refresh = api.post(f"/api/items/{item['id']}/page/refresh")
     assert refresh.status_code == 409 and "PAGE_CAPTURE" in refresh.json()["error"]
+
+
+def test_apps_ask_what_changed_since_they_last_looked(api):
+    start = api.get("/api/items/changes").json()
+    assert start == {"items": [], "deleted": [], "cursor": 0, "more": False, "reset": False}
+
+    note = api.post("/api/items", json={"type": "snippet", "content": "First"}).json()
+    other = api.post("/api/items", json={"type": "snippet", "content": "Second"}).json()
+    first = api.get("/api/items/changes", params={"since": 0}).json()
+    assert [i["id"] for i in first["items"]] == [note["id"], other["id"]] and first["items"][0]["content"] == "First"
+
+    api.patch(f"/api/items/{note['id']}", json={"tags": ["later"], "archived": True})
+    api.delete(f"/api/items/{other['id']}")
+    since = api.get("/api/items/changes", params={"since": first["cursor"]}).json()
+    assert [(i["id"], i["tags"], i["archived"]) for i in since["items"]] == [(note["id"], ["later"], True)]
+    assert since["deleted"] == [other["id"]]
+
+    assert api.get("/api/stash/summary").json()["changes_cursor"] == since["cursor"]
+    paged = api.get("/api/items/changes", params={"since": 0, "limit": 1}).json()
+    assert len(paged["items"]) + len(paged["deleted"]) == 1 and paged["more"]
+    assert api.get("/api/items/changes", params={"since": 10**9}).json()["reset"] is True
+    assert api.get("/api/items/changes", params={"since": -1}).status_code in (400, 422)

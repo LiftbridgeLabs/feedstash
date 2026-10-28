@@ -336,6 +336,97 @@ MIGRATIONS: list[str] = [
     );
     CREATE INDEX idx_muted_words_user ON muted_words(user_id);
     """,
+    # 22: a change log for the stash, so apps can ask what changed since they last looked instead of reloading lists.
+    # One row per item, moved to the end (a new seq) whenever the item or its tags, links, pictures or saved page
+    # change, and kept as a tombstone when it's deleted. Triggers keep it, so no write path can forget to. (Delete then
+    # insert rather than INSERT OR REPLACE: a trigger fired by a foreign key action ignores the OR REPLACE.) A deleted
+    # account's items leave no tombstones.
+    """
+    CREATE TABLE stash_changes (
+        seq        INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        item_id    INTEGER NOT NULL UNIQUE,
+        deleted    INTEGER NOT NULL DEFAULT 0,
+        changed_at INTEGER NOT NULL
+    );
+    CREATE INDEX idx_stash_changes_user ON stash_changes(user_id, seq);
+    INSERT INTO stash_changes (user_id, item_id, changed_at)
+        SELECT user_id, id, updated_at FROM items ORDER BY updated_at, id;
+
+    CREATE TRIGGER stash_changes_item_insert AFTER INSERT ON items BEGIN
+        DELETE FROM stash_changes WHERE item_id = new.id;
+        INSERT INTO stash_changes (user_id, item_id, deleted, changed_at) VALUES (new.user_id, new.id, 0, CAST(strftime('%s', 'now') AS INTEGER));
+    END;
+    CREATE TRIGGER stash_changes_item_update AFTER UPDATE ON items BEGIN
+        DELETE FROM stash_changes WHERE item_id = new.id;
+        INSERT INTO stash_changes (user_id, item_id, deleted, changed_at) VALUES (new.user_id, new.id, 0, CAST(strftime('%s', 'now') AS INTEGER));
+    END;
+    CREATE TRIGGER stash_changes_item_delete AFTER DELETE ON items
+    WHEN EXISTS (SELECT 1 FROM users WHERE id = old.user_id) BEGIN
+        DELETE FROM stash_changes WHERE item_id = old.id;
+        INSERT INTO stash_changes (user_id, item_id, deleted, changed_at) VALUES (old.user_id, old.id, 1, CAST(strftime('%s', 'now') AS INTEGER));
+    END;
+    CREATE TRIGGER stash_changes_item_tags_insert AFTER INSERT ON item_tags
+    WHEN EXISTS (SELECT 1 FROM items WHERE id = new.item_id) BEGIN
+        DELETE FROM stash_changes WHERE item_id = new.item_id;
+        INSERT INTO stash_changes (user_id, item_id, changed_at) SELECT user_id, id, CAST(strftime('%s', 'now') AS INTEGER) FROM items WHERE id = new.item_id;
+    END;
+    CREATE TRIGGER stash_changes_item_tags_update AFTER UPDATE ON item_tags
+    WHEN EXISTS (SELECT 1 FROM items WHERE id = new.item_id) BEGIN
+        DELETE FROM stash_changes WHERE item_id = new.item_id;
+        INSERT INTO stash_changes (user_id, item_id, changed_at) SELECT user_id, id, CAST(strftime('%s', 'now') AS INTEGER) FROM items WHERE id = new.item_id;
+    END;
+    CREATE TRIGGER stash_changes_item_tags_delete AFTER DELETE ON item_tags
+    WHEN EXISTS (SELECT 1 FROM items WHERE id = old.item_id) BEGIN
+        DELETE FROM stash_changes WHERE item_id = old.item_id;
+        INSERT INTO stash_changes (user_id, item_id, changed_at) SELECT user_id, id, CAST(strftime('%s', 'now') AS INTEGER) FROM items WHERE id = old.item_id;
+    END;
+    CREATE TRIGGER stash_changes_item_links_insert AFTER INSERT ON item_links
+    WHEN EXISTS (SELECT 1 FROM items WHERE id = new.item_id) BEGIN
+        DELETE FROM stash_changes WHERE item_id = new.item_id;
+        INSERT INTO stash_changes (user_id, item_id, changed_at) SELECT user_id, id, CAST(strftime('%s', 'now') AS INTEGER) FROM items WHERE id = new.item_id;
+    END;
+    CREATE TRIGGER stash_changes_item_links_update AFTER UPDATE ON item_links
+    WHEN EXISTS (SELECT 1 FROM items WHERE id = new.item_id) BEGIN
+        DELETE FROM stash_changes WHERE item_id = new.item_id;
+        INSERT INTO stash_changes (user_id, item_id, changed_at) SELECT user_id, id, CAST(strftime('%s', 'now') AS INTEGER) FROM items WHERE id = new.item_id;
+    END;
+    CREATE TRIGGER stash_changes_item_links_delete AFTER DELETE ON item_links
+    WHEN EXISTS (SELECT 1 FROM items WHERE id = old.item_id) BEGIN
+        DELETE FROM stash_changes WHERE item_id = old.item_id;
+        INSERT INTO stash_changes (user_id, item_id, changed_at) SELECT user_id, id, CAST(strftime('%s', 'now') AS INTEGER) FROM items WHERE id = old.item_id;
+    END;
+    CREATE TRIGGER stash_changes_item_images_insert AFTER INSERT ON item_images
+    WHEN EXISTS (SELECT 1 FROM items WHERE id = new.item_id) BEGIN
+        DELETE FROM stash_changes WHERE item_id = new.item_id;
+        INSERT INTO stash_changes (user_id, item_id, changed_at) SELECT user_id, id, CAST(strftime('%s', 'now') AS INTEGER) FROM items WHERE id = new.item_id;
+    END;
+    CREATE TRIGGER stash_changes_item_images_update AFTER UPDATE ON item_images
+    WHEN EXISTS (SELECT 1 FROM items WHERE id = new.item_id) BEGIN
+        DELETE FROM stash_changes WHERE item_id = new.item_id;
+        INSERT INTO stash_changes (user_id, item_id, changed_at) SELECT user_id, id, CAST(strftime('%s', 'now') AS INTEGER) FROM items WHERE id = new.item_id;
+    END;
+    CREATE TRIGGER stash_changes_item_images_delete AFTER DELETE ON item_images
+    WHEN EXISTS (SELECT 1 FROM items WHERE id = old.item_id) BEGIN
+        DELETE FROM stash_changes WHERE item_id = old.item_id;
+        INSERT INTO stash_changes (user_id, item_id, changed_at) SELECT user_id, id, CAST(strftime('%s', 'now') AS INTEGER) FROM items WHERE id = old.item_id;
+    END;
+    CREATE TRIGGER stash_changes_item_pages_insert AFTER INSERT ON item_pages
+    WHEN EXISTS (SELECT 1 FROM items WHERE id = new.item_id) BEGIN
+        DELETE FROM stash_changes WHERE item_id = new.item_id;
+        INSERT INTO stash_changes (user_id, item_id, changed_at) SELECT user_id, id, CAST(strftime('%s', 'now') AS INTEGER) FROM items WHERE id = new.item_id;
+    END;
+    CREATE TRIGGER stash_changes_item_pages_update AFTER UPDATE ON item_pages
+    WHEN EXISTS (SELECT 1 FROM items WHERE id = new.item_id) BEGIN
+        DELETE FROM stash_changes WHERE item_id = new.item_id;
+        INSERT INTO stash_changes (user_id, item_id, changed_at) SELECT user_id, id, CAST(strftime('%s', 'now') AS INTEGER) FROM items WHERE id = new.item_id;
+    END;
+    CREATE TRIGGER stash_changes_item_pages_delete AFTER DELETE ON item_pages
+    WHEN EXISTS (SELECT 1 FROM items WHERE id = old.item_id) BEGIN
+        DELETE FROM stash_changes WHERE item_id = old.item_id;
+        INSERT INTO stash_changes (user_id, item_id, changed_at) SELECT user_id, id, CAST(strftime('%s', 'now') AS INTEGER) FROM items WHERE id = old.item_id;
+    END;
+    """,
 ]
 
 

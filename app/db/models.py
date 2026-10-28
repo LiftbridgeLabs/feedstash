@@ -242,6 +242,7 @@ class StashSummary:
     total: int  # active
     archived: int
     by_type: dict[str, int]
+    changes_cursor: int = 0  # where GET /api/items/changes would start from now
 
 
 @dataclass(frozen=True, slots=True)
@@ -263,6 +264,17 @@ class SmartList:
     type: str | None
     tag: str | None
     folder_id: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class StashChanges:
+    """What changed in someone's stash after a cursor: items as they are now, and ids deleted since."""
+
+    items: list[StashItem]
+    deleted: list[int]
+    cursor: int  # send back as `since` next time
+    more: bool  # there are more changes after `cursor`; ask again straight away
+    reset: bool  # the cursor is from a different copy of the database (a restored backup): reload everything
 
 
 @dataclass(frozen=True, slots=True)

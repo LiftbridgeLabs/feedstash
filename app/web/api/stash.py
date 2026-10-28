@@ -25,6 +25,7 @@ from app.web.schemas import (
     PageCopyOut,
     SmartListOut,
     StashArticleOut,
+    StashChangesOut,
     StashFolderOut,
     StashItemOut,
     StashSummaryOut,
@@ -95,6 +96,21 @@ def list_items(
     )
     with db.transaction() as conn:
         return [StashItemOut.from_item(item) for item in items_repo.search(conn, user.id, criteria)]
+
+
+@router.get("/items/changes", response_model=StashChangesOut)
+def item_changes(
+    user: UserDep, db: DatabaseDep, since: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1)] = items_repo.MAX_CHANGES,
+) -> StashChangesOut:
+    """What changed in the stash after a cursor, for apps that keep their own copy: items changed or added (any edit,
+    tag, link, picture or saved page counts), and ids deleted. Start with since=0."""
+    with db.transaction() as conn:
+        changes = items_repo.changes(conn, user.id, since=since, limit=limit)
+    return StashChangesOut(
+        items=[StashItemOut.from_item(item) for item in changes.items], deleted=changes.deleted,
+        cursor=changes.cursor, more=changes.more, reset=changes.reset,
+    )
 
 
 @router.get("/items/{item_id}", response_model=StashItemOut)
@@ -192,6 +208,7 @@ def stash_summary(user: UserDep, db: DatabaseDep) -> StashSummaryOut:
         lists = smart_lists.list_for_user(conn, user.id)
     return StashSummaryOut(
         inbox=summary.inbox, total=summary.total, archived=summary.archived, by_type=summary.by_type,
+        changes_cursor=summary.changes_cursor,
         folders=[to_schema(StashFolderOut, folder) for folder in folders],
         lists=[SmartListOut.from_list(smart_list) for smart_list in lists],
     )

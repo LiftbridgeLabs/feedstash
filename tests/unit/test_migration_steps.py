@@ -134,3 +134,17 @@ def test_feeds_get_when_they_last_brought_something_new_from_the_articles_they_h
     conn.commit()
     migrations.apply(conn)
     assert dict(conn.execute("SELECT id, last_new_at FROM feeds").fetchall()) == {1: 250, 2: None}
+
+
+def test_items_saved_before_the_change_log_are_in_it_least_recently_changed_first():
+    conn = memory_db()
+    for number in range(1, 22):  # up to and including 21
+        conn.executescript(f"BEGIN;\n{migrations.MIGRATIONS[number - 1]}\nPRAGMA user_version = {number};\nCOMMIT;")
+    conn.execute("INSERT INTO users (id, sub, email, created_at) VALUES (1, 's', 'e@example.com', 0)")
+    conn.executemany(
+        "INSERT INTO items (id, user_id, type, content, created_at, updated_at) VALUES (?, 1, 'snippet', 'x', 0, ?)",
+        [(1, 300), (2, 100)],
+    )
+    conn.commit()
+    migrations.apply(conn)
+    assert [row[0] for row in conn.execute("SELECT item_id FROM stash_changes ORDER BY seq")] == [2, 1]

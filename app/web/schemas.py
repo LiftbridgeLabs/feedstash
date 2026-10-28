@@ -541,6 +541,14 @@ class SmartListIn(BaseModel):
     folderId: int | None = None
 
 
+class StashChangesOut(BaseModel):
+    items: list[StashItemOut]  # changed or new since the cursor, as they are now
+    deleted: list[int]  # ids deleted since the cursor
+    cursor: int  # send back as `since` next time
+    more: bool  # more changes after `cursor`: ask again straight away
+    reset: bool  # the cursor doesn't belong to this database (a restored backup): reload everything with since=0
+
+
 class StashRuleOut(BaseModel):
     id: int
     field: str  # domain | url | title | text | feed | type
@@ -616,6 +624,7 @@ class StashSummaryOut(BaseModel):
     by_type: dict[str, int]
     folders: list[StashFolderOut] = Field(default_factory=list)
     lists: list[SmartListOut] = Field(default_factory=list)  # smart lists
+    changes_cursor: int = 0  # for GET /api/items/changes: an app that just loaded its lists starts from here
 
 
 class StashArticleOut(BaseModel):

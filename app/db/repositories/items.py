@@ -4,13 +4,14 @@ import re
 import sqlite3
 from collections.abc import Iterable, Sequence
 
-from app.db.models import ItemFilter, ItemLink, StashItem, StashSummary, TagCount
+from app.db.models import ItemFilter, ItemLink, StashChanges, StashItem, StashSummary, TagCount
 from app.db.repositories import pages as pages_repo
 from app.db.repositories import search as search_index
 from app.errors import InvalidInput, NotFound
 
 ITEM_TYPES = ("link", "snippet", "screenshot", "email")
 MAX_PAGE_SIZE = 200
+MAX_CHANGES = 500
 MAX_TAG_LENGTH = 50
 MAX_IMAGES = 20
 
@@ -162,6 +163,35 @@ def get(conn: sqlite3.Connection, user_id: int, item_id: int) -> StashItem:
     if not rows:
         raise NotFound("Not found")
     return _items(conn, rows)[0]
+
+
+def changes(conn: sqlite3.Connection, user_id: int, *, since: int, limit: int = MAX_CHANGES) -> StashChanges:
+    """Items changed or deleted after the `since` cursor (0 for everything), oldest change first. The change log is
+    kept by triggers (migration 22), so every way of writing an item shows up here."""
+    limit = max(1, min(limit, MAX_CHANGES))
+    # Every cursor handed out is one of this account's own log entries, and an entry only ever moves to a higher seq,
+    # so a valid cursor is never past the account's newest. One that is came from before a backup was restored.
+    newest = conn.execute(
+        "SELECT COALESCE(MAX(seq), 0) FROM stash_changes WHERE user_id = ?", (user_id,)
+    ).fetchone()[0]
+    if since > newest:
+        return StashChanges(items=[], deleted=[], cursor=0, more=False, reset=True)
+    rows = conn.execute(
+        "SELECT seq, item_id, deleted FROM stash_changes WHERE user_id = ? AND seq > ? ORDER BY seq LIMIT ?",
+        (user_id, since, limit + 1),
+    ).fetchall()
+    more, rows = len(rows) > limit, rows[:limit]
+    changed = [row["item_id"] for row in rows if not row["deleted"]]
+    found = {}
+    if changed:
+        found = {item.id: item for item in _items(conn, conn.execute(
+            f"{_SELECT} WHERE i.user_id = ? AND i.id IN ({','.join('?' * len(changed))})", (user_id, *changed)
+        ).fetchall())}
+    return StashChanges(
+        items=[found[item_id] for item_id in changed if item_id in found],
+        deleted=[row["item_id"] for row in rows if row["deleted"]],
+        cursor=rows[-1]["seq"] if rows else since, more=more, reset=False,
+    )
 
 
 def search(conn: sqlite3.Connection, user_id: int, criteria: ItemFilter) -> list[StashItem]:
@@ -327,7 +357,10 @@ def summary(conn: sqlite3.Connection, user_id: int) -> StashSummary:
     archived = conn.execute(
         "SELECT COUNT(*) FROM items WHERE user_id = ? AND archived_at IS NOT NULL", (user_id,)
     ).fetchone()[0]
-    return StashSummary(inbox=inbox, total=total, archived=archived, by_type=by_type)
+    changes_cursor = conn.execute(
+        "SELECT COALESCE(MAX(seq), 0) FROM stash_changes WHERE user_id = ?", (user_id,)
+    ).fetchone()[0]
+    return StashSummary(inbox=inbox, total=total, archived=archived, by_type=by_type, changes_cursor=changes_cursor)
 
 
 # ------------------------------------------------------------------ writing
