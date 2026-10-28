@@ -13,11 +13,10 @@ FEEDSTASH_API_BASE = "https://feedstash.invalid"  # replace: .invalid never reso
 # address, not yours. It's a spam filter, not a lock: a determined sender can fake the sender address.
 ALLOWED_SENDERS = "you@example.com"
 
-# The lock (recommended): a random code that must follow a "+" in the address mail is sent to, like
-# stash+k7q2x9m4@yourdomain.com. Turn on Email Routing -> Settings -> Subaddressing in Cloudflare too.
-# ADDRESS_SECRET = "k7q2x9m4"
-
-# FEEDSTASH_API_TOKEN is a secret, NOT set here.
+# FEEDSTASH_API_TOKEN and ADDRESS_SECRET are secrets, NOT set here (this file is easy to commit by mistake).
 # After deploying the worker, run:
 #   npx wrangler secret put FEEDSTASH_API_TOKEN
-# and paste in a token made for this client under Settings -> Connected apps.
+# and paste in a token made for this client under Settings -> Connected apps. Then, recommended:
+#   npx wrangler secret put ADDRESS_SECRET
+# with a random code that must follow a "+" in the address mail is sent to, like stash+k7q2x9m4@yourdomain.com,
+# and turn on Email Routing -> Settings -> Subaddressing in Cloudflare.

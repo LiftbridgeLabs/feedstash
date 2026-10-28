@@ -170,7 +170,8 @@ export function showSettings({ switching = false } = {}) {
           <li><code>FEEDSTASH_API_TOKEN</code>: the token, added as a <b>Secret</b></li>
           <li><code>ALLOWED_SENDERS</code>: the addresses you send from, separated by commas. Mail from anyone else
             is turned away, though a determined sender can fake an address.</li>
-          <li><code>ADDRESS_SECRET</code> (recommended): a code only you know, like <code>${esc(secretCode())}</code>.
+          <li><code>ADDRESS_SECRET</code> (recommended), also as a <b>Secret</b>: a code only you know, like
+            <code>${esc(secretCode())}</code>.
             Mail then has to go to <code>stash+${esc(secretCode())}@yourdomain.com</code>, so knowing your address
             isn't enough to post into your stash.</li>
         </ul></li>
