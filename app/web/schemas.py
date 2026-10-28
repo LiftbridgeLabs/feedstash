@@ -163,6 +163,7 @@ class FeedOut(BaseModel):
     unread: int
     auto_stash: bool = False  # new articles go straight to the stash
     full_text: bool = False  # new articles get their full page fetched
+    open_website: bool = False  # its articles open on the website rather than in the reader
     last_new_at: int | None = None  # when it last brought in a new article, to spot feeds that went quiet
 
 
@@ -417,6 +418,7 @@ class FeedUpdateIn(BaseModel):
     url: str | None = Field(default=None, max_length=4000)  # the feed's new address; fetched before it's accepted
     auto_stash: bool | None = None  # send new articles straight to the stash
     full_text: bool | None = None  # fetch each new article's full page
+    open_website: bool | None = None  # open its articles on the website rather than in the reader
 
 
 class MutedWordIn(BaseModel):

@@ -120,3 +120,26 @@ def test_the_second_sanitizer_keeps_only_the_gallery_and_video_classes(reader):
     assert "evil" not in html and "onclick" not in html and "steal" not in html
     # Only handler names are renamed, never anything inside a value, quoted or not.
     assert 'title="turn on"' in html and 'href="/online"' in html and 'src="https://x.example.com/onion.jpg"' in html
+
+
+def test_a_feed_set_to_open_on_the_website_opens_a_tab_instead(reader, subscriptions):
+    tech = subscriptions.tech["id"]
+    reader.js(f"reader.openContextMenu('feed', {tech}, document.querySelector('[data-menu=\"feed\"][data-id=\"{tech}\"]'))")
+    reader.js("[...document.querySelectorAll('#context-menu button')].find(b => b.textContent === 'Open articles as…').click()")
+    assert reader.wait_for("!!document.querySelector('dialog[open] input[value=website]')")
+    reader.js("""(() => {
+      const dialog = document.querySelector('dialog[open]');
+      dialog.querySelector('input[value=website]').checked = true;
+      dialog.querySelector('[type=submit]').click();
+    })()""")
+    assert reader.wait_for(f"reader.state.tree.feeds.find(f => f.id === {tech}).open_website === true")
+
+    reader.js("window.opened = []; window.open = (url) => { window.opened.push(url); return null; }")
+    story = "[...document.querySelectorAll('.item')].find(e => e.textContent.includes('Tech story 0 '))"
+    reader.js(f"{story}.querySelector('.item-row').click()")
+    assert reader.wait_for("window.opened.length === 1 && window.opened[0] === 'https://example.com/tech/0'")
+    assert reader.wait_for(f"{story}.classList.contains('read') && !document.querySelector('.item.open')")
+
+    reader.press("j")  # moves on without opening another tab
+    reader.pump(0.5)
+    assert reader.js("window.opened.length") == 1

@@ -10,6 +10,9 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
   everywhere or only in one folder or feed. New articles with one in the title (or in the text too, if you choose)
   arrive already read, on every device and in every app. When you mute a word you can also mark the unread articles
   it matches as read, with Undo.
+- **Open a feed's articles on the website.** For sites whose feed is only a teaser: in a feed's ⋯ menu, **Open
+  articles as…** chooses what the feed sends, the full article, or the website. With the website, its articles open
+  in a new tab and are marked read. The choice is kept per feed, so the iPhone app does the same.
 
 ### Fixes
 - **Browser extension 1.0.4**, which updates itself from the Chrome Web Store and Firefox Add-ons: easier-to-read

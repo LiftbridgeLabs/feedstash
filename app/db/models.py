@@ -69,6 +69,7 @@ class Feed:
     unread: int
     auto_stash: bool = False  # new articles go straight to the stash
     full_text: bool = False  # new articles get the full page fetched, for feeds that only send a summary
+    open_website: bool = False  # its articles open on the website rather than in the reader
     last_new_at: int | None = None  # when it last brought in a new article
 
 

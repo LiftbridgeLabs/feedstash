@@ -217,8 +217,10 @@ export async function openArticle(id) {
   }
 }
 
-/** The full text shows when there is one, unless the reader switched back to the feed's version. */
-const showingFull = (a) => Boolean(a.full_content) && a.feedVersion !== true;
+/** The full text shows when there is one and the feed is set to open full articles, unless the reader switched this
+    article one way or the other (Full article / Feed version). */
+const showingFull = (a) => Boolean(a.full_content)
+  && (a.feedVersion === undefined ? Boolean(feedById(a.feed_id)?.full_text) : !a.feedVersion);
 
 function showBody(a) {
   const body = $(`.item[data-id="${a.id}"] .reader-body`, els.articles);
@@ -264,7 +266,18 @@ export function closeArticle(scrollBack = true) {
   if (scrollBack) scrollIntoViewIfNeeded(el);
 }
 
+/** A feed set to open on the website: its articles open there, in a new tab, instead of in the list. */
+export const opensWebsite = (a) => Boolean(a?.url && feedById(a.feed_id)?.open_website);
+
 export function toggleArticle(id) {
+  const a = state.list.byId.get(id);
+  if (opensWebsite(a)) {
+    closeArticle(false);
+    setActive(id);
+    window.open(a.url, '_blank', 'noopener');
+    setRead(a, true);
+    return;
+  }
   if (state.openId === id) closeArticle();
   else openArticle(id);
 }

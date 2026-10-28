@@ -5,7 +5,7 @@ import {
 } from './actions.js';
 import { api } from './api.js';
 import { flushMarks, resetList } from './articles.js';
-import { toast } from './dialogs.js';
+import { modal, toast } from './dialogs.js';
 import { icon } from './icons.js';
 import { moveFeedBy, moveFolderBy, sortFeedsAlpha } from './ordering.js';
 import { loadTree } from './sidebar.js';
@@ -98,10 +98,7 @@ function feedMenuItems(id) {
     feed?.auto_stash ? 'Stop saving new articles to the stash' : 'Save new articles to the stash',
     () => toggleAutoStash(id),
   ]);
-  items.push([
-    feed?.full_text ? 'Stop loading full articles' : 'Load full articles',
-    () => toggleFullText(id),
-  ]);
+  items.push(['Open articles as…', () => chooseOpens(id)]);
   if (feed?.site_url) items.push(['Open website', () => window.open(feed.site_url, '_blank', 'noopener')]);
   items.push(['Unfollow', () => unfollowFeed(id), 'danger']);
   return items;
@@ -122,19 +119,43 @@ export async function toggleAutoStash(id) {
   }
 }
 
-/** A feed that only sends summaries can have each new article's own page fetched in the background. */
-export async function toggleFullText(id) {
+const OPENS = [
+  ['feed', 'What the feed sends'],
+  ['full', 'The full article', 'For feeds that only send a summary: each new article\'s own page is fetched for you.'],
+  ['website', 'The website', 'Opens in a new tab and marks the article read.'],
+];
+
+/** What opening one of a feed's articles shows: the feed's text, the full article, or the website. Kept on the
+    server, so the phone app opens them the same way. */
+export async function chooseOpens(id) {
   const feed = feedById(id);
   if (!feed) return;
+  const current = feed.open_website ? 'website' : feed.full_text ? 'full' : 'feed';
+  const chosen = await modal({
+    title: 'Open articles as',
+    html: `<p class="muted">What opening one of ${esc(feed.title)}'s articles shows.</p>` + OPENS.map(([value, label, hint]) => `
+      <label class="check choice"><input type="radio" name="opens" value="${value}" ${value === current ? 'checked' : ''}>
+        <span>${label}${hint ? `<br><small class="muted">${hint}</small>` : ''}</span></label>`).join(''),
+    onSubmit: async (fd) => {
+      const opens = fd.get('opens');
+      if (opens !== current) {
+        await api('PATCH', `/api/feeds/${id}`, { full_text: opens === 'full', open_website: opens === 'website' });
+      }
+      return opens;
+    },
+  });
+  if (!chosen || chosen === true || chosen === current) return;
   try {
-    await api('PATCH', `/api/feeds/${id}`, { full_text: !feed.full_text });
     await loadTree();
-    toast(feed.full_text
-      ? `${feed.title} shows what the feed sends again`
-      : `New articles from ${feed.title} will open as the full article`);
   } catch (err) {
-    toast(err.message, { error: true });
+    toast(`Saved, but the list couldn't be refreshed: ${err.message}. Reload the page to see it.`, { error: true });
+    return;
   }
+  toast({
+    feed: `${feed.title} shows what the feed sends`,
+    full: `New articles from ${feed.title} will open as the full article`,
+    website: `Articles from ${feed.title} will open on the website`,
+  }[chosen]);
 }
 
 function stashFolderMenuItems(id) {

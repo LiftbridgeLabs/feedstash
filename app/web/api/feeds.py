@@ -60,6 +60,8 @@ async def update_feed(feed_id: int, body: FeedUpdateIn, user: UserDep, db: Datab
                 feeds_repo.set_auto_stash(conn, user.id, feed_id, body.auto_stash)
             if body.full_text is not None:
                 feeds_repo.set_full_text(conn, user.id, feed_id, body.full_text)
+            if body.open_website is not None:
+                feeds_repo.set_open_website(conn, user.id, feed_id, body.open_website)
             return to_schema(FeedOut, feeds_repo.get(conn, user.id, feed_id))
 
     return await run_in_threadpool(apply_rest)

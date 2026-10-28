@@ -97,3 +97,12 @@ def test_unfollow_removes_the_feed_and_its_articles(api, subscriptions):
 def test_manual_refresh_finds_nothing_new(api, subscriptions):
     assert api.post("/api/refresh", json={"scope": "all"}).json() == {"feeds": 2, "new": 0}
     assert api.post("/api/refresh", json={"scope": "feed", "id": subscriptions.tech["id"]}).json()["feeds"] == 1
+
+
+def test_a_feed_can_open_its_articles_on_the_website(api, subscriptions):
+    tech = subscriptions.tech["id"]
+    assert subscriptions.tech.get("open_website") is False
+    changed = api.patch(f"/api/feeds/{tech}", json={"open_website": True}).json()
+    assert changed["open_website"] is True and changed["full_text"] is False
+    assert next(f for f in api.get("/api/tree").json()["feeds"] if f["id"] == tech)["open_website"] is True
+    assert api.patch(f"/api/feeds/{tech}", json={"open_website": False}).json()["open_website"] is False

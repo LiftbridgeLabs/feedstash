@@ -83,7 +83,9 @@ def world(request, tmp_path_factory, feed_server):
         c.close()
 
 
-FEED_FIELDS = ("id", "folder_id", "title", "position", "url", "site_url", "unread", "auto_stash", "full_text")
+FEED_FIELDS = (
+    "id", "folder_id", "title", "position", "url", "site_url", "unread", "auto_stash", "full_text", "open_website",
+)
 
 
 def owner_view(w) -> dict:
@@ -167,6 +169,8 @@ CASES = [
     # Feeds and folders
     ("rename feed", lambda w: w.other.patch(f"/api/feeds/{w.feed}", json={"title": "Taken"}), NOT_FOUND, None),
     ("move feed", lambda w: w.other.patch(f"/api/feeds/{w.feed}", json={"folder_id": None}), NOT_FOUND, None),
+    ("open feed on website", lambda w: w.other.patch(f"/api/feeds/{w.feed}", json={"open_website": True}),
+     NOT_FOUND, None),
     ("auto-save feed", lambda w: w.other.patch(f"/api/feeds/{w.feed}", json={"auto_stash": True}), NOT_FOUND, None),
     ("change feed address",
      lambda w: w.other.patch(f"/api/feeds/{w.feed}", json={"url": f"{w.feed_server}/posts.atom"}), NOT_FOUND, None),

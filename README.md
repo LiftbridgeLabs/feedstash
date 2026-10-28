@@ -17,7 +17,8 @@ Everything you want to read, in one self-hosted app: the feeds you follow, and t
 - **Mark as read.** Everything, or only articles older than 12 hours, 1 day or 1 week, with Undo. Articles can also be marked read as they scroll off the top of the list (off by default).
 - **Auto-refresh.** Feeds are fetched in the background; new articles appear on their own, or behind a "↑ N new articles" button while you're reading.
 - **Search.** The search box in the toolbar (or press `/`) searches the full text of the articles in the feed or folder you're viewing, read ones included. In the stash, the same box searches what you've saved.
-- **Full articles.** For feeds that only send a summary, **Full article** in the reader fetches the article's own page and shows its readable part (**Feed version** switches back). Choose **Load full articles** in a feed's ⋯ menu and every new article opens that way, fetched in the background and kept for offline reading in the phone app. Needs `PAGE_CAPTURE` on (the default).
+- **Full articles.** For feeds that only send a summary, **Full article** in the reader fetches the article's own page and shows its readable part (**Feed version** switches back). Choose **Open articles as… → The full article** in a feed's ⋯ menu and every new article opens that way, fetched in the background and kept for offline reading in the phone app. Needs `PAGE_CAPTURE` on (the default).
+- **Open on the website.** For sites whose feed is only a teaser, **Open articles as… → The website** opens that feed's articles on the site itself, in a new tab (in the phone app, its browser), and marks them read. `j`/`k` then only move between them. The choice is kept per feed on the server, so every device agrees.
 - **Muted words.** Under **Settings → Feeds → Muted words**, list words or phrases you don't want to read about, everywhere or only in one folder or feed. New articles holding one (in the title, or in the text too if you choose) arrive already read, so every device and app agrees without knowing about muting. Muting a word can also mark the unread articles it matches as read, with Undo.
 - **Auto-save to the stash.** Tick **Auto-save** for a feed (in Organize feeds, or its ⋯ menu) and its new articles go straight to your stash instead of waiting to be read.
 - **OPML import and export**, e.g. from Feedly.
@@ -266,7 +267,8 @@ The clients use these endpoints (camelCase fields, `{"error": "..."}` on failure
 - **Full text.** Many feeds only send a summary. `POST /api/articles/{id}/full-text` fetches the article's own page
   and returns `{status: "ready" | "failed", content, error}` (`?refresh=true` fetches again; 409 when the server has
   `PAGE_CAPTURE` off). A feed with `full_text: true` (`PATCH /api/feeds/{id}`) has it fetched in the background for
-  every new unread article. Articles carry it as `full_content` (null until fetched) next to the feed's `content`.
+  every new unread article. Articles carry it as `full_content` (null until fetched) next to the feed's `content`. A
+  feed with `open_website: true` should open its articles' `url` instead of showing them.
 - `POST /api/articles/mark` with `{ids, read}` and `POST /api/articles/star` with `{ids, starred}` send up changes in one go, which is what a client queues while it's offline.
 
 Read state lives on the server, so every device sees the same thing; there's no peer-to-peer syncing. Two things worth doing in a client: keep read/starred state in its own table (it can learn a state for an article it hasn't downloaded, and the state should outlive the article), and keep unsent changes in a bounded, chunked queue that wins over the server's version when they disagree.

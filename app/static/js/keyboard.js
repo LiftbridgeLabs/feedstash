@@ -5,8 +5,8 @@
 
 import { markScope, refresh } from './actions.js';
 import {
-  closeArticle, itemEl, loadMore, openArticle, scrollIntoViewIfNeeded, setActive, setRead, toggleArticle, toggleRead,
-  toggleStar,
+  closeArticle, itemEl, loadMore, openArticle, opensWebsite, scrollIntoViewIfNeeded, setActive, setRead, toggleArticle,
+  toggleRead, toggleStar,
 } from './articles.js';
 import { closeMenus } from './menus.js';
 import { focusSearch } from './search.js';
@@ -27,7 +27,7 @@ function step(dir, open) {
     return;
   }
   const next = articles[idx];
-  if (open) {
+  if (open && !opensWebsite(next)) {  // j/k only select a website feed's articles, rather than opening tab after tab
     openArticle(next.id);
   } else {
     closeArticle(false);

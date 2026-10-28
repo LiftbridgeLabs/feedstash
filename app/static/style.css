@@ -555,6 +555,8 @@ dialog.whats-new { width: min(560px, calc(100vw - 32px)); }
 .modal-body { display: flex; flex-direction: column; gap: 14px; }
 .modal-body label { display: flex; flex-direction: column; gap: 5px; font-size: 13px; font-weight: 600; color: var(--text-muted); }
 .modal-body label.check { flex-direction: row; align-items: center; gap: 8px; font-weight: 400; color: var(--text); font-size: 14px; }
+.modal-body label.check.choice { align-items: flex-start; }
+.modal-body label.check.choice input { margin-top: 3px; }
 .modal-body input[type=text], .modal-body input[type=url], .modal-body input[type=email], .modal-body input[type=password], .modal-body select {
   padding: 9px 11px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); font-weight: 400; font-size: 15px;
 }

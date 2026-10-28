@@ -427,6 +427,10 @@ MIGRATIONS: list[str] = [
         INSERT INTO stash_changes (user_id, item_id, changed_at) SELECT user_id, id, CAST(strftime('%s', 'now') AS INTEGER) FROM items WHERE id = old.item_id;
     END;
     """,
+    # 23: a feed whose articles open on the website instead of in the reader (sites whose feed text is a teaser).
+    """
+    ALTER TABLE feeds ADD COLUMN open_website INTEGER NOT NULL DEFAULT 0;
+    """,
 ]
 
 
