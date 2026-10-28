@@ -3,7 +3,7 @@
 What changed in each FeedStash release, newest first. Before you update, check **Before you update** for anything
 to do first, like taking a backup. Admins see the rest of a release's notes in FeedStash after updating.
 
-## Unreleased
+## 0.12.0
 
 ### New
 - **Lock your email-to-stash address.** The Cloudflare email worker takes an optional `ADDRESS_SECRET`: a code that
