@@ -4,8 +4,9 @@ from starlette.concurrency import run_in_threadpool
 from app.db.models import Scope
 from app.clock import now
 from app.db.repositories import feeds as feeds_repo
-from app.feeds import discover, ingest
-from app.services import subscriptions
+from app.db.repositories import muted_words
+from app.feeds import discover, ingest, mute
+from app.services import muting, subscriptions
 from app.web.deps import DatabaseDep, SettingsDep, UserDep
 from app.web.schemas import (
     DiscoverFeedOut,
@@ -17,6 +18,9 @@ from app.web.schemas import (
     FeedReorderIn,
     FeedUpdateIn,
     FollowIn,
+    MutedWordAddedOut,
+    MutedWordIn,
+    MutedWordOut,
     OkOut,
     RefreshIn,
     RefreshOut,
@@ -102,3 +106,33 @@ async def refresh_now(body: RefreshIn, user: UserDep, db: DatabaseDep, settings:
     feeds = await run_in_threadpool(feeds_in_scope)
     added = await ingest.refresh(db, feeds, retention_days=settings.retention_days)
     return RefreshOut(feeds=len(feeds), new=added)
+
+
+# ------------------------------------------------------------------ muted words
+
+
+@router.get("/muted-words", response_model=list[MutedWordOut])
+def list_muted_words(user: UserDep, db: DatabaseDep) -> list[MutedWordOut]:
+    with db.transaction() as conn:
+        return [to_schema(MutedWordOut, word) for word in muted_words.list_for_user(conn, user.id)]
+
+
+@router.post("/muted-words", status_code=201, response_model=MutedWordAddedOut)
+def mute_word(body: MutedWordIn, user: UserDep, db: DatabaseDep) -> MutedWordAddedOut:
+    """New articles holding the word arrive already read; with `mark_unread_read`, unread ones holding it are marked
+    read now too, undoable with the mark-read undo."""
+    batch = now()
+    with db.transaction() as conn:
+        word = muted_words.create(
+            conn, user.id, phrase=mute.clean(body.phrase), title_only=body.title_only, folder_id=body.folder_id,
+            feed_id=body.feed_id, now=batch,
+        )
+        marked = muting.mark_unread_read(conn, user.id, word, batch=batch) if body.mark_unread_read else 0
+    return MutedWordAddedOut(word=to_schema(MutedWordOut, word), marked=marked, batch=batch)
+
+
+@router.delete("/muted-words/{word_id}", response_model=OkOut)
+def unmute_word(word_id: int, user: UserDep, db: DatabaseDep) -> OkOut:
+    with db.transaction() as conn:
+        muted_words.delete(conn, user.id, word_id)
+    return OkOut()

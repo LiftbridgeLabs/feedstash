@@ -208,3 +208,28 @@ def test_apps_says_when_the_address_is_local_and_when_the_worker_isnt_bundled(re
     assert reader.js("!!document.querySelector('a[href=\"/downloads/feedstash-extension.zip\"]')")
     assert reader.js("!!document.querySelector('a[href^=\"https://chromewebstore.google.com/detail/feedstash-capture/\"]')")
     assert reader.js("!!document.querySelector('a[href=\"https://addons.mozilla.org/firefox/addon/feedstash-capture/\"]')")
+
+
+def test_mute_a_word_marks_matching_articles_read_with_undo(reader, subscriptions):
+    tech = subscriptions.tech["id"]
+    unread = f"reader.api('GET', '/api/tree').then((t) => t.feeds.find((f) => f.id === {tech}).unread)"
+    assert reader.wait_for(f"{unread}.then((n) => n === 15)")
+    reader.js("location.hash = '#/settings/feeds'")
+    assert reader.wait_for("!!document.querySelector('[data-muted=new]') && document.body.textContent.includes('Nothing muted yet')")
+    reader.js("document.querySelector('[data-muted=new]').click()")
+    assert reader.wait_for("!!document.querySelector('dialog[open] input[name=phrase]')")
+    reader.js("""(() => {
+      const dialog = document.querySelector('dialog[open]');
+      dialog.querySelector('input[name=phrase]').value = 'Tech story 3';
+      dialog.querySelector('[type=submit]').click();
+    })()""")
+    assert reader.wait_for("document.querySelector('.toast')?.textContent.includes('marked 1 article as read')")
+    assert reader.wait_for("document.querySelector('[data-muted-list] td')?.textContent === 'Tech story 3'")
+    assert reader.wait_for(f"{unread}.then((n) => n === 14)")
+
+    reader.js("document.querySelector('.toast button').click()")
+    assert reader.wait_for("document.querySelector('.toast')?.textContent.includes('is still muted')")
+    assert reader.wait_for(f"{unread}.then((n) => n === 15)")
+
+    reader.js("document.querySelector('[data-muted=delete]').click()")
+    assert reader.wait_for("document.body.textContent.includes('Nothing muted yet')")

@@ -13,7 +13,9 @@ from app.db import Database
 from app.db.models import FeedFetchState, NewArticle
 from app.db.repositories import articles as articles_repo
 from app.db.repositories import feeds as feeds_repo
+from app.db.repositories import muted_words
 from app.feeds.fetcher import Fetcher, FetchError, FetchResult, RateLimited, create_client, secure_url
+from app.feeds.mute import Matcher
 from app.feeds.parser import ParsedFeed
 from app.feeds.to_stash import stash_article
 from app.text import html_to_text
@@ -39,12 +41,12 @@ def save_entries(
     conn: sqlite3.Connection, feed_id: int, feed: ParsedFeed, *, first_fetch: bool, retention_days: int, now: int,
     keep_old: bool | None = None,
 ) -> int:
-    """Stores a feed's new entries. Returns how many were new.
+    """Stores a feed's new entries. Returns how many were new and not muted.
 
     Entries older than the retention window are only accepted on a feed's first fetch (`keep_old` defaults to
     `first_fetch`); afterwards they would just bring back articles the cleanup already removed. Undated entries
-    count as `now`. On a feed set to auto-save, new articles also go to the stash, except on a first fetch (a
-    whole backlog arriving at once).
+    count as `now`. Entries holding a muted word arrive already read. On a feed set to auto-save, the other new
+    articles also go to the stash, except on a first fetch (a whole backlog arriving at once).
     """
     keep_old = first_fetch if keep_old is None else keep_old
     cutoff = now - retention_days * DAY_SECONDS
@@ -58,9 +60,16 @@ def save_entries(
             content=entry.content, image=entry.image, published_at=published_at,
             search_text=html_to_text(entry.content or entry.summary),
         ))
+    words, folder_id = muted_words.for_feed(conn, feed_id)
+    matcher = Matcher.for_feed(words, feed_id, folder_id)
+    kept, muted = [], []
+    for article in fresh:
+        is_muted = matcher and matcher.mutes(article.title, article.search_text or article.summary)
+        (muted if is_muted else kept).append(article)
     added_ids: list[int] = []
-    added = articles_repo.insert_new(conn, feed_id, fresh, fetched_at=now, added_ids=added_ids)
-    if added:
+    added = articles_repo.insert_new(conn, feed_id, kept, fetched_at=now, added_ids=added_ids)
+    added_muted = articles_repo.insert_new(conn, feed_id, muted, fetched_at=now, read=True)
+    if added or added_muted:
         feeds_repo.mark_new_articles(conn, feed_id, at=now)
     if added_ids and not first_fetch:
         _auto_stash(conn, feed_id, added_ids, now=now)

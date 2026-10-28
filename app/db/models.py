@@ -107,6 +107,17 @@ class NewArticle:
 
 
 @dataclass(frozen=True, slots=True)
+class MutedWord:
+    """A word or phrase whose new articles arrive already read: everywhere, or only in one folder or feed."""
+
+    id: int
+    phrase: str
+    title_only: bool  # look only at titles, not the article text
+    folder_id: int | None
+    feed_id: int | None
+
+
+@dataclass(frozen=True, slots=True)
 class ArticleSummary:
     id: int
     feed_id: int

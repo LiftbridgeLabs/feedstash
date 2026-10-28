@@ -11,6 +11,7 @@ import { renderNav } from './sidebar.js';
 import { loadLogs, logsSectionHTML, wireLogs } from './logsettings.js';
 import { loadSignIn, signInSectionHTML, wireSignIn } from './signinsettings.js';
 import { loadTagSettings, tagsSectionHTML, wireTagSettings } from './tagsettings.js';
+import { loadMutedWords, mutedWordsSectionHTML, wireMutedWords } from './mutedwords.js';
 import { loadRules, rulesSectionHTML, wireRules } from './rules.js';
 import { els, showsFeeds, showsStash, state } from './state.js';
 import { MODES, SCHEMES, setTheme, theme } from './theme.js';
@@ -97,6 +98,8 @@ export function showSettings({ switching = false } = {}) {
       <p class="muted">Rename, reorder and move feeds, fix a feed's address, or unfollow.</p>
       <div class="org-actions"><a class="btn btn-sm" href="#/organize">${icon('sliders')}Organize feeds</a></div>
     </div>`, 'data-only="feeds"')}
+
+    ${card(mutedWordsSectionHTML(), 'data-only="feeds"')}
 
     ${card(importSectionHTML())}
     </div>
@@ -242,6 +245,7 @@ export function showSettings({ switching = false } = {}) {
   loadAccount();
   loadMail(els.settings);
   loadRules(els.settings);
+  loadMutedWords(els.settings);
   loadTagSettings(els.settings);
   loadTokens();
   checkWorkerDownload();
@@ -671,6 +675,7 @@ export function wireSettings() {
   wireLogs(els.settings);
   wireSignIn(els.settings);
   wireRules(els.settings);
+  wireMutedWords(els.settings);
   wireTagSettings(els.settings, async () => {
     try {
       state.stash.summary = await api('GET', '/api/stash/summary'); // smart lists a tag change edited or removed

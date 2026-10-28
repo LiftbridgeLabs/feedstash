@@ -322,6 +322,20 @@ MIGRATIONS: list[str] = [
     ALTER TABLE sign_in_providers ADD COLUMN trust_all INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE users ADD COLUMN signed_in_with TEXT;
     """,
+    # 21: muted words. A new article whose title (or, with title_only off, its text too) holds one arrives already
+    # read. A word applies everywhere, or only to one folder or one feed, and goes when that folder or feed does.
+    """
+    CREATE TABLE muted_words (
+        id         INTEGER PRIMARY KEY,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        phrase     TEXT NOT NULL,
+        title_only INTEGER NOT NULL DEFAULT 1,
+        folder_id  INTEGER REFERENCES folders(id) ON DELETE CASCADE,
+        feed_id    INTEGER REFERENCES feeds(id) ON DELETE CASCADE,
+        created_at INTEGER NOT NULL
+    );
+    CREATE INDEX idx_muted_words_user ON muted_words(user_id);
+    """,
 ]
 
 

@@ -372,19 +372,20 @@ def undo_mark_scope_read(conn: sqlite3.Connection, user_id: int, scope: Scope, *
 
 def insert_new(
     conn: sqlite3.Connection, feed_id: int, articles: Iterable[NewArticle], *, fetched_at: int,
-    added_ids: list[int] | None = None,
+    added_ids: list[int] | None = None, read: bool = False,
 ) -> int:
-    """Stores articles not seen before (by guid), skipping read ones the cleanup already removed. Returns how many
-    were new."""
+    """Stores articles not seen before (by guid), skipping read ones the cleanup already removed. With `read` they
+    arrive already read (muted). Returns how many were new."""
     added = 0
     for article in articles:
         cursor = conn.execute(
             """INSERT OR IGNORE INTO articles
-                   (feed_id, guid, title, url, author, summary, content, image, published_at, fetched_at)
-               SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                   (feed_id, guid, title, url, author, summary, content, image, published_at, fetched_at, read_at)
+               SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                WHERE NOT EXISTS (SELECT 1 FROM purged_articles WHERE feed_id = ? AND guid = ?)""",
             (feed_id, article.guid, article.title, article.url, article.author, article.summary,
-             article.content, article.image, article.published_at, fetched_at, feed_id, article.guid),
+             article.content, article.image, article.published_at, fetched_at, fetched_at if read else None,
+             feed_id, article.guid),
         )
         if cursor.rowcount == 1:
             search.index_article(conn, cursor.lastrowid, article.title, article.search_text or article.summary)

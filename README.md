@@ -18,6 +18,7 @@ Everything you want to read, in one self-hosted app: the feeds you follow, and t
 - **Auto-refresh.** Feeds are fetched in the background; new articles appear on their own, or behind a "↑ N new articles" button while you're reading.
 - **Search.** The search box in the toolbar (or press `/`) searches the full text of the articles in the feed or folder you're viewing, read ones included. In the stash, the same box searches what you've saved.
 - **Full articles.** For feeds that only send a summary, **Full article** in the reader fetches the article's own page and shows its readable part (**Feed version** switches back). Choose **Load full articles** in a feed's ⋯ menu and every new article opens that way, fetched in the background and kept for offline reading in the phone app. Needs `PAGE_CAPTURE` on (the default).
+- **Muted words.** Under **Settings → Feeds → Muted words**, list words or phrases you don't want to read about, everywhere or only in one folder or feed. New articles holding one (in the title, or in the text too if you choose) arrive already read, so every device and app agrees without knowing about muting. Muting a word can also mark the unread articles it matches as read, with Undo.
 - **Auto-save to the stash.** Tick **Auto-save** for a feed (in Organize feeds, or its ⋯ menu) and its new articles go straight to your stash instead of waiting to be read.
 - **OPML import and export**, e.g. from Feedly.
 
@@ -274,6 +275,7 @@ Read state lives on the server, so every device sees the same thing; there's no 
 - `POST /api/tags/delete` `{names}` → `{items, tags, lists, rules}`: takes tags off every item, archived ones too. Smart lists that filtered only on them and rules that only added them are deleted; others stop using them.
 - `GET /api/discover` → `{packs: [{id, name, description, feeds: [{title, url, site, about, cadence, followed}]}]}`: starter feeds shipped with FeedStash (`app/feeds/discover.json`); follow one with `POST /api/feeds` (`folder_name` set to the pack's name puts it in a folder of its own).
 - `GET /api/feeds/{id}/stats` → `{window_days, posted, posts_per_week, read, starred, saved}`: what a feed posted in the last four weeks (less with a short read retention) and how much of it was read, starred or saved to the stash.
+- `GET /api/muted-words` → `[{id, phrase, title_only, folder_id, feed_id}]`; `POST /api/muted-words` `{phrase, title_only?, folder_id?, feed_id?, mark_unread_read?}` → `{word, marked, batch}` (`title_only` defaults to true; set one of `folder_id` or `feed_id` to mute only there; `mark_unread_read` also marks the unread articles it matches as read, undone with `POST /api/mark-read/undo` `{scope: "all", batch}`); `DELETE /api/muted-words/{id}`. Muted articles are stored already read, so syncing clients need nothing extra.
 - `GET/POST /api/tokens`, `PATCH /api/tokens/{id}` `{clientName}` (rename), `DELETE /api/tokens/{id}`
 - `GET /uploads/{name}`
 

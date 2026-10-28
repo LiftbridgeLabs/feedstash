@@ -262,6 +262,20 @@ class MarkedOut(BaseModel):
     batch: int
 
 
+class MutedWordOut(BaseModel):
+    id: int
+    phrase: str
+    title_only: bool  # only titles are checked, not the article text
+    folder_id: int | None  # set when the word is muted only in this folder
+    feed_id: int | None  # or only in this feed
+
+
+class MutedWordAddedOut(BaseModel):
+    word: MutedWordOut
+    marked: int  # unread articles marked read now (with mark_unread_read)
+    batch: int  # for POST /api/mark-read/undo with scope "all"
+
+
 class RestoredOut(BaseModel):
     restored: int
 
@@ -403,6 +417,14 @@ class FeedUpdateIn(BaseModel):
     url: str | None = Field(default=None, max_length=4000)  # the feed's new address; fetched before it's accepted
     auto_stash: bool | None = None  # send new articles straight to the stash
     full_text: bool | None = None  # fetch each new article's full page
+
+
+class MutedWordIn(BaseModel):
+    phrase: str = Field(max_length=1000)
+    title_only: bool = True
+    folder_id: int | None = None
+    feed_id: int | None = None
+    mark_unread_read: bool = False  # also mark read the unread articles it matches now
 
 
 class RefreshIn(BaseModel):
