@@ -20,14 +20,14 @@ function safeUrl(value, allowDataImage) {
 }
 
 /* Chrome 156 reports a CSP violation whenever any parser sets an on… attribute, even in an inert document that never
-   runs it (DOMParser, <template> and the Sanitizer API alike). So handler names inside tags are renamed first, outside
-   quoted values; the walk below removes them like any other unlisted attribute. This only quiets the report: the
-   walk is what keeps them out. */
+   runs it (DOMParser, <template> and the Sanitizer API alike). So handler names inside tags are renamed first,
+   skipping every attribute value, quoted or not; the walk below removes them like any other unlisted attribute. This
+   only quiets the report: the walk is what keeps them out. */
 const TAG = /<[a-z][^>"']*(?:(?:"[^"]*"|'[^']*')[^>"']*)*>?/gi;
-const HANDLER_NAME = /("[^"]*"|'[^']*')|(?<=["'\s/])on(?=[a-z])/gi;
+const HANDLER_NAME = /(=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))|(?<=["'\s/])on(?=[a-z])/gi;
 
 function renameHandlers(html) {
-  return html.replace(TAG, (tag) => tag.replace(HANDLER_NAME, (match, quoted) => quoted ?? 'data-fs-on'));
+  return html.replace(TAG, (tag) => tag.replace(HANDLER_NAME, (match, value) => value ?? 'data-fs-on'));
 }
 
 /** Returns a DocumentFragment with only allowlisted tags and attributes; links open in a new tab. */
