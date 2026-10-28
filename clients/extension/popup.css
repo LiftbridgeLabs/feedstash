@@ -1,14 +1,15 @@
-/* FeedStash's own colors (the web app's FeedStash scheme), light or dark with the system. */
+/* FeedStash's own colors (the web app's FeedStash scheme), light or dark with the system. Text and buttons meet
+   4.5:1 contrast, like the web app. */
 :root {
   --bg: #ffffff;
   --surface: #f6f7f8;
   --border: #e3e6e8;
   --text: #1d2125;
-  --text-dim: #6b7278;
-  --accent: #1f9d55;
-  --accent-hover: #188246;
+  --text-dim: #656b71;
+  --accent: #187a42;
+  --accent-hover: #125e33;
   --accent-text: #ffffff;
-  --danger: #d0372f;
+  --danger: #c5342d;
   --radius: 8px;
   color-scheme: light;
 }
@@ -22,7 +23,7 @@
   --accent: #2fb866;
   --accent-hover: #3fcb77;
   --accent-text: #0c1a12;
-  --danger: #ef5b52;
+  --danger: #f16c64;
   color-scheme: dark;
 }
 @media (prefers-color-scheme: dark) {
@@ -35,7 +36,7 @@
     --accent: #2fb866;
     --accent-hover: #3fcb77;
     --accent-text: #0c1a12;
-    --danger: #ef5b52;
+    --danger: #f16c64;
     color-scheme: dark;
   }
 }

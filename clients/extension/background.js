@@ -73,7 +73,7 @@ async function quickSave(info, tab) {
 /** Says how a save went: a note on the page itself, and the toolbar badge (all there is on pages extensions can't
     touch, like the browser's own). Shown only after saving, so it's never in a saved page or screenshot. */
 async function tell(tab, text, ok) {
-  flashBadge(ok ? 'OK' : '!', ok ? '#3fb950' : '#e5484d');
+  flashBadge(ok ? 'OK' : '!', ok ? '#187a42' : '#c5342d');
   try {
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: showNote, args: [text, ok] });
   } catch {
@@ -94,7 +94,7 @@ function showNote(text, ok) {
     position: 'fixed', right: '16px', bottom: '16px', zIndex: '2147483647', maxWidth: '360px',
     padding: '10px 14px', borderRadius: '8px', boxShadow: '0 6px 24px rgba(0, 0, 0, 0.25)',
     font: '14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    color: '#ffffff', background: ok ? '#1f9d55' : '#d0372f',
+    color: '#ffffff', background: ok ? '#187a42' : '#c5342d',
   });
   host.attachShadow({ mode: 'closed' }).append(note);
   document.documentElement.append(host);
