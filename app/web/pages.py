@@ -101,6 +101,32 @@ def index(request: Request, error: str | None = None):
     ))
 
 
+# An invite link: /invite#<token>. The token is after the #, which browsers never send to the server, so it stays
+# out of logs; login.js reads it, checks the invite and sends it with the form.
+INVITE_PAGE = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>You're invited · FeedStash</title><link rel="icon" href="/static/icon.svg"><link rel="stylesheet" href="/static/style.css"></head>
+<body class="login-body"><main class="login-card">
+<img src="/static/icon.svg" alt="" width="56" height="56"><h1>FeedStash</h1>
+<p class="muted">You're invited. Make your account: your own feeds and stash on this server.</p>
+<p class="login-error" data-invite-problem hidden></p>
+<form class="login-form" data-login="invite" method="post" novalidate hidden>
+  <label>Name<input type="text" name="name" autocomplete="name" maxlength="100" autofocus></label>
+  <label>Email<input type="email" name="email" autocomplete="username" required></label>
+  <label><span>Password <small>(at least 8 characters)</small></span><input type="password" name="password" autocomplete="new-password" required></label>
+  <p class="login-error" data-login-error hidden></p>
+  <button class="btn btn-primary btn-lg" type="submit">Create account</button>
+</form>
+<p class="muted"><a href="/">Already have an account? Sign in</a></p>
+</main><script type="module" src="/static/login.js"></script></body></html>"""
+
+
+@router.get("/invite")
+def invite_page():
+    return HTMLResponse(INVITE_PAGE, headers={"Cache-Control": "no-cache"})
+
+
 APP_STORE_URL = "https://apps.apple.com/app/id6813737525"
 
 # What the "Connect a phone or iPad" QR code opens: the Camera app won't open an app's own link (feedstash://), but it

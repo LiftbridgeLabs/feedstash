@@ -127,6 +127,30 @@ class AccountPrefsIn(BaseModel):
     sections: Literal["both", "feeds", "stash"] | None = None
 
 
+class InviteOut(BaseModel):
+    id: int
+    email: str | None  # only this address may use it; null for anyone with the link
+    created_by: str | None
+    created_at: int
+    expires_at: int
+    links: list[str] = Field(default_factory=list)  # only when it's made: <server>/invite#<token>, https first
+
+
+class InviteIn(BaseModel):
+    email: str | None = Field(default=None, max_length=320)
+    days: int = 7  # 1, 7 or 30
+
+
+class InviteCheckIn(BaseModel):
+    token: str = Field(max_length=200)
+
+
+class InviteAcceptIn(InviteCheckIn):
+    email: str = Field(max_length=320)
+    name: str | None = Field(default=None, max_length=100)
+    password: str = Field(max_length=1024)
+
+
 class AccountOut(BaseModel):
     id: int
     email: str

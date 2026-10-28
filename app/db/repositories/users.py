@@ -72,11 +72,17 @@ def upsert(
     ).lastrowid
 
 
-def create_local(conn: sqlite3.Connection, *, email: str, name: str | None, password_hash: str, is_admin: bool) -> User:
-    """An account that signs in with a password."""
+def valid_email(email: str) -> str:
+    """The address normalized, or InvalidInput if it can't be one."""
     email = normalize_email(email)
     if len(email) > 320 or not _EMAIL.match(email):
         raise InvalidInput("Enter a valid email address")
+    return email
+
+
+def create_local(conn: sqlite3.Connection, *, email: str, name: str | None, password_hash: str, is_admin: bool) -> User:
+    """An account that signs in with a password."""
+    email = valid_email(email)
     if conn.execute("SELECT 1 FROM users WHERE email = ?", (email,)).fetchone():
         raise Conflict("There's already an account with that email")
     user_id = conn.execute(

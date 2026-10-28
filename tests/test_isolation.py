@@ -67,6 +67,7 @@ def world(request, tmp_path_factory, feed_server):
     rule = ok(owner.post("/api/stash/rules", json={"field": "title", "value": "Mine", "addTag": "ruled"}))
     token = ok(owner.post("/api/tokens", json={"clientName": "Owner's phone"}))
     muted = ok(owner.post("/api/muted-words", json={"phrase": "never mind", "feed_id": feed["id"]}))["word"]
+    invite = ok(owner.post("/api/invites", json={"days": 7}))
 
     # The other account's own item, to try filing into the owner's folder.
     their_item = ok(other.post("/api/items", json={"type": "snippet", "content": "Theirs"}))
@@ -76,7 +77,7 @@ def world(request, tmp_path_factory, feed_server):
         folder=folder["id"], feed=feed["id"], blog=blog["id"], blog_folder=blog_folder, batch=batch, article=article,
         unread=unread,
         stash_folder=stash_folder["id"], item=item["id"], list=smart_list["id"], rule=rule["id"], token=token["id"],
-        muted=muted["id"],
+        muted=muted["id"], invite=invite["id"],
         their_item=their_item["id"],
     )
     for c in (owner, other, reader):
@@ -110,6 +111,7 @@ def owner_view(w) -> dict:
         "rules": get("/api/stash/rules"),
         "tokens": get("/api/tokens"),
         "muted": get("/api/muted-words"),
+        "invites": get("/api/invites"),
     }
 
 
@@ -204,6 +206,10 @@ CASES = [
     ("apply rules", lambda w: w.other.post("/api/stash/rules/apply"), 200, {"changed": 0}),
     ("stash changes", lambda w: w.other.get("/api/items/changes"), 200,
      lambda body: [i["content"] for i in body["items"]] == ["Theirs"] and body["deleted"] == []),
+    # Invites (the owner is the admin; the other account isn't)
+    ("list invites", lambda w: w.other.get("/api/invites"), 403, None),
+    ("make an invite", lambda w: w.other.post("/api/invites", json={"days": 7}), 403, None),
+    ("cancel their invite", lambda w: w.other.delete(f"/api/invites/{w.invite}"), 403, None),
     # Muted words
     ("unmute their word", lambda w: w.other.delete(f"/api/muted-words/{w.muted}"), NOT_FOUND, None),
     ("mute in their feed", lambda w: w.other.post("/api/muted-words", json={"phrase": "x", "feed_id": w.feed}),

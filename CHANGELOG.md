@@ -13,6 +13,11 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
 - **Open a feed's articles on the website.** For sites whose feed is only a teaser: in a feed's ⋯ menu, **Open
   articles as…** chooses what the feed sends, the full article, or the website. With the website, its articles open
   in a new tab and are marked read. The choice is kept per feed, so the iPhone app does the same.
+- **Invite someone.** Settings → Admin → Accounts → Invite someone makes a one-use link to send. Whoever opens it
+  makes their own account with their own password, so you don't have to choose one for them. A link works for
+  whoever has it, so send it only to them; it can name the email address the account gets, and lasts a day, a week
+  or 30 days. Pending invites can be canceled. Invited accounts are ordinary ones, never admins, and your allowed
+  email addresses or domains still apply.
 - **Cards.** A new article layout in View options: a big picture above each title, side by side on a wide screen.
 - **Follow a subreddit by name.** Type `r/` and its name (or paste its address) where you follow a feed. No Reddit
   account needed.

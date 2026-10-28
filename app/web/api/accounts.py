@@ -5,13 +5,16 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from starlette.concurrency import run_in_threadpool
 
+from app.clock import now
 from app.db.models import User
+from app.db.repositories import invites as invites_repo
 from app.db.repositories import users as users_repo
 from app.services import accounts
 from app.web.auth import PASSWORD_CHECKS, start_session
-from app.web.deps import DatabaseDep, ImagesDep, SessionUserDep, UserDep
+from app.web.deps import DatabaseDep, ImagesDep, SessionUserDep, SettingsDep, UserDep
 from app.web.schemas import (
-    AccountOut, AccountPrefsIn, AccountUpdateIn, NewAccountIn, OkOut, PasswordChangeIn, UserOut, to_schema,
+    AccountOut, AccountPrefsIn, AccountUpdateIn, InviteIn, InviteOut, NewAccountIn, OkOut, PasswordChangeIn, UserOut,
+    to_schema,
 )
 
 router = APIRouter(prefix="/api")
@@ -102,3 +105,33 @@ async def update_account(
 def delete_account(user_id: int, admin: AdminDep, db: DatabaseDep, images: ImagesDep) -> Response:
     accounts.delete_account(db, images, acting_user_id=admin.id, user_id=user_id)
     return Response(status_code=204)
+
+
+# ------------------------------------------------------------------ invite links
+
+
+@router.get("/invites", response_model=list[InviteOut])
+def list_invites(admin: AdminDep, db: DatabaseDep) -> list[InviteOut]:
+    """Invites not yet used or expired."""
+    with db.transaction() as conn:
+        return [to_schema(InviteOut, invite) for invite in invites_repo.pending(conn, now=now())]
+
+
+@router.post("/invites", status_code=201, response_model=InviteOut)
+def create_invite(body: InviteIn, admin: AdminDep, db: DatabaseDep, settings: SettingsDep) -> InviteOut:
+    """A one-use link for one person to make an ordinary password account, at each of the server's addresses
+    (https ones first: those are the ones that work from outside). The links are only in this reply."""
+    if not settings.password_login:
+        raise HTTPException(status_code=409, detail="Invites make password accounts, and password sign-in is turned off")
+    with db.transaction() as conn:
+        invite, token = invites_repo.create(conn, admin.id, email=body.email, days=body.days, now=now())
+    servers = sorted(settings.base_urls, key=lambda url: not url.startswith("https://"))
+    links = [f"{server.rstrip('/')}/invite#{token}" for server in servers]
+    return InviteOut(**to_schema(InviteOut, invite).model_dump(exclude={"links"}), links=links)
+
+
+@router.delete("/invites/{invite_id}", response_model=OkOut)
+def cancel_invite(invite_id: int, admin: AdminDep, db: DatabaseDep) -> OkOut:
+    with db.transaction() as conn:
+        invites_repo.delete(conn, invite_id)
+    return OkOut()

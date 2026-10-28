@@ -108,6 +108,17 @@ class NewArticle:
 
 
 @dataclass(frozen=True, slots=True)
+class Invite:
+    """A one-use link that lets one person make an ordinary password account."""
+
+    id: int
+    email: str | None  # only this address may use it; None for anyone with the link
+    created_by: str | None  # the admin's name or email
+    created_at: int
+    expires_at: int
+
+
+@dataclass(frozen=True, slots=True)
 class MutedWord:
     """A word or phrase whose new articles arrive already read: everywhere, or only in one folder or feed."""
 

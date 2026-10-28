@@ -210,10 +210,12 @@ export function showSettings({ switching = false } = {}) {
         <p class="muted">Everyone who can sign in. Accounts added here use a password; Google and single sign-on
           accounts appear after their first sign-in.</p>
         <div class="org-actions">
-          <button class="btn btn-sm btn-primary" data-settings="new-account">${icon('plus')}Add account</button>
+          <button class="btn btn-sm btn-primary" data-settings="invite">${icon('plus')}Invite someone</button>
+          <button class="btn btn-sm" data-settings="new-account">Add account</button>
         </div>
       </div>
       <div data-account-list><p class="muted">Loading…</p></div>
+      <div data-invite-list></div>
     </div>`)}
 
     ${card(signInSectionHTML())}
@@ -370,6 +372,7 @@ async function loadAccount() {
     if (state.route.id === 'admin') selectGroup('admin'); // asked for before it was known they're an admin
     $('[data-accounts-section]', els.settings).hidden = false;
     loadAccounts();
+    loadInvites();
     loadSignIn(els.settings);
     loadAbout();
     loadLogs(els.settings);
@@ -444,6 +447,75 @@ async function loadAccounts() {
       </tr>`).join('')}</tbody></table></div>`;
   } catch (err) {
     box.innerHTML = `<p class="muted">${esc(err.message)}</p>`;
+  }
+}
+
+/* ---- invite links (admins) */
+
+const INVITE_DAYS = [[1, '1 day'], [7, '1 week'], [30, '30 days']];
+
+async function loadInvites() {
+  const box = $('[data-invite-list]', els.settings);
+  if (!box) return;
+  try {
+    const invites = await api('GET', '/api/invites');
+    box.innerHTML = invites.length ? `<h4>Waiting to be used</h4><div class="table-wrap"><table class="org-table">
+      <thead><tr><th>For</th><th>Made by</th><th>Expires</th><th></th></tr></thead>
+      <tbody>${invites.map((invite) => `<tr>
+        <td>${invite.email ? esc(invite.email) : '<span class="muted">Anyone with the link</span>'}</td>
+        <td>${esc(invite.created_by || '')}</td>
+        <td>${esc(fullDate(invite.expires_at))}</td>
+        <td class="row-actions"><button class="btn btn-sm" data-settings="cancel-invite" data-id="${invite.id}">Cancel</button></td>
+      </tr>`).join('')}</tbody></table></div>` : '';
+  } catch (err) {
+    box.innerHTML = `<p class="muted">${esc(err.message)}</p>`;
+  }
+}
+
+/** A one-use link someone opens to make their own (non-admin) account, for when you'd rather not choose their
+    password for them. */
+async function invite() {
+  const created = await modal({
+    title: 'Invite someone',
+    confirmText: 'Make link',
+    html: `<p class="muted">Send them the link. They choose their own name and password, and get an ordinary
+        account (not an admin). The link works once, for whoever has it, so send it only to them.</p>
+      <label>Their email <small>(optional: the account gets this address)</small>
+        <input type="email" name="email" autocomplete="off"></label>
+      <label>The link works for<select name="days">${INVITE_DAYS.map(([days, label]) =>
+        `<option value="${days}" ${days === 7 ? 'selected' : ''}>${label}</option>`).join('')}</select></label>`,
+    onSubmit: (fd) => api('POST', '/api/invites', {
+      email: (fd.get('email') || '').trim() || null,
+      days: Number(fd.get('days')),
+    }),
+  });
+  if (!created || created === true) return;
+  loadInvites();
+  const [link, ...others] = created.links;
+  await modal({
+    title: 'Send this link',
+    confirmText: 'Done',
+    html: `<p>Send it to ${created.email ? esc(created.email) : "the person you're inviting"}. It works once, until
+        ${esc(fullDate(created.expires_at))}, and isn't shown again; you can cancel it here.</p>
+      <label>Invite link<input type="text" readonly value="${esc(link)}"></label>
+      <p><button type="button" class="btn btn-sm" data-copy="${esc(link)}">${icon('copy')}Copy link</button></p>
+      ${others.length ? `<details><summary>The same link at this server's other addresses</summary>
+        ${others.map((other) => `<p class="copy-line"><code>${esc(other)}</code>
+          <button type="button" class="btn btn-sm" data-copy="${esc(other)}">Copy</button></p>`).join('')}</details>` : ''}`,
+    onOpen: (dialog) => dialog.addEventListener('click', (e) => {
+      const button = e.target.closest('[data-copy]');
+      if (button) copyFrom(button);
+    }),
+  });
+}
+
+async function cancelInvite(id) {
+  try {
+    await api('DELETE', `/api/invites/${id}`);
+    loadInvites();
+    toast('Invite canceled. Its link no longer works.');
+  } catch (err) {
+    toast(err.message, { error: true });
   }
 }
 
@@ -707,6 +779,8 @@ export function wireSettings() {
       case 'sign-out-others': signOutOthers(); break;
       case 'shortcuts': showShortcuts(); break;
       case 'new-account': newAccount(); break;
+      case 'invite': invite(); break;
+      case 'cancel-invite': cancelInvite(Number(id)); break;
       case 'set-password': setPassword(Number(id), name); break;
       case 'toggle-admin': toggleAdmin(Number(id), button.dataset.admin === 'true', name); break;
       case 'remove-account': removeAccount(Number(id), name); break;

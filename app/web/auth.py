@@ -20,12 +20,14 @@ from starlette.concurrency import run_in_threadpool
 from app.clock import now
 from app.db import Database
 from app.db.models import User
+from app.db.repositories import invites as invites_repo
 from app.db.repositories import tokens as tokens_repo
 from app.db.repositories import users as users_repo
+from app.errors import NotFound
 from app.services import accounts
 from app.settings import Settings
 from app.web.ratelimit import LoginLimiter
-from app.web.schemas import OkOut, PasswordLoginIn, SetupIn
+from app.web.schemas import InviteAcceptIn, InviteCheckIn, OkOut, PasswordLoginIn, SetupIn
 from app.web.sso import SignIn
 
 log = logging.getLogger("reader.auth")
@@ -386,6 +388,53 @@ async def first_run_setup(body: SetupIn, request: Request) -> OkOut:
             lambda: accounts.setup_first_account(
                 request.app.state.db, email=body.email, name=body.name, password=body.password,
                 version=settings.feedstash_version,
+            )
+        )
+    await start_session(request, user.id)
+    return OkOut()
+
+
+# ------------------------------------------------------------------ invite links
+
+
+def _invites_open(request: Request) -> None:
+    settings: Settings = request.app.state.settings
+    if not settings.password_login or settings.dev_login:
+        raise HTTPException(status_code=404, detail="This server doesn't take invites: password sign-in is turned off")
+
+
+@router.post("/auth/invite/check")
+def check_invite(body: InviteCheckIn, request: Request) -> dict:
+    """Whether an invite link still works, and the address it's for (if one), so the page can say so up front. A
+    link that doesn't work is an answer here, not an error: `{"usable": false, "detail": why}`."""
+    _invites_open(request)
+    try:
+        with request.app.state.db.transaction() as conn:
+            invite = invites_repo.usable(conn, body.token, now=now())
+    except NotFound as exc:
+        return {"usable": False, "email": None, "detail": str(exc)}
+    return {"usable": True, "email": invite.email, "detail": None}
+
+
+@router.post("/auth/invite", response_model=OkOut)
+async def accept_invite(body: InviteAcceptIn, request: Request) -> OkOut:
+    """Makes an ordinary account from an invite link and signs in. An allowed list (ALLOWED_EMAILS, ALLOWED_DOMAINS)
+    still applies: an invite doesn't get around it."""
+    _invites_open(request)
+    settings: Settings = request.app.state.settings
+    sign_in: SignIn = request.app.state.sign_in
+    if sign_in.has_allowed_list and not sign_in.email_allowed(body.email):
+        raise HTTPException(status_code=403, detail="This server only takes some email addresses, and that isn't one. "
+                                                    "Ask whoever invited you which to use.")
+    # The link first: hashing the password is slow and shares PASSWORD_CHECKS with sign-in, so a made-up link
+    # mustn't get that far. (accept_invite checks it again in the transaction that uses it up.)
+    with request.app.state.db.transaction() as conn:
+        invites_repo.usable(conn, body.token, now=now())
+    async with PASSWORD_CHECKS:
+        user = await run_in_threadpool(
+            lambda: accounts.accept_invite(
+                request.app.state.db, body.token, email=body.email, name=body.name, password=body.password,
+                now=now(), version=settings.feedstash_version,
             )
         )
     await start_session(request, user.id)

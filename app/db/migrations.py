@@ -431,6 +431,20 @@ MIGRATIONS: list[str] = [
     """
     ALTER TABLE feeds ADD COLUMN open_website INTEGER NOT NULL DEFAULT 0;
     """,
+    # 24: invite links. An admin makes a one-use link (only its hash is kept, like API tokens) that lets one person
+    # create an ordinary password account, optionally only for one email address, until it expires.
+    """
+    CREATE TABLE invites (
+        id         INTEGER PRIMARY KEY,
+        token_hash TEXT NOT NULL UNIQUE,
+        email      TEXT,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        used_at    INTEGER,
+        used_by    INTEGER REFERENCES users(id) ON DELETE SET NULL
+    );
+    """,
 ]
 
 

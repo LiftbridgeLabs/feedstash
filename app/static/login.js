@@ -1,4 +1,32 @@
-/* The sign-in page: password sign-in and first-run setup, sent as JSON with the app's CSRF header. */
+/* The sign-in page: password sign-in and first-run setup, sent as JSON with the app's CSRF header. Also the invite
+   page (/invite#<token>): the token is checked first, and sent with the form. */
+
+const ENDPOINTS = { setup: '/auth/setup', password: '/auth/password', invite: '/auth/invite' };
+const inviteToken = decodeURIComponent(location.hash.slice(1));
+
+/** An invite link that no longer works says so instead of showing the form; one for an address fills it in. */
+async function checkInvite(form) {
+  const problem = document.querySelector('[data-invite-problem]');
+  try {
+    const response = await fetch('/auth/invite/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'reader' },
+      body: JSON.stringify({ token: inviteToken }),
+      redirect: 'manual',
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || !body.usable) throw new Error(body.detail || `This invite can't be used (${response.status})`);
+    if (body.email) {
+      const email = form.querySelector('[name=email]');
+      email.value = body.email;
+      email.readOnly = true;
+    }
+    form.hidden = false;
+  } catch (err) {
+    problem.textContent = err.message;
+    problem.hidden = false;
+  }
+}
 
 for (const form of document.querySelectorAll('form[data-login]')) {
   form.addEventListener('submit', async (e) => {
@@ -8,10 +36,12 @@ for (const form of document.querySelectorAll('form[data-login]')) {
     error.hidden = true;
     button.disabled = true;
     try {
-      const response = await fetch(form.dataset.login === 'setup' ? '/auth/setup' : '/auth/password', {
+      const fields = Object.fromEntries(new FormData(form));
+      if (form.dataset.login === 'invite') fields.token = inviteToken;
+      const response = await fetch(ENDPOINTS[form.dataset.login], {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'reader' },
-        body: JSON.stringify(Object.fromEntries(new FormData(form))),
+        body: JSON.stringify(fields),
         // A proxy's own sign-in page would otherwise look like success and send you round in a loop.
         redirect: 'manual',
       });
@@ -32,5 +62,6 @@ for (const form of document.querySelectorAll('form[data-login]')) {
       button.disabled = false;
     }
   });
-  form.dataset.ready = 'true';
+  if (form.dataset.login === 'invite') checkInvite(form).then(() => { form.dataset.ready = 'true'; });
+  else form.dataset.ready = 'true';
 }

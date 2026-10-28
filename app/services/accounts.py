@@ -4,6 +4,7 @@ import sqlite3
 
 from app.db import Database
 from app.db.models import User
+from app.db.repositories import invites as invites_repo
 from app.db.repositories import items as items_repo
 from app.db.repositories import users as users_repo
 from app.errors import Conflict, InvalidInput, NotFound
@@ -67,6 +68,24 @@ def create_account(db: Database, *, email: str, name: str | None, password: str,
     password_hash = hash_password(check_new_password(password))
     with db.transaction() as conn:
         return users_repo.create_local(conn, email=email, name=name, password_hash=password_hash, is_admin=is_admin)
+
+
+def accept_invite(
+    db: Database, token: str, *, email: str, name: str | None, password: str, now: int, version: str | None = None
+) -> User:
+    """Creates an ordinary (non-admin) account from an invite link and uses the invite up. An invite made for an
+    address makes the account with that address. (Holding the link is what lets someone in: FeedStash sends no
+    email, so it can't check who owns the address.)"""
+    password_hash = hash_password(check_new_password(password))
+    with db.transaction() as conn:
+        invite = invites_repo.usable(conn, token, now=now)
+        if invite.email and users_repo.normalize_email(email) != invite.email:
+            raise InvalidInput(f"This invite is for {invite.email}. Use that address, or ask for a new invite.")
+        user = users_repo.create_local(conn, email=email, name=name, password_hash=password_hash, is_admin=False)
+        invites_repo.use(conn, invite.id, user.id, now=now)
+        if version:  # a new account has nothing to catch up on
+            users_repo.set_seen_version(conn, user.id, version)
+        return user
 
 
 def reset_password(db: Database, user_id: int, password: str) -> User:
