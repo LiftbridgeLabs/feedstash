@@ -10,7 +10,7 @@ from app.db.models import Feed, FeedFetchState
 from app.db.repositories import feeds as feeds_repo
 from app.db.repositories import folders as folders_repo
 from app.errors import Conflict, InvalidInput
-from app.feeds import ingest
+from app.feeds import ingest, reddit
 from app.feeds.fetcher import Fetcher, FetchError, FetchResult, create_client
 from app.settings import Settings
 from app.text import collapse_whitespace
@@ -34,7 +34,9 @@ async def follow(
     folder_name: str | None = None,
     title: str | None = None,
 ) -> Feed:
-    """Finds the feed behind `url`, subscribes to it (optionally in a new folder) and stores its articles."""
+    """Finds the feed behind `url` (or a subreddit's, for "r/name"), subscribes to it (optionally in a new folder) and
+    stores its articles."""
+    url = reddit.feed_url(url) or url
     try:
         async with create_client() as client:
             result = await Fetcher(client).discover(url)

@@ -167,8 +167,8 @@ export async function addFeedDialog() {
     confirmText: 'Follow',
     busyText: 'Looking for a feed…',
     html: `
-      <label>Website or feed URL
-        <input type="text" name="url" required placeholder="https://example.com" autocomplete="off" inputmode="url" spellcheck="false">
+      <label>Website, feed URL or subreddit
+        <input type="text" name="url" required placeholder="https://example.com or r/selfhosted" autocomplete="off" inputmode="url" spellcheck="false">
       </label>
       <label>Folder<select name="folder">${folderOptions(defaultFolder, { allowNew: true })}</select></label>
       <label data-new-folder hidden>New folder name<input type="text" name="folder_name" maxlength="200" autocomplete="off"></label>
@@ -176,7 +176,7 @@ export async function addFeedDialog() {
     onOpen: wireFolderSelect,
     onSubmit: async (fd) => {
       const url = (fd.get('url') || '').trim();
-      if (!url) throw new Error('Enter a website or feed URL');
+      if (!url) throw new Error('Enter a website, feed URL or subreddit');
       return api('POST', '/api/feeds', {
         url,
         folder_id: await resolveFolder(fd),
@@ -200,7 +200,8 @@ export async function discoverDialog() {
     toast(err.message, { error: true });
     return;
   }
-  const feedRow = (pack, feed) => `<li>
+  const searchText = (pack, feed) => [feed.title, feed.about, feed.site, pack.name, pack.description].join(' ').toLowerCase();
+  const feedRow = (pack, feed) => `<li data-search="${esc(searchText(pack, feed))}">
       <div class="grow"><b>${esc(feed.title)}</b> <span class="muted">· ${esc(feed.cadence)}</span>
         <div class="muted">${esc(feed.about)}</div></div>
       ${feed.followed ? '<span class="muted">Following</span>'
@@ -211,6 +212,9 @@ export async function discoverDialog() {
     title: 'Discover feeds',
     confirmText: 'Done',
     html: `<p class="muted">Feeds to start with, in packs. Each one you follow goes into a folder named after its pack.</p>
+      <input type="search" data-discover-search placeholder="Search by name or topic, or type an address or r/subreddit"
+        aria-label="Search the starter feeds" autocomplete="off" spellcheck="false">
+      <div data-discover-other hidden></div>
       ${packs.map((pack) => `<section class="discover-pack">
         <div class="discover-head"><div class="grow"><h3>${esc(pack.name)}</h3><p class="muted">${esc(pack.description)}</p></div>
           ${pack.feeds.some((f) => !f.followed) ? `<button type="button" class="btn btn-sm" data-follow-pack="${esc(pack.id)}">Follow all</button>` : ''}</div>
@@ -218,6 +222,9 @@ export async function discoverDialog() {
       </section>`).join('')}`,
     onOpen: (dialog) => {
       $('[data-cancel]', dialog).hidden = true;
+      const search = $('[data-discover-search]', dialog);
+      search.addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });  // not Done
+      search.addEventListener('input', () => filterDiscover(dialog, search.value));
       const follow = async (button) => {
         button.disabled = true;
         button.textContent = 'Following…';
@@ -251,6 +258,36 @@ export async function discoverDialog() {
   if (!followed) return;
   await loadTree();
   toast(`Following ${plural(followed, 'new feed')}`);
+}
+
+/** Shows the starter feeds matching every word typed, and offers to follow what was typed when it's an address or a
+    subreddit (the server turns "r/name" into the subreddit's feed). */
+function filterDiscover(dialog, text) {
+  const words = text.toLowerCase().split(/\s+/).filter(Boolean);
+  let shown = 0;
+  for (const pack of $$('.discover-pack', dialog)) {
+    let packShown = 0;
+    for (const row of $$('li[data-search]', pack)) {
+      row.hidden = !words.every((word) => row.dataset.search.includes(word));
+      if (!row.hidden) packShown += 1;
+    }
+    pack.hidden = !packShown;
+    const all = $('[data-follow-pack]', pack);
+    if (all) all.hidden = words.length > 0;  // "Follow all" would follow the hidden ones too
+    shown += packShown;
+  }
+  const typed = text.trim();
+  // The forms the server's app/feeds/reddit.py accepts.
+  const subreddit = /^\/?r\/\w{2,21}\/?$/i.test(typed)
+    || /^(?:https?:\/\/)?(?:(?:www|old|new|m)\.)?reddit\.com\/r\/\w{2,21}(?:\/\.rss)?\/?(?:\?.*)?$/i.test(typed);
+  const address = subreddit || /^(https?:\/\/)?[^\s/]+\.[^\s]+$/i.test(typed);
+  const other = $('[data-discover-other]', dialog);
+  other.hidden = !address && shown > 0;
+  other.innerHTML = address
+    ? `<ul><li><div class="grow"><b>${esc(typed)}</b>
+        <div class="muted">${subreddit ? 'A subreddit, followed into a Reddit folder' : 'FeedStash looks for its feed'}</div></div>
+        <button type="button" class="btn btn-sm" data-follow-url="${esc(typed)}"${subreddit ? ' data-pack="Reddit"' : ''}>Follow</button></li></ul>`
+    : '<p class="muted">Nothing in the starter packs matches. Type a website\'s address or r/ and a subreddit\'s name to follow it.</p>';
 }
 
 /** How much a feed posts and how much of it you read, starred or saved: for deciding whether to keep it. */

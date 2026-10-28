@@ -13,6 +13,10 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
 - **Open a feed's articles on the website.** For sites whose feed is only a teaser: in a feed's ⋯ menu, **Open
   articles as…** chooses what the feed sends, the full article, or the website. With the website, its articles open
   in a new tab and are marked read. The choice is kept per feed, so the iPhone app does the same.
+- **Follow a subreddit by name.** Type `r/` and its name (or paste its address) where you follow a feed. No Reddit
+  account needed.
+- **Search Discover.** The starter packs have a search box: type a name or a topic, or an address or `r/subreddit`
+  to follow it straight from there.
 
 ### Fixes
 - **Browser extension 1.0.4**, which updates itself from the Chrome Web Store and Firefox Add-ons: easier-to-read

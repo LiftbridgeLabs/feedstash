@@ -740,7 +740,9 @@ dialog.whats-new { width: min(560px, calc(100vw - 32px)); }
 .discover-head { display: flex; gap: 12px; align-items: flex-start; }
 .discover-head h3 { margin: 0; font-size: 15px; }
 .discover-head p { margin: 2px 0 6px; }
-.discover-pack ul { list-style: none; margin: 0; padding: 0; }
-.discover-pack li { display: flex; gap: 12px; align-items: center; padding: 6px 0; }
-.discover-pack li .muted { font-size: 13px; }
-.discover-pack .grow { flex: 1; min-width: 0; }
+.discover-pack ul, [data-discover-other] ul { list-style: none; margin: 0; padding: 0; }
+.discover-pack li, [data-discover-other] li { display: flex; gap: 12px; align-items: center; padding: 6px 0; }
+.discover-pack li .muted, [data-discover-other] li .muted { font-size: 13px; }
+.discover-pack .grow, [data-discover-other] .grow { flex: 1; min-width: 0; }
+[data-discover-search] { width: 100%; margin-top: 4px; }
+[data-discover-other] { margin-top: 10px; }

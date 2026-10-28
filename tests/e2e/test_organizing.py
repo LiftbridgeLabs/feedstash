@@ -145,3 +145,32 @@ def test_discover_feeds_lists_starter_packs(reader):
     assert "Apple" in text and "Self-hosting" in text and "Follow all" in text
     assert reader.js("document.querySelectorAll('dialog[open] [data-follow-url]').length") >= 20
     assert reader.js("document.querySelector('dialog[open] [data-cancel]').hidden") is True
+
+
+def test_discover_searches_the_packs_and_offers_a_subreddit(reader):
+    reader.js("document.querySelector('[data-dropdown=\"add-menu\"]').click()")
+    reader.js("document.querySelector('#add-menu [data-add=\"discover\"]').click()")
+    assert reader.wait_for("!!document.querySelector('dialog[open] [data-discover-search]')")
+    shown = """[...document.querySelectorAll('dialog[open] li[data-search]')].filter(li => !li.hidden && !li.closest('[hidden]'))
+      .map(li => li.querySelector('b').textContent)"""
+    type_ = lambda text: reader.js(f"""(() => {{ const s = document.querySelector('dialog[open] [data-discover-search]');
+      s.value = {text!r}; s.dispatchEvent(new Event('input')); }})()""")  # noqa: E731
+
+    type_("xkcd")
+    assert reader.js(shown) == ["xkcd"]
+    type_("space")  # a pack's name ("Science & space") finds all its feeds
+    assert set(reader.js(shown)) == {"Quanta Magazine", "NASA", "ScienceDaily", "Space.com"}
+    assert reader.js("[...document.querySelectorAll('dialog[open] [data-follow-pack]')].every(b => b.hidden)") is True
+
+    type_("r/homelab")
+    assert reader.js(shown) == []
+    button = "document.querySelector('dialog[open] [data-discover-other] [data-follow-url]')"
+    assert reader.js(f"{button}.dataset.followUrl") == "r/homelab"
+    assert reader.js(f"{button}.dataset.pack") == "Reddit"
+    type_("m.reddit.com/r/homelab/?share=1")
+    assert reader.js(f"{button}.dataset.pack") == "Reddit"
+
+    type_("nothing like this")
+    assert "Nothing in the starter packs matches" in reader.js("document.querySelector('dialog[open] [data-discover-other]').textContent")
+    type_("")
+    assert len(reader.js(shown)) >= 20

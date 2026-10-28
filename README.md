@@ -13,7 +13,7 @@ Everything you want to read, in one self-hosted app: the feeds you follow, and t
 ## Features
 
 **Feeds**
-- **Folders and feeds.** Follow a site or feed URL (the feed is found automatically) from the **+** beside Feeds, which also makes folders. Rename, move, reorder by drag and drop, or unfollow — in the sidebar, or all at once under **Settings → Feeds → Organize feeds**.
+- **Folders and feeds.** Follow a site or feed URL (the feed is found automatically), or a subreddit by typing `r/` and its name, from the **+** beside Feeds, which also makes folders. **+ Add → Discover feeds** has starter packs to search by name or topic. Rename, move, reorder by drag and drop, or unfollow — in the sidebar, or all at once under **Settings → Feeds → Organize feeds**.
 - **Mark as read.** Everything, or only articles older than 12 hours, 1 day or 1 week, with Undo. Articles can also be marked read as they scroll off the top of the list (off by default).
 - **Auto-refresh.** Feeds are fetched in the background; new articles appear on their own, or behind a "↑ N new articles" button while you're reading.
 - **Search.** The search box in the toolbar (or press `/`) searches the full text of the articles in the feed or folder you're viewing, read ones included. In the stash, the same box searches what you've saved.
@@ -276,6 +276,7 @@ Read state lives on the server, so every device sees the same thing; there's no 
 - `POST /api/tags/rename` `{name, newName}` → `{name, items, merged}`: renames a tag on every item; naming an existing tag merges the two. Smart lists and rules that use the old name follow it.
 - `POST /api/tags/merge` `{names, into}` → `{name, items, merged}`: replaces several tags with one on every item, in one go; `into` can be one of them or a new name.
 - `POST /api/tags/delete` `{names}` → `{items, tags, lists, rules}`: takes tags off every item, archived ones too. Smart lists that filtered only on them and rules that only added them are deleted; others stop using them.
+- `POST /api/feeds` also takes `r/<name>` (or a subreddit's address) as `url` and follows that subreddit's feed.
 - `GET /api/discover` → `{packs: [{id, name, description, feeds: [{title, url, site, about, cadence, followed}]}]}`: starter feeds shipped with FeedStash (`app/feeds/discover.json`); follow one with `POST /api/feeds` (`folder_name` set to the pack's name puts it in a folder of its own).
 - `GET /api/feeds/{id}/stats` → `{window_days, posted, posts_per_week, read, starred, saved}`: what a feed posted in the last four weeks (less with a short read retention) and how much of it was read, starred or saved to the stash.
 - `GET /api/muted-words` → `[{id, phrase, title_only, folder_id, feed_id}]`; `POST /api/muted-words` `{phrase, title_only?, folder_id?, feed_id?, mark_unread_read?}` → `{word, marked, batch}` (`title_only` defaults to true; set one of `folder_id` or `feed_id` to mute only there; `mark_unread_read` also marks the unread articles it matches as read, undone with `POST /api/mark-read/undo` `{scope: "all", batch}`); `DELETE /api/muted-words/{id}`. Muted articles are stored already read, so syncing clients need nothing extra.
