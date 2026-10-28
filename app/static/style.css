@@ -315,6 +315,17 @@ body.resizing { cursor: col-resize; user-select: none; }
 .layout-titles .item-row:hover .age-right { visibility: hidden; }
 .item.open > .item-row { display: none; }
 
+/* Cards: a big picture above each title, as many across as fit; an open article spans the row. (#articles beats the
+   spacing rules below, which size the magazine thumbnails.) */
+#articles.layout-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); gap: 16px; padding-top: 12px; }
+#articles.layout-cards .item { border-bottom: 0; min-width: 0; }
+#articles.layout-cards .item.open { grid-column: 1 / -1; border-bottom: 1px solid var(--border); }
+#articles.layout-cards .item-row { flex-direction: column; gap: 10px; height: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 10px; }
+#articles.layout-cards .thumb { width: 100%; height: auto; aspect-ratio: 16 / 9; order: -1; }
+#articles.layout-cards .item-summary { -webkit-line-clamp: 3; }
+:root[data-density="compact"] #articles.layout-cards { grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); gap: 10px; }
+:root[data-density="comfortable"] #articles.layout-cards { grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: 20px; }
+
 /* expanded article */
 .reader { padding: 22px 4px 30px; }
 .reader-title { font-size: 26px; line-height: 1.25; margin: 0 0 8px; }

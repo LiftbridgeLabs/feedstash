@@ -35,7 +35,7 @@ Everything you want to read, in one self-hosted app: the feeds you follow, and t
 - **Save articles.** "Save to stash" on any feed article (or press `b`).
 - **Import saved links** from Feedly boards, browser bookmarks, Pocket or Raindrop, choosing for each file where its links go and how they're tagged.
 
-**Appearance.** Light, dark or following your system, in nine full color schemes — FeedStash, Slate, Nord, Solarized, Gruvbox, Dracula, Rosé, Forest and Sepia — under **Settings → You → Appearance**. Each one repaints the whole app, not just the accent color. List rows come in **compact**, **standard** or **comfortable** spacing (the view options menu in the toolbar). All of it is kept per browser, so each device can look however you like.
+**Appearance.** Light, dark or following your system, in nine full color schemes — FeedStash, Slate, Nord, Solarized, Gruvbox, Dracula, Rosé, Forest and Sepia — under **Settings → You → Appearance**. Each one repaints the whole app, not just the accent color. Article lists come as **Magazine** (a picture beside each title), **Titles only** or **Cards** (a big picture above each title, side by side on a wide screen), in **compact**, **standard** or **comfortable** spacing (the view options menu in the toolbar). All of it is kept per browser, so each device can look however you like.
 
 **Accounts.** Several people can share one server; each has their own feeds and stash. Admins add and remove accounts in **Settings → Admin → Accounts**. Each person also chooses how long their read articles are kept (**Settings → You → Your account**, 30 days by default; Read later is never deleted), and can hide the feeds or the stash if they only use one (**Use**).
 

@@ -85,6 +85,31 @@ def test_titles_only_layout(reader):
     assert reader.js("document.getElementById('articles').classList.contains('layout-titles')")
 
 
+PIXEL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+
+
+def test_cards_layout_puts_articles_side_by_side_and_an_open_one_across(reader):
+    reader.js("reader.setPref('layout', 'cards')")
+    articles = "document.getElementById('articles')"
+    assert reader.js(f"{articles}.classList.contains('layout-cards') && getComputedStyle({articles}).display") == "grid"
+    first, second = "document.querySelectorAll('.item')[0]", "document.querySelectorAll('.item')[1]"
+    assert reader.js(f"{first}.getBoundingClientRect().top === {second}.getBoundingClientRect().top")  # one row
+    # The test feeds' pictures are on example.com and get removed when they fail to load, so the card gets one that
+    # always loads; only its layout is under test.
+    reader.js(f"""(() => {{ const row = {first}.querySelector('.item-row'); row.querySelector('.thumb')?.remove();
+      row.append(Object.assign(document.createElement('img'), {{ className: 'thumb', src: '{PIXEL}' }})); }})()""")
+    assert reader.wait_for(f"{first}.querySelector('.thumb')?.complete")
+    picture = reader.js(f"(() => {{ const t = {first}.querySelector('.thumb').getBoundingClientRect(); "
+                        f"const title = {first}.querySelector('.item-title').getBoundingClientRect(); "
+                        "return t.width > t.height && t.width > 200 && t.bottom <= title.top; })()")
+    assert picture  # a big picture above the title, not a thumbnail beside it
+    reader.js(f"{first}.querySelector('.item-row').click()")
+    assert reader.wait_for("!!document.querySelector('.item.open .reader-body p')")
+    widths = reader.js(f"[document.querySelector('.item.open').getBoundingClientRect().width, {second}.getBoundingClientRect().width, "
+                       f"{articles}.getBoundingClientRect().width]")
+    assert widths[0] > widths[1] * 1.5 and widths[0] >= widths[2] - 48, widths  # the row less its padding, not a card
+
+
 def test_rename_folder_through_its_menu_and_see_it_on_organize(reader, subscriptions):
     folder_id = subscriptions.blogs_folder["id"]
     reader.js(f"reader.openContextMenu('folder', {folder_id}, document.querySelector('[data-folder-drag=\"{folder_id}\"]'))")
@@ -103,6 +128,14 @@ def test_phone_width_has_no_horizontal_scroll(reader):
     assert reader.js("document.documentElement.scrollWidth <= window.innerWidth")
     reader.js("document.getElementById('menu-toggle').click()")
     assert reader.js("document.body.classList.contains('nav-open')")
+
+
+def test_cards_fit_a_narrow_phone_even_with_comfortable_spacing(reader):
+    reader.js("reader.setPref('layout', 'cards'); reader.setPref('density', 'comfortable')")
+    reader.viewport(340, 800, mobile=True)
+    reader.pump(1)
+    assert reader.js("document.documentElement.scrollWidth <= window.innerWidth")
+    assert reader.js("document.querySelector('.item').getBoundingClientRect().right <= window.innerWidth")
 
 
 def test_the_second_sanitizer_keeps_only_the_gallery_and_video_classes(reader):

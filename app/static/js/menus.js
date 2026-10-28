@@ -270,6 +270,7 @@ export function applySections() {
 
 export function applyLayout() {
   els.articles.classList.toggle('layout-titles', state.prefs.layout === 'titles');
+  els.articles.classList.toggle('layout-cards', state.prefs.layout === 'cards');
 }
 
 /** How much room each row in the lists gets: compact, standard or comfortable. */
