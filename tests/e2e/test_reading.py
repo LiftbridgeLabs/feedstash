@@ -109,10 +109,12 @@ def test_the_second_sanitizer_keeps_only_the_gallery_and_video_classes(reader):
     reader.js("""import('/static/js/sanitize.js').then(({ sanitize }) => {
       const box = document.createElement('div');
       box.append(sanitize('<div class="fs-gallery" onclick="steal()"><img src="https://x.example.com/1.jpg"></div>'
-        + '<p class="fs-video"><a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ">Watch</a></p><p class="evil">x</p>'));
+        + '<p class="fs-video"><a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ">Watch</a></p><p class="evil">x</p>'
+        + '<img src="https://x.example.com/2.jpg"ONERROR="steal()"><p title="turn on" onmouseover=steal()>y</p>'));
       window.sanitized = box.innerHTML;
     })""")
     assert reader.wait_for("typeof window.sanitized === 'string'")
     html = reader.js("window.sanitized")
     assert 'class="fs-gallery"' in html and 'class="fs-video"' in html
     assert "evil" not in html and "onclick" not in html and "steal" not in html
+    assert 'title="turn on"' in html  # only handler names are renamed, never text inside a value
