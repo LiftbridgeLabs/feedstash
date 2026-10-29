@@ -51,6 +51,10 @@ def test_an_admin_invites_someone_who_makes_their_own_account(browser_page, star
     assert page.wait_for("document.querySelector('dialog[open] h2')?.textContent === 'Send this link'")
     link = page.js("document.querySelector('dialog[open] input[readonly]').value")
     assert "/invite#" in link
+    # Copy works on a plain-http address too, where browsers leave out navigator.clipboard.
+    page.js("Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })")
+    page.click("dialog[open] [data-copy]")
+    assert page.wait_for("document.querySelector('dialog[open] [data-copy]').textContent === 'Copied'")
     page.js("document.querySelector('dialog[open] [type=submit]').click()")
     assert page.wait_for("document.querySelector('[data-invite-list]').textContent.includes('ann@example.com')")
 

@@ -15,7 +15,7 @@ import { loadMutedWords, mutedWordsSectionHTML, wireMutedWords } from './mutedwo
 import { loadRules, rulesSectionHTML, wireRules } from './rules.js';
 import { els, showsFeeds, showsStash, state } from './state.js';
 import { MODES, SCHEMES, setTheme, theme } from './theme.js';
-import { $, $$, agoLong, esc, fullDate } from './util.js';
+import { $, $$, agoLong, copyText, esc, fullDate } from './util.js';
 
 const timestamp = (iso) => Math.floor(Date.parse(iso) / 1000);
 const SIGN_IN_LABELS = { password: 'Password', google: 'Google', oidc: 'Single sign-on', dev: 'Local dev login' };
@@ -600,12 +600,7 @@ async function loadTokens() {
 }
 
 async function copyFrom(button) {
-  try {
-    await navigator.clipboard.writeText(button.dataset.copy);
-    button.textContent = 'Copied';
-  } catch {
-    button.textContent = 'Select and copy it manually';
-  }
+  button.textContent = await copyText(button.dataset.copy, button.parentElement) ? 'Copied' : 'Select and copy it manually';
 }
 
 /** A new token for the phone or iPad app, as a QR code it can scan to connect without typing anything. */

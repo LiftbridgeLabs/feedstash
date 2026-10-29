@@ -74,6 +74,14 @@ class Page:
         self.send("Input.dispatchKeyEvent", type="keyDown", key=key, **({"text": key} if len(key) == 1 else {}))
         self.send("Input.dispatchKeyEvent", type="keyUp", key=key)
 
+    def click(self, selector: str) -> None:
+        """A real mouse click in the middle of the element, which counts as the person's own action (copying to the
+        clipboard needs one), unlike calling .click() from script."""
+        x, y = self.js(f"""(() => {{ const r = document.querySelector({selector!r}).getBoundingClientRect();
+          return [r.x + r.width / 2, r.y + r.height / 2]; }})()""")
+        for kind in ("mousePressed", "mouseReleased"):
+            self.send("Input.dispatchMouseEvent", type=kind, x=x, y=y, button="left", clickCount=1)
+
     def viewport(self, width: int, height: int, mobile: bool = False) -> None:
         self.send("Emulation.setDeviceMetricsOverride", width=width, height=height,
                   deviceScaleFactor=2 if mobile else 1, mobile=mobile)

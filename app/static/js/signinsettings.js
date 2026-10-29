@@ -4,7 +4,7 @@
 import { api } from './api.js';
 import { modal, toast } from './dialogs.js';
 import { icon } from './icons.js';
-import { $, esc } from './util.js';
+import { $, copyText, esc } from './util.js';
 
 let overview = null;
 
@@ -286,12 +286,7 @@ async function editProvider(section, provider) {
       dialog.addEventListener('click', async (e) => {
         const button = e.target.closest('[data-copy]');
         if (!button) return;
-        try {
-          await navigator.clipboard.writeText(button.dataset.copy);
-          button.textContent = 'Copied';
-        } catch {
-          button.textContent = 'Select and copy it';
-        }
+        button.textContent = await copyText(button.dataset.copy, button.parentElement) ? 'Copied' : 'Select and copy it';
       });
     },
     onSubmit: async (fd) => {

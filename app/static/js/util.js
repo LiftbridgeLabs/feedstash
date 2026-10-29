@@ -22,6 +22,29 @@ export function saveJSON(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* private mode */ }
 }
 
+/** Copies text, also on a plain-http address (a LAN IP), where browsers leave out `navigator.clipboard`. The
+    fallback's text box goes next to `near`, because an open <dialog> keeps focus from leaving it. Returns whether
+    it worked. */
+export async function copyText(text, near = document.body) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch { /* try the fallback */ }
+  const box = Object.assign(document.createElement('textarea'), { value: text, readOnly: true });
+  box.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0';
+  near.append(box);
+  box.select();
+  try {
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  } finally {
+    box.remove();
+  }
+}
+
 export function ago(ts) {
   const s = Math.max(0, Date.now() / 1000 - ts);
   if (s < 60) return 'now';
