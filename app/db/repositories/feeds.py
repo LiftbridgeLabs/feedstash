@@ -247,6 +247,11 @@ def record_success(
     )
 
 
+def note_error(conn: sqlite3.Connection, feed_id: int, error: str) -> None:
+    """Shows a problem on a feed without counting it as fetched, so the next refresh still picks it up."""
+    conn.execute("UPDATE feeds SET last_error = ? WHERE id = ?", (error, feed_id))
+
+
 def record_checked(conn: sqlite3.Connection, feed_id: int, *, fetched_at: int, error: str | None) -> None:
     """Records a fetch that produced nothing new: unchanged (error=None) or failed."""
     conn.execute("UPDATE feeds SET last_fetched_at = ?, last_error = ? WHERE id = ?", (fetched_at, error, feed_id))

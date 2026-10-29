@@ -187,7 +187,7 @@ export async function addFeedDialog() {
   if (!feed) return;
   await loadTree();
   navigate(`#/feed/${feed.id}`);
-  toast(`Following ${feed.title}`);
+  toast(feed.last_error ? `Following ${feed.title}. ${feed.last_error}` : `Following ${feed.title}`);
 }
 
 /** Starter packs of feeds (the server's discover.json): follow one feed or a whole pack, each into a folder named
@@ -225,18 +225,28 @@ export async function discoverDialog() {
       const search = $('[data-discover-search]', dialog);
       search.addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });  // not Done
       search.addEventListener('input', () => filterDiscover(dialog, search.value));
+      // Under the row's name: why it isn't followed, or why its articles come later.
+      const note = (button, text, error) => {
+        const row = button.closest('li');
+        $('.discover-note', row)?.remove();
+        if (text) $('.grow', row).append(Object.assign(document.createElement('div'), {
+          className: `discover-note${error ? ' error' : ''}`, textContent: text,
+        }));
+      };
       const follow = async (button) => {
         button.disabled = true;
         button.textContent = 'Following…';
+        note(button, '');
         try {
-          await api('POST', '/api/feeds', { url: button.dataset.followUrl, folder_name: button.dataset.pack });
+          const feed = await api('POST', '/api/feeds', { url: button.dataset.followUrl, folder_name: button.dataset.pack });
+          if (feed.last_error) note(button, feed.last_error);
           button.replaceWith(Object.assign(document.createElement('span'), { className: 'muted', textContent: 'Following' }));
           followed += 1;
           return true;
         } catch (err) {
           button.disabled = false;
           button.textContent = 'Try again';
-          toast(err.message, { error: true });
+          note(button, `Not followed. ${err.message}`, true);
           return false;
         }
       };

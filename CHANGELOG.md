@@ -20,7 +20,8 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
   email addresses or domains still apply.
 - **Cards.** A new article layout in View options: a big picture above each title, side by side on a wide screen.
 - **Follow a subreddit by name.** Type `r/` and its name (or paste its address) where you follow a feed. No Reddit
-  account needed.
+  account needed. If Reddit asks FeedStash to slow down, the subreddit is followed anyway and its posts arrive with
+  a later refresh.
 - **Search Discover.** The starter packs have a search box: type a name or a topic, or an address or `r/subreddit`
   to follow it straight from there.
 
@@ -28,6 +29,8 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
 - **Browser extension 1.0.4**, which updates itself from the Chrome Web Store and Firefox Add-ons: easier-to-read
   colors, like the web app's in 0.12.0. The green Save button and the notes after a right-click save now meet the
   usual contrast guideline.
+- **Copy buttons work on a plain http address**, such as your server's address on your home network. Browsers
+  only offer copying to secure pages, so tokens and links had to be selected by hand.
 
 ### Before you update
 - Take a backup: this update changes the database.

@@ -141,9 +141,7 @@ async def refresh(db: Database, feeds: Sequence[FeedFetchState], *, retention_da
                     result = await fetcher.fetch(feed.url, etag=feed.etag, last_modified=feed.last_modified)
                     return await asyncio.to_thread(store_result, db, feed, result, retention_days=retention_days)
                 except RateLimited as exc:
-                    rest = REST_SECONDS if exc.retry_after is None else min(max(exc.retry_after, 60), MAX_REST_SECONDS)
-                    _resting[site] = time.monotonic() + rest
-                    log.info("%s is rate limiting feed fetches; leaving it for %d minutes", site, rest // 60)
+                    rest_site(feed.url, exc.retry_after)
                     message = str(exc)
                 except FetchError as exc:
                     message = str(exc) or "Fetch failed"
@@ -166,6 +164,14 @@ async def refresh(db: Database, feeds: Sequence[FeedFetchState], *, retention_da
 
         results = await asyncio.gather(*(refresh_site(site, group) for site, group in by_site.items()))
     return sum(results)
+
+
+def rest_site(url: str, retry_after: int | None) -> None:
+    """Leaves the site behind `url` alone after it said "too many requests": for as long as it asked, within limits,
+    or an hour. A shorter answer never cuts a longer rest short."""
+    rest = REST_SECONDS if retry_after is None else min(max(retry_after, 60), MAX_REST_SECONDS)
+    _resting[_site(url)] = max(_resting.get(_site(url), 0), time.monotonic() + rest)
+    log.info("%s is rate limiting feed fetches; leaving it for %d minutes", _site(url), rest // 60)
 
 
 def _site(url: str) -> str:

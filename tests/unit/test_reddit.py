@@ -1,6 +1,6 @@
 import pytest
 
-from app.feeds.reddit import feed_url
+from app.feeds.reddit import feed_url, name
 
 FEED = "https://www.reddit.com/r/selfhosted/.rss"
 
@@ -19,3 +19,8 @@ def test_a_subreddit_by_name_or_address_becomes_its_feed(text):
 ])
 def test_anything_else_is_left_alone(text):
     assert feed_url(text) is None
+
+
+def test_the_name_comes_from_either_form():
+    assert name("r/selfhosted") == name("https://old.reddit.com/r/selfhosted/.rss") == "selfhosted"
+    assert name("https://example.com/r/selfhosted") is None

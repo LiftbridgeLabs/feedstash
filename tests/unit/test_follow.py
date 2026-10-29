@@ -70,3 +70,11 @@ def test_another_site_saying_wait_is_still_an_error(web):
         _follow(web, "https://busy.example.com/feed")
     with web.db.transaction() as conn:
         assert feeds.list_for_user(conn, web.user_id) == []
+
+
+def test_a_shorter_wait_never_cuts_a_longer_rest_short(monkeypatch):
+    monkeypatch.setattr(ingest, "_resting", {})
+    ingest.rest_site("https://www.reddit.com/r/a/.rss", 3000)
+    longer = ingest._resting["www.reddit.com"]
+    ingest.rest_site("https://www.reddit.com/r/b/.rss", 60)
+    assert ingest._resting["www.reddit.com"] == longer

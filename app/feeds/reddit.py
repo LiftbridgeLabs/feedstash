@@ -9,8 +9,14 @@ _SHORT = re.compile(rf"^/?r/({_NAME})/?$")
 _ADDRESS = re.compile(rf"^(?:https?://)?(?:(?:www|old|new|m)\.)?reddit\.com/r/({_NAME})(?:/\.rss)?/?(?:\?.*)?$", re.I)
 
 
-def feed_url(text: str) -> str | None:
-    """The subreddit's feed address for "r/name" or a subreddit's address; None for anything else."""
+def name(text: str) -> str | None:
+    """The subreddit's name for "r/name" or a subreddit's address; None for anything else."""
     text = (text or "").strip()
     match = _SHORT.match(text) or _ADDRESS.match(text)
-    return f"https://www.reddit.com/r/{match.group(1)}/.rss" if match else None
+    return match.group(1) if match else None
+
+
+def feed_url(text: str) -> str | None:
+    """The subreddit's feed address for "r/name" or a subreddit's address; None for anything else."""
+    subreddit = name(text)
+    return f"https://www.reddit.com/r/{subreddit}/.rss" if subreddit else None
