@@ -24,7 +24,12 @@ COMMON_FEED_PATHS = ("feed", "rss", "feed.xml", "rss.xml", "atom.xml", "index.xm
 
 
 class FetchError(Exception):
-    """A feed couldn't be fetched. The message is meant to be shown to users."""
+    """A feed couldn't be fetched. The message is meant to be shown to users; `status` is the site's HTTP status,
+    when it answered with an error."""
+
+    def __init__(self, message: str = "", status: int | None = None):
+        super().__init__(message)
+        self.status = status
 
 
 class RateLimited(FetchError):
@@ -203,7 +208,7 @@ def _http_error(response: httpx.Response) -> FetchError:
         )
     if code == 403:
         return FetchError(f"{host} turned FeedStash away (HTTP 403). Some sites block feed readers.")
-    return FetchError(f"{host} returned HTTP {code}")
+    return FetchError(f"{host} returned HTTP {code}", code)
 
 
 def _is_bot_check(response: httpx.Response) -> bool:

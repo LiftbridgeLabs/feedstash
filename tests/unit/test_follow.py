@@ -25,6 +25,8 @@ def web(monkeypatch, tmp_path):
 
     def respond(request):
         asked.append(str(request.url))
+        if request.url.path == "/r/nosuchplace/.rss":
+            return httpx.Response(404)
         if request.url.host == "www.reddit.com" or request.url.host == "busy.example.com":
             return httpx.Response(429)
         return httpx.Response(200, content=RSS, headers={"content-type": "application/rss+xml"})
@@ -63,6 +65,11 @@ def test_a_subreddit_is_followed_even_when_reddit_says_wait(web):
 
 def test_a_name_given_for_the_subreddit_is_kept(web):
     assert _follow(web, "r/selfhosted", title="Self-hosting").title == "Self-hosting"
+
+
+def test_a_subreddit_that_isnt_there_says_so(web):
+    with pytest.raises(InvalidInput, match="Reddit has no subreddit called r/nosuchplace"):
+        _follow(web, "r/nosuchplace")
 
 
 def test_another_site_saying_wait_is_still_an_error(web):

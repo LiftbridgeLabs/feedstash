@@ -53,6 +53,8 @@ async def follow(
             waiting=f"Reddit asked FeedStash to wait, so r/{subreddit}'s posts will come with a later refresh.",
         )
     except FetchError as exc:
+        if subreddit and exc.status == 404:  # Reddit's answer for a name that's free, banned or misspelled
+            raise InvalidInput(f"Reddit has no subreddit called r/{subreddit}. Check the spelling.") from exc
         raise InvalidInput(str(exc)) from exc
     return await asyncio.to_thread(
         _save_followed, db, settings, user_id, result, url=result.url, folder_id=folder_id, folder_name=folder_name,
