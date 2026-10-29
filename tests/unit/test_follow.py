@@ -80,3 +80,9 @@ def test_a_shorter_wait_never_cuts_a_longer_rest_short(monkeypatch):
     longer = ingest._resting["www.reddit.com"]
     ingest.rest_site("https://www.reddit.com/r/b/.rss", 60)
     assert ingest._resting["www.reddit.com"] == longer
+
+
+def test_a_site_typed_without_https_is_named_in_the_message(web):
+    with pytest.raises(InvalidInput, match="^busy.example.com asked FeedStash to slow down"):
+        _follow(web, "busy.example.com/feed")
+    assert "busy.example.com" in ingest._resting

@@ -12,7 +12,7 @@ from app.db.repositories import feeds as feeds_repo
 from app.db.repositories import folders as folders_repo
 from app.errors import Conflict, InvalidInput
 from app.feeds import ingest, reddit
-from app.feeds.fetcher import Fetcher, FetchError, FetchResult, RateLimited, create_client
+from app.feeds.fetcher import Fetcher, FetchError, FetchResult, RateLimited, create_client, normalize_url
 from app.settings import Settings
 from app.text import collapse_whitespace
 
@@ -46,9 +46,10 @@ async def follow(
             result = await Fetcher(client).discover(url)
     except RateLimited as exc:
         # Nothing is followed: without an answer there's no telling a real feed (or subreddit) from a typo.
-        ingest.rest_site(url, exc.retry_after)
+        address = normalize_url(url)  # as fetched: "example.com/feed" has no host until it gets its https://
+        ingest.rest_site(address, exc.retry_after)
         what = f"r/{subreddit}" if subreddit else "this feed"
-        site = "Reddit" if subreddit else urlparse(url).netloc
+        site = "Reddit" if subreddit else urlparse(address).netloc
         raise InvalidInput(f"{site} asked FeedStash to slow down, so it couldn't check {what}. "
                            "Try again in a few minutes.") from exc
     except FetchError as exc:
