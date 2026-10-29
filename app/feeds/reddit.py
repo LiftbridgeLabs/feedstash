@@ -16,6 +16,11 @@ def name(text: str) -> str | None:
     return match.group(1) if match else None
 
 
+def looks_like_one(text: str) -> bool:
+    """Typed as a subreddit ("r/…"), whether or not the name is a possible one."""
+    return re.match(r"^/?r/", (text or "").strip()) is not None
+
+
 def feed_url(text: str) -> str | None:
     """The subreddit's feed address for "r/name" or a subreddit's address; None for anything else."""
     subreddit = name(text)

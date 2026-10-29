@@ -20,8 +20,7 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
   email addresses or domains still apply.
 - **Cards.** A new article layout in View options: a big picture above each title, side by side on a wide screen.
 - **Follow a subreddit by name.** Type `r/` and its name (or paste its address) where you follow a feed. No Reddit
-  account needed. If Reddit asks FeedStash to slow down, the subreddit is followed anyway and its posts arrive with
-  a later refresh.
+  account needed.
 - **Search Discover.** The starter packs have a search box: type a name or a topic, or an address or `r/subreddit`
   to follow it straight from there.
 

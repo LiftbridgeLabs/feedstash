@@ -2,6 +2,7 @@
 
 import asyncio
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
 from app import opml
 from app.clock import now as current_time
@@ -37,50 +38,41 @@ async def follow(
     """Finds the feed behind `url` (or a subreddit's, for "r/name"), subscribes to it (optionally in a new folder) and
     stores its articles."""
     subreddit = reddit.name(url)
+    if subreddit is None and reddit.looks_like_one(url):
+        raise InvalidInput("That isn't a subreddit's name: they're 2 to 21 letters, numbers or underscores.")
     url = reddit.feed_url(url) or url
     try:
         async with create_client() as client:
             result = await Fetcher(client).discover(url)
     except RateLimited as exc:
-        if not subreddit:
-            raise InvalidInput(str(exc)) from exc
-        # Reddit often says "too many requests" to servers. A subreddit's feed address is known to be right, so
-        # it's followed anyway and its posts come with a later refresh, once Reddit's rest is over.
+        # Nothing is followed: without an answer there's no telling a real feed (or subreddit) from a typo.
         ingest.rest_site(url, exc.retry_after)
-        return await asyncio.to_thread(
-            _save_followed, db, settings, user_id, None, url=url, folder_id=folder_id, folder_name=folder_name,
-            title=title if collapse_whitespace(title) else f"r/{subreddit}",
-            waiting=f"Reddit asked FeedStash to wait, so r/{subreddit}'s posts will come with a later refresh.",
-        )
+        what = f"r/{subreddit}" if subreddit else "this feed"
+        site = "Reddit" if subreddit else urlparse(url).netloc
+        raise InvalidInput(f"{site} asked FeedStash to slow down, so it couldn't check {what}. "
+                           "Try again in a few minutes.") from exc
     except FetchError as exc:
         if subreddit and exc.status == 404:  # Reddit's answer for a name that's free, banned or misspelled
             raise InvalidInput(f"Reddit has no subreddit called r/{subreddit}. Check the spelling.") from exc
         raise InvalidInput(str(exc)) from exc
     return await asyncio.to_thread(
-        _save_followed, db, settings, user_id, result, url=result.url, folder_id=folder_id, folder_name=folder_name,
-        title=title,
+        _save_followed, db, settings, user_id, result, folder_id=folder_id, folder_name=folder_name, title=title
     )
 
 
 def _save_followed(
-    db: Database, settings: Settings, user_id: int, result: FetchResult | None, *,
-    url: str, folder_id: int | None, folder_name: str | None, title: str | None, waiting: str | None = None,
+    db: Database, settings: Settings, user_id: int, result: FetchResult, *,
+    folder_id: int | None, folder_name: str | None, title: str | None,
 ) -> Feed:
-    """Subscribes to a feed that was fetched (`result`), or, with `waiting` saying why, to one that couldn't be yet:
-    it's left unfetched, so the scheduler fetches it on its next round."""
     now = current_time()
     with db.transaction() as conn:
-        if feeds_repo.is_followed(conn, user_id, url):
+        if feeds_repo.is_followed(conn, user_id, result.url):
             raise Conflict("You already follow this feed")
         if collapse_whitespace(folder_name):
             folder_id = folders_repo.get_or_create(conn, user_id, folder_name).id
-        if result is None:
-            feed_id = feeds_repo.create(conn, user_id, url=url, title=title, folder_id=folder_id)
-            feeds_repo.note_error(conn, feed_id, waiting)
-            return feeds_repo.get(conn, user_id, feed_id)
         feed_id = feeds_repo.create(
             conn, user_id,
-            url=url,
+            url=result.url,
             title=title if collapse_whitespace(title) else result.feed.title,
             folder_id=folder_id,
             site_url=result.feed.site_url,

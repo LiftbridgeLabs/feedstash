@@ -1,4 +1,4 @@
-"""Following a feed when the site says "too many requests"."""
+"""Following a feed when the site says "too many requests", and subreddits that can't be followed."""
 
 import asyncio
 from types import SimpleNamespace
@@ -7,7 +7,6 @@ import httpx
 import pytest
 
 from app.db import Database
-from app.db.models import Scope
 from app.db.repositories import feeds, users
 from app.errors import InvalidInput
 from app.feeds import ingest
@@ -47,24 +46,20 @@ def _follow(web, url, **kwargs):
     return asyncio.run(subscriptions.follow(web.db, SETTINGS, web.user_id, url=url, **kwargs))
 
 
-def test_a_subreddit_is_followed_even_when_reddit_says_wait(web):
-    feed = _follow(web, "r/selfhosted", folder_name="Reddit")
-    assert (feed.url, feed.title, feed.last_fetched_at) == ("https://www.reddit.com/r/selfhosted/.rss", "r/selfhosted", None)
-    assert "Reddit asked FeedStash to wait" in feed.last_error
-    assert feed.folder_id is not None
-
-    # Reddit is left alone for its rest: the next refresh doesn't ask it again, and the feed is still waiting.
-    web.asked.clear()
+def test_nothing_is_followed_when_reddit_says_wait(web):
+    # Without an answer there's no telling a real subreddit from a typo, so nothing is followed.
+    with pytest.raises(InvalidInput, match="Reddit asked FeedStash to slow down, so it couldn't check r/selfhosted"):
+        _follow(web, "r/selfhosted", folder_name="Reddit")
     with web.db.transaction() as conn:
-        states = feeds.fetch_states_in_scope(conn, web.user_id, Scope("all"))
-    asyncio.run(ingest.refresh(web.db, states, retention_days=90))
+        assert feeds.list_for_user(conn, web.user_id) == []
+    # Reddit's rest is kept, so the scheduler leaves it alone too.
+    assert "www.reddit.com" in ingest._resting
+
+
+def test_a_name_reddit_cant_have_is_refused_without_asking(web):
+    with pytest.raises(InvalidInput, match="isn't a subreddit's name"):
+        _follow(web, "r/asslvasnlkvnaslkvnaslkd")  # 25 characters; Reddit allows 21
     assert web.asked == []
-    with web.db.transaction() as conn:
-        assert feeds.get(conn, web.user_id, feed.id).last_fetched_at is None
-
-
-def test_a_name_given_for_the_subreddit_is_kept(web):
-    assert _follow(web, "r/selfhosted", title="Self-hosting").title == "Self-hosting"
 
 
 def test_a_subreddit_that_isnt_there_says_so(web):
@@ -72,8 +67,8 @@ def test_a_subreddit_that_isnt_there_says_so(web):
         _follow(web, "r/nosuchplace")
 
 
-def test_another_site_saying_wait_is_still_an_error(web):
-    with pytest.raises(InvalidInput, match="slow down"):
+def test_another_site_saying_wait_is_an_error_too(web):
+    with pytest.raises(InvalidInput, match="busy.example.com asked FeedStash to slow down, so it couldn't check this feed"):
         _follow(web, "https://busy.example.com/feed")
     with web.db.transaction() as conn:
         assert feeds.list_for_user(conn, web.user_id) == []
