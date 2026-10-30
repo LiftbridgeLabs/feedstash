@@ -34,7 +34,7 @@ jobs:
   # dependencies). A failing scan stops the image from being published. Pinned
   # to a commit like the actions above: the image job holds the Docker Hub token.
   scan:
-    uses: LiftbridgeLabs/.github/.github/workflows/security-scan.yml@ead0198752a5d39a283ed4699215967dadb22816 # main, 2026-10-28
+    uses: LiftbridgeLabs/.github/.github/workflows/security-scan.yml@74c45acb885e7545dbccd0acf90407d62347ea4e # main, 2026-10-30
     with:
       npm-dirs: "clients/email-worker"
       pip-requirements: "requirements.txt"
