@@ -79,8 +79,8 @@ def export(conn: sqlite3.Connection, user_id: int) -> dict:
 def image_names(data: dict) -> set[str]:
     """Every uploaded picture the exported items use."""
     names = set()
-    for item in data.get("items") or []:
-        names.update(name for name in (item.get("images") or []) if isinstance(name, str))
+    for item in _list(data, "items"):
+        names.update(name for name in _values(item, "images") if isinstance(name, str))
         if isinstance(item.get("image_name"), str):
             names.add(item["image_name"])
     return names
@@ -117,6 +117,12 @@ def _int(value: Any) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _values(entry: dict, key: str) -> list:
+    """A list field of one entry (an item's tags, links or pictures): empty when missing or not a list."""
+    value = entry.get(key)
+    return value if isinstance(value, list) else []
 
 
 def _list(data: dict, key: str) -> list[dict]:
@@ -281,7 +287,7 @@ def _import_item(
     ).fetchone():
         return False
     names = []
-    for name in [n for n in (entry.get("images") or []) if isinstance(n, str)][:20]:
+    for name in [n for n in _values(entry, "images") if isinstance(n, str)][:20]:
         stored = image_for(name)
         if stored:
             names.append(stored)
@@ -294,11 +300,11 @@ def _import_item(
          _int(entry.get("reviewed_at")), _int(entry.get("archived_at")), created, _int(entry.get("updated_at")) or created,
          stash_folders.get(_int(entry.get("folder_id"))), feeds.get(_int(entry.get("feed_id")))),
     ).lastrowid
-    for name in normalize_tags([t for t in (entry.get("tags") or []) if isinstance(t, str)]):
+    for name in normalize_tags([t for t in _values(entry, "tags") if isinstance(t, str)]):
         conn.execute("INSERT OR IGNORE INTO tags (user_id, name) VALUES (?, ?)", (user_id, name))
         tag_id = conn.execute("SELECT id FROM tags WHERE user_id = ? AND name = ?", (user_id, name)).fetchone()[0]
         conn.execute("INSERT OR IGNORE INTO item_tags (item_id, tag_id) VALUES (?, ?)", (item_id, tag_id))
-    links = [link for link in (entry.get("links") or []) if isinstance(link, dict) and _text(link.get("url"))]
+    links = [link for link in _values(entry, "links") if isinstance(link, dict) and _text(link.get("url"))]
     conn.executemany(
         "INSERT INTO item_links (item_id, url, label, position) VALUES (?, ?, ?, ?)",
         [(item_id, _text(link["url"]), _text(link.get("label"), 200), position) for position, link in enumerate(links[:50])],

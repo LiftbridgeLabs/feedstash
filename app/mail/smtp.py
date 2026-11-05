@@ -58,7 +58,11 @@ def send(settings: EmailSettings, msg: EmailMessage) -> None:
                 client.starttls(context=ssl.create_default_context())
                 client.ehlo()
             if settings.username:
-                client.login(settings.username, settings.password)
+                try:
+                    client.login(settings.username, settings.password)
+                except UnicodeError:
+                    raise SendError(f"{host} can't be sent this username or password: it has characters SMTP "
+                                    "logins don't allow.") from None
             client.send_message(msg)
     except smtplib.SMTPAuthenticationError as exc:
         raise SendError(f"{host} didn't accept the username and password ({exc.smtp_code}).") from None

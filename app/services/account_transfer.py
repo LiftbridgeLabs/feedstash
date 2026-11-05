@@ -20,6 +20,7 @@ from app.images import MAX_IMAGE_BYTES, ImageStore
 MAX_UPLOAD_BYTES = 512 * 1024 * 1024
 MAX_JSON_BYTES = 512 * 1024 * 1024
 MAX_FILES = 20_000
+MAX_PICTURES_BYTES = 1024 * 1024 * 1024  # all the pictures one import may unpack, counted as they're read
 NOT_AN_EXPORT = "This file isn't a FeedStash export. Make one with Settings → You → Download everything."
 
 
@@ -64,14 +65,27 @@ def import_zip(db: Database, images: ImageStore, user_id: int, upload: IO[bytes]
         transfer_repo.check(data)
 
         stored: dict[str, str] = {}
-        for name in transfer_repo.image_names(data):
-            entry = by_name.get(f"pictures/{name}")
-            if entry is None or entry.file_size > MAX_IMAGE_BYTES or "/" in name or ".." in name:
-                continue
-            try:
-                stored[name] = images.save(_read(archive, entry, MAX_IMAGE_BYTES))
-            except InvalidInput:
-                continue  # not a real image: the item comes in without it
+        unpacked = 0
+        try:
+            for name in transfer_repo.image_names(data):
+                entry = by_name.get(f"pictures/{name}")
+                if entry is None or entry.file_size > MAX_IMAGE_BYTES or "/" in name or ".." in name:
+                    continue
+                try:
+                    picture = _read(archive, entry, MAX_IMAGE_BYTES)
+                except InvalidInput:
+                    continue  # bigger than its header said: left out
+                unpacked += len(picture)
+                if unpacked > MAX_PICTURES_BYTES:
+                    raise InvalidInput("The pictures in this file add up to more than one import can take")
+                try:
+                    stored[name] = images.save(picture)
+                except InvalidInput:
+                    continue  # not a real image: the item comes in without it
+        except Exception:
+            for new in stored.values():
+                images.delete(new)
+            raise
 
     used: set[str] = set()
 
