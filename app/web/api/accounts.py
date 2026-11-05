@@ -85,7 +85,7 @@ async def export_account(user: UserDep, db: DatabaseDep, images: ImagesDep, sett
 
 @router.post("/account/import", response_model=AccountImportOut)
 async def import_account(request: Request, user: UserDep, db: DatabaseDep, images: ImagesDep) -> AccountImportOut:
-    """Adds a FeedStash export (from Settings → You → Download everything, on any server) to this account. Merges:
+    """Adds a FeedStash export (from Settings → Feeds → Download everything, on any server) to this account. Merges:
     nothing already here is replaced or doubled."""
     form = await request.form(max_part_size=account_transfer.MAX_UPLOAD_BYTES)
     upload = form.get("file")

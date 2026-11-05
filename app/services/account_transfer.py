@@ -21,7 +21,7 @@ MAX_UPLOAD_BYTES = 512 * 1024 * 1024
 MAX_JSON_BYTES = 512 * 1024 * 1024
 MAX_FILES = 20_000
 MAX_PICTURES_BYTES = 1024 * 1024 * 1024  # all the pictures one import may unpack, counted as they're read
-NOT_AN_EXPORT = "This file isn't a FeedStash export. Make one with Settings → You → Download everything."
+NOT_AN_EXPORT = "This file isn't a FeedStash export. Make one with Settings → Feeds → Download everything."
 
 
 def export_zip(db: Database, images: ImageStore, user_id: int, version: str) -> Path:

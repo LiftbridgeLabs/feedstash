@@ -256,7 +256,7 @@ def test_admins_save_email_settings_and_send_a_test(reader):
 
 
 def test_download_everything_and_bring_it_back_in(reader):
-    reader.js("location.hash = '#/settings/you'")
+    reader.js("location.hash = '#/settings/feeds'")
     assert reader.wait_for("!!document.querySelector('[data-move-section] [data-move-file]')")
     # The file Download everything makes, handed to the file picker as if chosen from disk.
     reader.js("""(async () => {

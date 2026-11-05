@@ -225,7 +225,7 @@ metadata services hand out credentials.
 
 ## Moving to another FeedStash
 
-**Settings → You → Move to another FeedStash → Download everything** gives you one `.zip` with everything in your account: feeds and folders, articles with what you've read and starred, your stash with its tags, links, pictures and saved pages, smart lists, rules, muted words and your reading settings. On the other server, **Bring in from another FeedStash…** adds it to your account there. It merges: a feed you already follow, a folder of the same name, an article or stash item that's already there is kept once, so bringing the same file in twice changes nothing. Your password, API tokens, connected mailbox and the server's own settings stay behind; set those up again on the new server.
+**Settings → Feeds → Move to another FeedStash → Download everything** gives you one `.zip` with everything in your account: feeds and folders, articles with what you've read and starred, your stash with its tags, links, pictures and saved pages, smart lists, rules, muted words and your reading settings. On the other server, **Bring in from another FeedStash…** adds it to your account there. It merges: a feed you already follow, a folder of the same name, an article or stash item that's already there is kept once, so bringing the same file in twice changes nothing. Your password, API tokens, connected mailbox and the server's own settings stay behind; set those up again on the new server.
 
 For a whole server with every account, copy the database instead (`python -m app.cli backup`, see Deploying).
 

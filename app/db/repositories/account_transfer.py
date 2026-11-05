@@ -134,7 +134,7 @@ def _list(data: dict, key: str) -> list[dict]:
 
 def check(data: Any) -> dict:
     if not isinstance(data, dict) or data.get("format") != FORMAT:
-        raise InvalidInput("This file isn't a FeedStash export. Make one with Settings → You → Download everything.")
+        raise InvalidInput("This file isn't a FeedStash export. Make one with Settings → Feeds → Download everything.")
     if _int(data.get("version")) != VERSION:
         raise InvalidInput("This export comes from a newer FeedStash. Update this server, then try again.")
     return data

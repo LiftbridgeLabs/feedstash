@@ -92,8 +92,6 @@ export function showSettings({ switching = false } = {}) {
         anywhere to see the shortcuts.</p>
       <button class="btn btn-sm" data-settings="shortcuts">Keyboard shortcuts</button>
     </div>`, 'data-only="feeds"')}
-
-    ${card(moveSectionHTML())}
     </div>
 
     <div class="settings-group" data-group="feeds" hidden>
@@ -106,6 +104,8 @@ export function showSettings({ switching = false } = {}) {
     ${card(mutedWordsSectionHTML(), 'data-only="feeds"')}
 
     ${card(importSectionHTML())}
+
+    ${card(moveSectionHTML())}
     </div>
 
     <div class="settings-group" data-group="stash" hidden>

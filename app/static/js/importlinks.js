@@ -22,8 +22,8 @@ export function importSectionHTML() {
       <p class="muted"><b>Moving from Feedly?</b> Download your data from Feedly, unzip it, and choose the unzipped
         folder with <b>Import from Feedly</b>. Your feeds arrive at once, and each board becomes a row below where you
         say where its links go. Feeds also come from any OPML file, and saved links from bookmark files (browsers,
-        Pocket, Raindrop). Anything you already have is skipped. <b>Moving everything to another FeedStash?</b>
-        Use <a href="#/settings/you" data-move-link>Download everything</a> in Settings → You.</p>
+        Pocket, Raindrop). Anything you already have is skipped. Moving everything to another FeedStash? See
+        below.</p>
       <div class="org-actions">
         <label class="btn btn-sm btn-primary">${icon('plus')}Import from Feedly…
           <input type="file" webkitdirectory hidden data-import-folder></label>

@@ -1,4 +1,4 @@
-/* Settings → You → Move to another FeedStash: download everything as one file, or bring such a file in. */
+/* Settings → Feeds → Move to another FeedStash: download everything as one file, or bring such a file in. */
 
 import { api } from './api.js';
 import { toast } from './dialogs.js';

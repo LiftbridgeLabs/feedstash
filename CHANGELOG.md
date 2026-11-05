@@ -12,7 +12,7 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
 - **Sending email.** Settings → Admin → Sending email connects FeedStash to any email service that offers SMTP
   (SMTP2GO, Postmark, Gmail with an app password…), with a button to send yourself a test. Invites can now be
   emailed straight to the person you're inviting.
-- **Move to another FeedStash.** Settings → You → Download everything gives you one file with everything in your
+- **Move to another FeedStash.** Settings → Feeds → Move to another FeedStash → Download everything gives you one file with everything in your
   account: feeds and folders, articles with what you've read and starred, your stash with its pictures and saved
   pages, smart lists, rules and muted words. Bring it in on any FeedStash to pick up where you left off. It adds to
   what's there, and nothing is doubled if you bring the same file in twice.
