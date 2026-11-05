@@ -69,6 +69,15 @@ class Settings(BaseSettings):
     page_capture: bool = True
     # How often a connected mailbox is checked for mail to save (Settings -> Email).
     mail_poll_minutes: int = Field(default=5, ge=1, le=24 * 60)
+    # Sending email (password-reset links, invites), through any SMTP service. Settings → Admin → Email can set these
+    # instead; what's saved there wins.
+    smtp_host: str = ""
+    smtp_port: int = Field(default=587, ge=1, le=65535)
+    smtp_security: Literal["starttls", "ssl", "none"] = "starttls"
+    smtp_username: str = ""
+    smtp_password: SecretStr = SecretStr("")
+    smtp_from: str = ""
+    smtp_from_name: str = "FeedStash"
     # Set by the Docker image from the release tag; shown in the sidebar and /api/health.
     feedstash_version: str = "dev"
     # Ask GitHub (at most once a day, while an admin has the app open) whether a newer release is out.

@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, Res
 from app.clock import iso, now
 from app.db.repositories import users as users_repo
 from app.settings import Settings
-from app.web.auth import SETUP_BLOCKED, session_user, setup_needs_token
+from app.web.auth import SETUP_BLOCKED, password_reset_available, session_user, setup_needs_token
 from app.web.sso import Provider, button_html
 
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
@@ -44,6 +44,17 @@ SETUP_FORM = """<form class="login-form" data-login="setup" method="post" novali
   <button class="btn btn-primary btn-lg" type="submit">Create account</button>
 </form>"""
 
+# "Forgot password?" (when the server can send email): the sign-in form gives way to this one; login.js swaps them.
+FORGOT_LINK = '<p class="login-aside"><a href="#forgot" data-forgot="open">Forgot password?</a></p>'
+FORGOT_FORM = """<form class="login-form" data-login="forgot" method="post" novalidate hidden>
+  <p class="login-hint">Enter your account's email. We'll send you a link to choose a new password.</p>
+  <label>Email<input type="email" name="email" autocomplete="username" required></label>
+  <p class="login-error" data-login-error hidden></p>
+  <p class="login-done" data-login-done hidden></p>
+  <button class="btn btn-primary btn-lg" type="submit">Send reset link</button>
+  <p class="login-aside"><a href="#" data-forgot="close">Back to sign in</a></p>
+</form>"""
+
 # Setting up from outside the server's own network needs SETUP_TOKEN (see auth.setup_needs_token).
 SETUP_TOKEN_FIELD = """<label><span>Setup token <small>(the SETUP_TOKEN in the server's settings)</small></span><input type="password" name="setup_token" autocomplete="off" required></label>
   """
@@ -53,6 +64,7 @@ router = APIRouter(include_in_schema=False)
 
 def login_page(
     settings: Settings, providers: list[Provider], *, error: str | None, needs_setup: bool, setup_needs_token: bool = False,
+    can_reset: bool = False,
 ) -> str:
     message = LOGIN_ERRORS.get(error or "")
     options = []
@@ -63,7 +75,7 @@ def login_page(
     form = ""
     if settings.password_login and not settings.dev_login:
         if not needs_setup:
-            form = PASSWORD_FORM
+            form = PASSWORD_FORM + (FORGOT_LINK + FORGOT_FORM if can_reset else "")
         elif not setup_needs_token:
             form = SETUP_FORM.format(token_field="")
         elif settings.setup_token.get_secret_value():
@@ -97,7 +109,9 @@ def index(request: Request, error: str | None = None):
     with request.app.state.db.transaction() as conn:
         needs_setup = users_repo.count(conn) == 0
     return HTMLResponse(login_page(
-        settings, request.app.state.sign_in.providers(), error=error, needs_setup=needs_setup, setup_needs_token=needs_setup and setup_needs_token(request)
+        settings, request.app.state.sign_in.providers(), error=error, needs_setup=needs_setup,
+        setup_needs_token=needs_setup and setup_needs_token(request),
+        can_reset=not needs_setup and password_reset_available(request),
     ))
 
 
@@ -125,6 +139,30 @@ INVITE_PAGE = """<!doctype html>
 @router.get("/invite")
 def invite_page():
     return HTMLResponse(INVITE_PAGE, headers={"Cache-Control": "no-cache"})
+
+
+# A password-reset link: /reset#<token>, emailed by "Forgot password?". As with invites, the token is after the #,
+# so it stays out of logs; login.js checks it and sends it with the new password.
+RESET_PAGE = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Choose a new password · FeedStash</title><link rel="icon" href="/static/icon.svg"><link rel="stylesheet" href="/static/style.css"></head>
+<body class="login-body"><main class="login-card">
+<img src="/static/icon.svg" alt="" width="56" height="56"><h1>FeedStash</h1>
+<p class="muted">Choose a new password. Everywhere else you're signed in will be signed out.</p>
+<p class="login-error" data-reset-problem hidden></p>
+<form class="login-form" data-login="reset" method="post" novalidate hidden>
+  <label><span>New password <small>(at least 8 characters)</small></span><input type="password" name="password" autocomplete="new-password" required autofocus></label>
+  <p class="login-error" data-login-error hidden></p>
+  <button class="btn btn-primary btn-lg" type="submit">Save password and sign in</button>
+</form>
+<p class="muted"><a href="/">Back to sign in</a></p>
+</main><script type="module" src="/static/login.js"></script></body></html>"""
+
+
+@router.get("/reset")
+def reset_page():
+    return HTMLResponse(RESET_PAGE, headers={"Cache-Control": "no-cache"})
 
 
 APP_STORE_URL = "https://apps.apple.com/app/id6813737525"

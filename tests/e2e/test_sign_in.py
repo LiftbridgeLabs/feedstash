@@ -1,3 +1,7 @@
+import re
+
+from support.smtp import FakeSMTP, body
+
 PASSWORD = "correct horse battery"
 
 
@@ -73,3 +77,42 @@ def test_an_admin_invites_someone_who_makes_their_own_account(browser_page, star
     assert page.wait_for("document.querySelector('[data-invite-problem]')?.textContent.includes('has been used')")
     assert page.js("document.querySelector('form[data-login=invite]').hidden") is True
     assert not page.errors, page.errors
+
+
+def test_forgot_password_sends_a_link_that_sets_a_new_password(browser_page, start_server):
+    smtp = FakeSMTP()
+    try:
+        server = start_server(DEV_LOGIN="false", SMTP_HOST="127.0.0.1", SMTP_PORT=str(smtp.port),
+                              SMTP_SECURITY="none", SMTP_FROM="feedstash@example.com")
+        page = browser_page
+        page.goto(server.base_url + "/")
+        assert page.wait_for("!!document.querySelector('form[data-login=setup][data-ready]')")
+        fill_and_submit(page, "setup", name="Owner", email="owner@example.com", password=PASSWORD)
+        assert page.wait_for("!!window.reader", timeout=20)
+        page.js("document.querySelector('#logout-btn').click()")
+        assert page.wait_for("!!document.querySelector('form[data-login=password][data-ready]')", timeout=10)
+
+        # "Forgot password?" swaps in the reset form, carrying the email typed so far.
+        page.js("document.querySelector('form[data-login=password] [name=email]').value = 'owner@example.com'")
+        page.js("document.querySelector('[data-forgot=open]').click()")
+        assert page.js("document.querySelector('form[data-login=password]').hidden") is True
+        assert page.js("document.querySelector('form[data-login=forgot] [name=email]').value") == "owner@example.com"
+        page.js("document.querySelector('form[data-login=forgot]').requestSubmit()")
+        assert page.wait_for("!document.querySelector('[data-login-done]').hidden")
+        assert "we've sent it a link" in page.js("document.querySelector('[data-login-done]').textContent")
+        page.js("document.querySelector('[data-forgot=close]').click()")
+        assert page.js("document.querySelector('form[data-login=password]').hidden") is False
+
+        token = re.search(r"/reset#([\w-]+)", body(smtp.wait_for(1)[0])).group(1)
+        page.goto(server.base_url + "/reset#" + token)
+        assert page.wait_for("!!document.querySelector('form[data-login=reset][data-ready]:not([hidden])')")
+        fill_and_submit(page, "reset", password="a brand new passphrase")
+        assert page.wait_for("!!window.reader && document.querySelector('#user-name')?.textContent === 'Owner'", timeout=20)
+
+        # The link is used up: opening it again says so instead of showing the form.
+        page.goto(server.base_url + "/reset#" + token)
+        assert page.wait_for("!document.querySelector('[data-reset-problem]').hidden")
+        assert page.js("document.querySelector('form[data-login=reset]').hidden") is True
+        assert not page.errors, page.errors
+    finally:
+        smtp.close()

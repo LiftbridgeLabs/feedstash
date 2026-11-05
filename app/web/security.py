@@ -57,17 +57,23 @@ class BodySizeLimit:
     """Refuses request bodies over `max_bytes` before anything reads them into memory: by Content-Length when it's
     sent, and by counting as the body streams in when it isn't. Endpoints still apply their own, smaller limits."""
 
-    def __init__(self, app, max_bytes: int):
+    def __init__(self, app, max_bytes: int, larger: dict[str, int] | None = None):
         self.app = app
         self.max_bytes = max_bytes
-        self.message = f"That's too large to send (the limit is {max_bytes // (1024 * 1024)} MB)"
+        self.larger = larger or {}  # exact paths allowed more (an account export being brought in)
+
+    @staticmethod
+    def _message(limit: int) -> str:
+        return f"That's too large to send (the limit is {limit // (1024 * 1024)} MB)"
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
+        limit = self.larger.get(scope.get("path", ""), self.max_bytes)
         length = dict(scope.get("headers") or []).get(b"content-length")
-        if length is not None and length.isdigit() and int(length) > self.max_bytes:
-            response = JSONResponse({"detail": self.message, "error": self.message}, status_code=413)
+        if length is not None and length.isdigit() and int(length) > limit:
+            message = self._message(limit)
+            response = JSONResponse({"detail": message, "error": message}, status_code=413)
             return await response(scope, receive, send)
 
         received = 0
@@ -77,9 +83,9 @@ class BodySizeLimit:
             message = await receive()
             if message["type"] == "http.request":
                 received += len(message.get("body", b""))
-                if received > self.max_bytes:
+                if received > limit:
                     # Raised where the endpoint reads its body, so the app's error handling answers with a 413.
-                    raise HTTPException(status_code=413, detail=self.message)
+                    raise HTTPException(status_code=413, detail=self._message(limit))
             return message
 
         await self.app(scope, limited_receive, send)

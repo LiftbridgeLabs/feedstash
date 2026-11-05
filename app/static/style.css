@@ -597,6 +597,13 @@ dialog.whats-new { width: min(560px, calc(100vw - 32px)); }
 .login-form input { padding: 9px 11px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; font-size: 15px; font-weight: 400; }
 .login-form input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
 .login-form .login-error { margin: 0; }
+.email-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 10px 14px; margin: 8px 0 12px; }
+.email-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.login-aside { margin: 14px 0 0; font-size: 14px; text-align: center; }
+.login-form .login-aside { margin: 0; }
+.login-hint { margin: 0; font-size: 14px; color: var(--text-muted); }
+.login-done { margin: 0; padding: 10px; border-radius: 6px; font-size: 14px; color: var(--text);
+  background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .login-options { display: flex; flex-direction: column; gap: 10px; }
 .login-options:empty { display: none; }
 .sso-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; }

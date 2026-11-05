@@ -445,6 +445,19 @@ MIGRATIONS: list[str] = [
         used_by    INTEGER REFERENCES users(id) ON DELETE SET NULL
     );
     """,
+    # 25: password-reset links sent by email ("Forgot password?"). Only a hash of each link's token is kept; a link
+    # works once, for an hour, and asking again replaces the account's earlier link.
+    """
+    CREATE TABLE password_resets (
+        id         INTEGER PRIMARY KEY,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token_hash TEXT NOT NULL UNIQUE,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        used_at    INTEGER
+    );
+    CREATE INDEX idx_password_resets_user ON password_resets(user_id);
+    """,
 ]
 
 

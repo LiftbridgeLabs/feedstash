@@ -1,19 +1,26 @@
 """Your own password and preferences, and (for admins) everyone who can sign in."""
 
+from dataclasses import asdict
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
+from starlette.datastructures import UploadFile
 from starlette.concurrency import run_in_threadpool
 
 from app.clock import now
 from app.db.models import User
 from app.db.repositories import invites as invites_repo
 from app.db.repositories import users as users_repo
-from app.services import accounts
+from app.errors import InvalidInput
+from app.mail.smtp import SendError
+from app.services import account_transfer, accounts, outgoing_email
 from app.web.auth import PASSWORD_CHECKS, start_session
-from app.web.deps import DatabaseDep, ImagesDep, SessionUserDep, SettingsDep, UserDep
+from app.web.deps import DatabaseDep, ImagesDep, SecretsDep, SessionUserDep, SettingsDep, UserDep
 from app.web.schemas import (
-    AccountOut, AccountPrefsIn, AccountUpdateIn, InviteIn, InviteOut, NewAccountIn, OkOut, PasswordChangeIn, UserOut,
+    AccountImportOut, AccountOut, AccountPrefsIn, AccountUpdateIn, InviteIn, InviteOut, NewAccountIn, OkOut, PasswordChangeIn, UserOut,
     to_schema,
 )
 
@@ -64,6 +71,31 @@ def update_preferences(body: AccountPrefsIn, user: SessionUserDep, db: DatabaseD
         if body.sections is not None:
             users_repo.set_sections(conn, user.id, body.sections)
         return to_schema(UserOut, users_repo.get(conn, user.id))
+
+
+@router.get("/account/export")
+async def export_account(user: UserDep, db: DatabaseDep, images: ImagesDep, settings: SettingsDep) -> FileResponse:
+    """Everything this account owns, as one .zip another FeedStash can bring in (POST /api/account/import)."""
+    path = await run_in_threadpool(account_transfer.export_zip, db, images, user.id, settings.feedstash_version)
+    return FileResponse(
+        path, media_type="application/zip", filename=f"feedstash-{datetime.now(UTC):%Y-%m-%d}.zip",
+        background=BackgroundTask(path.unlink, missing_ok=True),
+    )
+
+
+@router.post("/account/import", response_model=AccountImportOut)
+async def import_account(request: Request, user: UserDep, db: DatabaseDep, images: ImagesDep) -> AccountImportOut:
+    """Adds a FeedStash export (from Settings → You → Download everything, on any server) to this account. Merges:
+    nothing already here is replaced or doubled."""
+    form = await request.form(max_part_size=account_transfer.MAX_UPLOAD_BYTES)
+    upload = form.get("file")
+    if not isinstance(upload, UploadFile):
+        raise InvalidInput("Choose the .zip file Download everything made")
+    try:
+        counts = await run_in_threadpool(account_transfer.import_zip, db, images, user.id, upload.file)
+    finally:
+        await form.close()
+    return AccountImportOut(**asdict(counts))
 
 
 @router.get("/accounts", response_model=list[AccountOut])
@@ -118,16 +150,34 @@ def list_invites(admin: AdminDep, db: DatabaseDep) -> list[InviteOut]:
 
 
 @router.post("/invites", status_code=201, response_model=InviteOut)
-def create_invite(body: InviteIn, admin: AdminDep, db: DatabaseDep, settings: SettingsDep) -> InviteOut:
+def create_invite(
+    body: InviteIn, admin: AdminDep, db: DatabaseDep, settings: SettingsDep, secrets: SecretsDep,
+) -> InviteOut:
     """A one-use link for one person to make an ordinary password account, at each of the server's addresses
-    (https ones first: those are the ones that work from outside). The links are only in this reply."""
+    (https ones first: those are the ones that work from outside). The links are only in this reply. With
+    `send_email`, the first link is also emailed to the invite's address; if that fails the invite still stands."""
     if not settings.password_login:
         raise HTTPException(status_code=409, detail="Invites make password accounts, and password sign-in is turned off")
+    if body.send_email and not (body.email or "").strip():
+        raise InvalidInput("Enter their email address to send them the link")
     with db.transaction() as conn:
         invite, token = invites_repo.create(conn, admin.id, email=body.email, days=body.days, now=now())
     servers = sorted(settings.base_urls, key=lambda url: not url.startswith("https://"))
     links = [f"{server.rstrip('/')}/invite#{token}" for server in servers]
-    return InviteOut(**to_schema(InviteOut, invite).model_dump(exclude={"links"}), links=links)
+    emailed, email_error = False, None
+    if body.send_email:
+        try:
+            outgoing_email.send_invite(
+                db, settings, secrets, to=invite.email, link=links[0], invited_by=admin.name or admin.email,
+                expires=datetime.fromtimestamp(invite.expires_at, UTC).strftime("%b %-d, %Y"),
+            )
+            emailed = True
+        except SendError as exc:
+            email_error = str(exc)
+    return InviteOut(
+        **to_schema(InviteOut, invite).model_dump(exclude={"links", "emailed", "email_error"}),
+        links=links, emailed=emailed, email_error=email_error,
+    )
 
 
 @router.delete("/invites/{invite_id}", response_model=OkOut)

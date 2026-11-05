@@ -22,6 +22,7 @@ Everything you want to read, in one self-hosted app: the feeds you follow, and t
 - **Muted words.** Under **Settings → Feeds → Muted words**, list words or phrases you don't want to read about, everywhere or only in one folder or feed. New articles holding one (in the title, or in the text too if you choose) arrive already read, so every device and app agrees without knowing about muting. Muting a word can also mark the unread articles it matches as read, with Undo.
 - **Auto-save to the stash.** Tick **Auto-save** for a feed (in Organize feeds, or its ⋯ menu) and its new articles go straight to your stash instead of waiting to be read.
 - **OPML import and export**, e.g. from Feedly.
+- **Move to another FeedStash**: download everything in your account as one file, and bring it in on any server.
 
 **Stash**
 - **Capture from anywhere.** The browser extension, forwarding an email, the share sheet on iPhone and iPad, or **+ Add → Save something** in the web app: one form for a title, notes, links and pictures (paste them straight in), and FeedStash works out whether it's a link, a note or a screenshot. An item can hold several labeled links and up to 20 pictures.
@@ -77,11 +78,17 @@ On a fresh install the first visit shows **Create the first account**. That acco
 - After 10 wrong passwords for one account (or 30 from one address) within 15 minutes, sign-in is paused for that account or address.
 - Set `PASSWORD_LOGIN=false` if you only want Google or OIDC.
 
-Locked out? Reset a password from the server:
+With email set up (below), the sign-in page has **Forgot password?**: it emails a link that works once, for an hour, to choose a new password, and signs out everywhere else. It answers the same whether or not an address has an account, and sends at most three links an hour per address.
+
+Locked out, or no email set up? Reset a password from the server:
 
 ```bash
 docker exec -it feedstash python -m app.cli set-password --email you@example.com
 ```
+
+### Sending email
+
+FeedStash sends email for **Forgot password?** and, if you like, to deliver invite links. Any email service that offers SMTP works (SMTP2GO, Postmark, Mailgun, Amazon SES, Gmail with an app password, or a mail server on your own network). Set it up under **Settings → Admin → Sending email** and press **Send a test email to me**; the password is stored encrypted with the server's `SECRET_KEY`. Or set `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` and `SMTP_FROM_NAME` (see Configuration); settings saved in the app take their place. Without email, nothing changes: there's no Forgot password? link, and invite links are copied by hand.
 
 ### Google and single sign-on (Pocket ID, Authentik, Authelia…)
 
@@ -129,6 +136,12 @@ All settings are environment variables (see `.env.example`).
 | `REFRESH_INTERVAL_MINUTES` | `15` | How often feeds are fetched (5 or more). |
 | `RETENTION_DAYS` | `90` | Feed articles older than this are deleted, read or not; Read later and the newest 50 per feed are kept. Read articles can go sooner: each account sets its own limit in Settings (30 days after reading by default). Stash items are never deleted automatically. |
 | `MAIL_POLL_MINUTES` | `5` | How often a mailbox connected under Settings → Stash → Email to your stash is checked. Nothing runs at all until someone connects one, and it stops again when the last one is disconnected. |
+| `SMTP_HOST` | | The SMTP server that sends email (Forgot password?, invites), like `mail.smtp2go.com`. Or set email up in Settings → Admin → Sending email, which takes its place. |
+| `SMTP_PORT` | `587` | Its port: usually 587 with STARTTLS, 465 with SSL. |
+| `SMTP_SECURITY` | `starttls` | `starttls`, `ssl`, or `none` (only for a mail server on your own network). |
+| `SMTP_USERNAME` / `SMTP_PASSWORD` | | The SMTP login, if it needs one. |
+| `SMTP_FROM` | | The address email comes from. Use one your email service lets you send from. |
+| `SMTP_FROM_NAME` | `FeedStash` | The name email comes from. |
 | `PAGE_CAPTURE` | `true` | Fetch the web page behind each saved link for its preview, readable copy and search text. Turn it off if the server shouldn't reach out to the sites you save. |
 | `DEV_LOGIN` | `false` | Local testing only: skips sign-in entirely. |
 | `KEEP_PER_FEED` | `50` | How many of each feed's newest articles `RETENTION_DAYS` always keeps. |
@@ -209,6 +222,12 @@ fetch an address inside your network and read the reply** (a saved link's copy s
 person, or a household that trusts each other, that's fine. Don't hand out accounts to people you wouldn't let onto
 your network. The one thing it never fetches, for anyone, is a link-local address (169.254.x.x, fe80::), where cloud
 metadata services hand out credentials.
+
+## Moving to another FeedStash
+
+**Settings → You → Move to another FeedStash → Download everything** gives you one `.zip` with everything in your account: feeds and folders, articles with what you've read and starred, your stash with its tags, links, pictures and saved pages, smart lists, rules, muted words and your reading settings. On the other server, **Bring in from another FeedStash…** adds it to your account there. It merges: a feed you already follow, a folder of the same name, an article or stash item that's already there is kept once, so bringing the same file in twice changes nothing. Your password, API tokens, connected mailbox and the server's own settings stay behind; set those up again on the new server.
+
+For a whole server with every account, copy the database instead (`python -m app.cli backup`, see Deploying).
 
 ## Moving from Feedly
 

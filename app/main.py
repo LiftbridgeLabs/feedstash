@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.crypto import SecretBox
+from app.services import account_transfer
 from app.db import Database
 from app.db.repositories import app_settings as app_settings_repo
 from app.feeds.scheduler import RefreshScheduler
@@ -24,6 +25,7 @@ from app.web import auth, errors, pages, security
 from app.web.sso import SignIn
 from app.web.api import accounts as accounts_api
 from app.web.api import articles as articles_api
+from app.web.api import email_settings as email_settings_api
 from app.web.api import feeds as feeds_api
 from app.web.api import folders as folders_api
 from app.web.api import greader as greader_api
@@ -97,11 +99,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.log_default = log_default
     app.state.sign_in = sign_in
     app.state.login_limiter = LoginLimiter()
+    # "Forgot password?": a few reset emails an hour per address asked about, and per sender, found or not.
+    app.state.reset_limiter = LoginLimiter(per_account=3, per_address=10, window_seconds=60 * 60)
     app.state.background_tasks = set()
 
     # The largest real upload is a 20 MB image with a few fields; nothing bigger is read into memory. Added first,
     # so it sits innermost: its 413 is raised where the endpoint reads the body, inside the app's error handling.
-    app.add_middleware(security.BodySizeLimit, max_bytes=MAX_REQUEST_BYTES)
+    app.add_middleware(security.BodySizeLimit, max_bytes=MAX_REQUEST_BYTES,
+                       larger={"/api/account/import": account_transfer.MAX_UPLOAD_BYTES})
     security.install(app)
     errors.install(app)
     app.add_middleware(
@@ -117,7 +122,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     for router in (
         pages.router, auth.router, tree_api.router, articles_api.router, folders_api.router, feeds_api.router,
         opml_api.router, imports_api.router, stash_api.router, stash_api.uploads_router, stash_organize_api.router,
-        mail_api.router, tokens_api.router, accounts_api.router, updates_api.router, logs_api.router, sign_in_api.router,
+        mail_api.router, tokens_api.router, accounts_api.router, updates_api.router, logs_api.router, sign_in_api.router, email_settings_api.router,
     ):
         app.include_router(router)
     # The Google Reader API, for other reader apps. Clients disagree about the address: some take the server's

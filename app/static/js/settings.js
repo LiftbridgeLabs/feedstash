@@ -8,6 +8,8 @@ import { loadMail, mailSectionHTML, wireMail } from './mailbox.js';
 import { applySections, setPref } from './menus.js';
 import { showShortcuts } from './shortcuts.js';
 import { renderNav } from './sidebar.js';
+import { emailSectionHTML, loadEmail, wireEmail } from './emailsettings.js';
+import { moveSectionHTML, wireMove } from './move.js';
 import { loadLogs, logsSectionHTML, wireLogs } from './logsettings.js';
 import { loadSignIn, signInSectionHTML, wireSignIn } from './signinsettings.js';
 import { loadTagSettings, tagsSectionHTML, wireTagSettings } from './tagsettings.js';
@@ -90,6 +92,8 @@ export function showSettings({ switching = false } = {}) {
         anywhere to see the shortcuts.</p>
       <button class="btn btn-sm" data-settings="shortcuts">Keyboard shortcuts</button>
     </div>`, 'data-only="feeds"')}
+
+    ${card(moveSectionHTML())}
     </div>
 
     <div class="settings-group" data-group="feeds" hidden>
@@ -219,6 +223,8 @@ export function showSettings({ switching = false } = {}) {
     </div>`)}
 
     ${card(signInSectionHTML())}
+
+    ${card(emailSectionHTML())}
 
     ${card(logsSectionHTML())}
 
@@ -375,6 +381,7 @@ async function loadAccount() {
     loadInvites();
     loadSignIn(els.settings);
     loadAbout();
+    loadEmail(els.settings);
     loadLogs(els.settings);
   }
 }
@@ -482,11 +489,25 @@ async function invite() {
         account (not an admin). The link works once, for whoever has it, so send it only to them.</p>
       <label>Their email <small>(optional: the account gets this address)</small>
         <input type="email" name="email" autocomplete="off"></label>
+      <label class="check" data-invite-send hidden><input type="checkbox" name="send_email" checked> Email them the link</label>
       <label>The link works for<select name="days">${INVITE_DAYS.map(([days, label]) =>
         `<option value="${days}" ${days === 7 ? 'selected' : ''}>${label}</option>`).join('')}</select></label>`,
+    onOpen: async (dialog) => {
+      // "Email them the link" once there's an address to send to, if this server can send email.
+      const canSend = await api('GET', '/api/admin/email').then((s) => s.ready).catch(() => false);
+      const email = $('[name=email]', dialog);
+      const send = $('[data-invite-send]', dialog);
+      const update = () => {
+        send.hidden = !canSend || !email.value.trim();
+        $('[name=send_email]', send).disabled = send.hidden; // a hidden box isn't sent
+      };
+      email.addEventListener('input', update);
+      update();
+    },
     onSubmit: (fd) => api('POST', '/api/invites', {
       email: (fd.get('email') || '').trim() || null,
       days: Number(fd.get('days')),
+      send_email: fd.get('send_email') === 'on',
     }),
   });
   if (!created || created === true) return;
@@ -495,7 +516,9 @@ async function invite() {
   await modal({
     title: 'Send this link',
     confirmText: 'Done',
-    html: `<p>Send it to ${created.email ? esc(created.email) : "the person you're inviting"}. It works once, until
+    html: `${created.emailed ? `<p class="login-done">Emailed to ${esc(created.email)}.</p>` : ''}
+      ${created.email_error ? `<p class="login-error">It couldn't be emailed: ${esc(created.email_error)} Send them the link yourself.</p>` : ''}
+      <p>${created.emailed ? 'Here it is too, in case they ask' : `Send it to ${created.email ? esc(created.email) : "the person you're inviting"}`}. It works once, until
         ${esc(fullDate(created.expires_at))}, and isn't shown again; you can cancel it here.</p>
       <label>Invite link<input type="text" readonly value="${esc(link)}"></label>
       <p><button type="button" class="btn btn-sm" data-copy="${esc(link)}">${icon('copy')}Copy link</button></p>
@@ -739,6 +762,8 @@ async function saveReadRetention(select) {
 export function wireSettings() {
   wireImport(els.settings);
   wireMail(els.settings);
+  wireEmail(els.settings);
+  wireMove(els.settings);
   wireLogs(els.settings);
   wireSignIn(els.settings);
   wireRules(els.settings);

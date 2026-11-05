@@ -233,3 +233,40 @@ def test_mute_a_word_marks_matching_articles_read_with_undo(reader, subscription
 
     reader.js("document.querySelector('[data-muted=delete]').click()")
     assert reader.wait_for("document.body.textContent.includes('Nothing muted yet')")
+
+
+def test_admins_save_email_settings_and_send_a_test(reader):
+    from support.smtp import FakeSMTP
+
+    smtp = FakeSMTP()
+    try:
+        reader.js("location.hash = '#/settings/admin'")
+        assert reader.wait_for("!!document.querySelector('form[data-email=form]')")
+        assert "Not set up yet" in reader.js("document.querySelector('[data-email-source]').textContent")
+        reader.js(f"""(() => {{ const f = document.querySelector('form[data-email=form]');
+          f.elements.host.value = '127.0.0.1'; f.elements.port.value = '{smtp.port}';
+          f.elements.security.value = 'none'; f.elements.from_address.value = 'feedstash@example.com';
+          f.requestSubmit(); }})()""")
+        assert reader.wait_for("document.querySelector('[data-email-source]')?.textContent.startsWith('Saved here')")
+        reader.js("document.querySelector('[data-email=test]').click()")
+        assert len(smtp.wait_for(1)) == 1
+        assert reader.wait_for("[...document.querySelectorAll('.toast')].some(t => t.textContent.includes('Test email sent'))")
+    finally:
+        smtp.close()
+
+
+def test_download_everything_and_bring_it_back_in(reader):
+    reader.js("location.hash = '#/settings/you'")
+    assert reader.wait_for("!!document.querySelector('[data-move-section] [data-move-file]')")
+    # The file Download everything makes, handed to the file picker as if chosen from disk.
+    reader.js("""(async () => {
+      const blob = await (await fetch('/api/account/export')).blob();
+      const input = document.querySelector('[data-move-file]');
+      const files = new DataTransfer();
+      files.items.add(new File([blob], 'feedstash.zip', { type: 'application/zip' }));
+      input.files = files.files;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    })()""")
+    assert reader.wait_for(
+        "document.querySelector('[data-move-result]')?.textContent.includes('Everything in that file was already here')",
+        timeout=20)

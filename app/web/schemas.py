@@ -134,11 +134,14 @@ class InviteOut(BaseModel):
     created_at: int
     expires_at: int
     links: list[str] = Field(default_factory=list)  # only when it's made: <server>/invite#<token>, https first
+    emailed: bool = False  # only when it's made: whether the link was emailed to `email`
+    email_error: str | None = None  # only when it's made: why emailing it failed (the link still works)
 
 
 class InviteIn(BaseModel):
     email: str | None = Field(default=None, max_length=320)
     days: int = 7  # 1, 7 or 30
+    send_email: bool = False  # email the link to `email` (needs email set up)
 
 
 class InviteCheckIn(BaseModel):
@@ -339,6 +342,57 @@ def to_schema(schema: type[Out], value) -> Out:
 class PasswordLoginIn(BaseModel):
     email: str = Field(max_length=320)
     password: str = Field(max_length=1024)
+
+
+class AccountImportOut(BaseModel):
+    folders: int
+    feeds: int
+    articles: int
+    stash_folders: int
+    items: int
+    smart_lists: int
+    stash_rules: int
+    muted_words: int
+    skipped: list[str]  # what couldn't be brought in, in words
+
+
+class ForgotPasswordIn(BaseModel):
+    email: str = Field(max_length=320)
+
+
+class ResetCheckIn(BaseModel):
+    token: str = Field(max_length=200)
+
+
+class ResetPasswordIn(ResetCheckIn):
+    password: str = Field(max_length=1024)
+
+
+class EmailSettingsOut(BaseModel):
+    source: str  # "app" (saved here), "server" (SMTP_* settings) or "none"
+    ready: bool
+    host: str
+    port: int
+    security: str
+    username: str
+    has_password: bool
+    password_unreadable: bool  # saved with a different SECRET_KEY: enter it again
+    from_address: str
+    from_name: str
+
+
+class EmailSettingsIn(BaseModel):
+    host: str = Field(max_length=253)
+    port: int = 587
+    security: str = "starttls"
+    username: str = Field(default="", max_length=320)
+    password: str | None = Field(default=None, max_length=1024)  # None keeps the saved one
+    from_address: str = Field(max_length=320)
+    from_name: str = Field(default="FeedStash", max_length=100)
+
+
+class EmailTestIn(BaseModel):
+    to: str | None = Field(default=None, max_length=320)  # defaults to the admin's own address
 
 
 class AccountFields(BaseModel):

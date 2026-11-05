@@ -21,13 +21,18 @@ from app.clock import now
 from app.db import Database
 from app.db.models import User
 from app.db.repositories import invites as invites_repo
+from app.db.repositories import password_resets as password_resets_repo
 from app.db.repositories import tokens as tokens_repo
 from app.db.repositories import users as users_repo
 from app.errors import NotFound
-from app.services import accounts
+from app.mail.smtp import SendError
+from app.passwords import check_new_password, hash_password
+from app.services import accounts, outgoing_email
 from app.settings import Settings
 from app.web.ratelimit import LoginLimiter
-from app.web.schemas import InviteAcceptIn, InviteCheckIn, OkOut, PasswordLoginIn, SetupIn
+from app.web.schemas import (
+    ForgotPasswordIn, InviteAcceptIn, InviteCheckIn, OkOut, PasswordLoginIn, ResetCheckIn, ResetPasswordIn, SetupIn,
+)
 from app.web.sso import SignIn
 
 log = logging.getLogger("reader.auth")
@@ -438,6 +443,90 @@ async def accept_invite(body: InviteAcceptIn, request: Request) -> OkOut:
             )
         )
     await start_session(request, user.id)
+    return OkOut()
+
+
+# ------------------------------------------------------------------ forgot password
+
+
+def password_reset_available(request: Request) -> bool:
+    """"Forgot password?" works when passwords are in use and the server can send email."""
+    settings: Settings = request.app.state.settings
+    if not settings.password_login or settings.dev_login:
+        return False
+    return outgoing_email.configured(request.app.state.db, settings, request.app.state.secrets)
+
+
+FORGOT_SENT = "If that address has an account here, we've sent it a link to reset the password."
+
+
+@router.post("/auth/forgot")
+async def forgot_password(body: ForgotPasswordIn, request: Request) -> dict:
+    """Emails a reset link to the password account with this address. The answer is the same whether or not one
+    exists, and comes before the email is sent, so neither the reply nor its timing tells anyone who has an account."""
+    if not await run_in_threadpool(password_reset_available, request):
+        raise HTTPException(status_code=404, detail="Password reset by email isn't set up on this server. "
+                                                    "Ask whoever runs it to reset your password.")
+    limiter: LoginLimiter = request.app.state.reset_limiter
+    address = request.client.host if request.client else "unknown"
+    if wait := limiter.retry_after(address, body.email):
+        minutes = max(1, round(wait / 60))
+        raise HTTPException(
+            status_code=429, detail=f"Too many reset requests. Try again in {minutes} minute{'' if minutes == 1 else 's'}.",
+            headers={"Retry-After": str(wait)},
+        )
+    limiter.record_failure(address, body.email)  # every request counts, found or not
+    base = request.app.state.settings.base_url_for(str(request.base_url))
+    task = asyncio.create_task(run_in_threadpool(_send_reset_link, request.app, body.email, base))
+    request.app.state.background_tasks.add(task)
+    task.add_done_callback(request.app.state.background_tasks.discard)
+    return {"ok": True, "detail": FORGOT_SENT}
+
+
+def _send_reset_link(app, email: str, base: str) -> None:
+    db: Database = app.state.db
+    with db.transaction() as conn:
+        password_resets_repo.purge(conn, now=now())
+        found = users_repo.credentials(conn, email)
+        if found is None:
+            return
+        user_id = found[0]
+        to = users_repo.get(conn, user_id).email
+        token = password_resets_repo.create(conn, user_id, now=now())
+    try:
+        outgoing_email.send_reset(db, app.state.settings, app.state.secrets, to=to, link=f"{base.rstrip('/')}/reset#{token}")
+    except SendError as exc:
+        log.warning("Couldn't email a password-reset link: %s", exc)
+
+
+@router.post("/auth/reset/check")
+def check_reset(body: ResetCheckIn, request: Request) -> dict:
+    """Whether a reset link still works, so the page can say so before asking for a new password."""
+    try:
+        with request.app.state.db.transaction() as conn:
+            password_resets_repo.usable(conn, body.token, now=now())
+    except NotFound as exc:
+        return {"usable": False, "detail": str(exc)}
+    return {"usable": True, "detail": None}
+
+
+@router.post("/auth/reset", response_model=OkOut)
+async def reset_password(body: ResetPasswordIn, request: Request) -> OkOut:
+    """Sets a new password from a reset link and signs in. Every other browser signed in to the account is signed
+    out (set_password ends its sessions)."""
+    check_new_password(body.password)
+    # The link first: hashing the password is slow and shares PASSWORD_CHECKS with sign-in, so a made-up link
+    # mustn't get that far.
+    with request.app.state.db.transaction() as conn:
+        reset_id = password_resets_repo.usable(conn, body.token, now=now())
+    async with PASSWORD_CHECKS:
+        password_hash = await run_in_threadpool(hash_password, body.password)
+    with request.app.state.db.transaction() as conn:
+        user_id = password_resets_repo.use(conn, reset_id, now=now())
+        users_repo.set_password(conn, user_id, password_hash)
+        email = users_repo.get(conn, user_id).email
+    request.app.state.login_limiter.clear_account(email)  # a fresh password starts with a clean slate
+    await start_session(request, user_id)
     return OkOut()
 
 
