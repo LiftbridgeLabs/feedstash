@@ -10,9 +10,6 @@ __pycache__/
 clients/email-worker/node_modules/
 clients/email-worker/.wrangler/
 
-# Personal Claude Code notes (never committed)
-CLAUDE.local.md
-
 # A database or key kept outside data/ must never reach this public repo
 *.db
 *.db-wal
@@ -22,7 +19,6 @@ CLAUDE.local.md
 secret.key
 
 # Local assistant settings: machine paths and private repo names
-.claude/
 .qwen/
 
 # Coverage data (pytest --cov)
