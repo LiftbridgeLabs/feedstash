@@ -33,12 +33,10 @@ class Storage:
             return self._used
 
     def _measure(self) -> int:
-        total = 0
-        for path in self.database.parent.glob(self.database.name + "*"):  # the database and its -wal / -shm
-            total += path.stat().st_size if path.is_file() else 0
+        paths = list(self.database.parent.glob(self.database.name + "*"))  # the database and its -wal / -shm
         if self.uploads.is_dir():
-            total += sum(path.stat().st_size for path in self.uploads.iterdir() if path.is_file())
-        return total
+            paths += self.uploads.iterdir()
+        return sum(_size(path) for path in paths)
 
     @property
     def full(self) -> bool:
@@ -50,3 +48,11 @@ class Storage:
             limit = f"{self.limit_bytes / GB:g} GB"
             raise StorageFull(f"This server's storage is full ({limit}). Delete some saved items or pictures to make "
                               "room, or ask whoever runs it for more.")
+
+
+def _size(path: Path) -> int:
+    """A file's size; 0 for a folder or a file removed since it was listed (SQLite's -journal comes and goes)."""
+    try:
+        return path.stat().st_size if path.is_file() else 0
+    except OSError:
+        return 0

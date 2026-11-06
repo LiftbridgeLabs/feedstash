@@ -11,6 +11,7 @@ import logging
 from app.clock import now
 from app.crypto import SecretBox
 from app.db import Database
+from app.storage import Storage
 from app.db.models import ItemLink, MailAccount
 from app.db.repositories import mail as mail_repo
 from app.errors import InvalidInput
@@ -94,10 +95,11 @@ REMEMBER_MESSAGES_DAYS = 180
 class MailWorker:
     """Checks every connected mailbox on a timer. Run it in one process, like the feed refresher."""
 
-    def __init__(self, db: Database, images: ImageStore, secrets: SecretBox, minutes: int):
+    def __init__(self, db: Database, images: ImageStore, secrets: SecretBox, minutes: int, storage: Storage | None = None):
         self._db = db
         self._images = images
         self._secrets = secrets
+        self._storage = storage  # at the storage limit mailboxes aren't checked: the mail waits there for later
         self._seconds = max(60, minutes * 60)
         self._task: asyncio.Task | None = None
 
@@ -117,8 +119,16 @@ class MailWorker:
             await self._task
         self._task = None
 
+    def _storage_full(self) -> bool:
+        if self._storage is not None and self._storage.full:
+            log.warning("Not checking mailboxes: this server's storage is full")
+            return True
+        return False
+
     async def run_once(self) -> int:
         """Checks every connected mailbox. Returns how many messages were saved."""
+        if await asyncio.to_thread(self._storage_full):
+            return 0
         accounts = await asyncio.to_thread(self._accounts)
         saved = 0
         for account in accounts:
@@ -149,7 +159,7 @@ class MailWorker:
                 if not accounts:
                     log.info("No mailbox connected: not checking for mail until one is")
                     return
-                for account in accounts:
+                for account in ([] if await asyncio.to_thread(self._storage_full) else accounts):
                     try:
                         await asyncio.to_thread(check_account, self._db, self._images, self._secrets, account)
                     except MailError as exc:

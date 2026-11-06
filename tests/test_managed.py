@@ -50,10 +50,10 @@ def test_the_account_limit_counts_accounts_and_unused_invites(start_server):
     over = admin.post("/api/invites", json={"days": 7})
     assert over.status_code == 409 and "room for 3 accounts, counting invites" in over.json()["detail"]
     full = admin.post("/api/accounts", json={"email": "four@example.com", "password": PASSWORD})
-    assert full.status_code == 201  # 2 accounts + 1 unused invite: an account itself still fits
+    assert full.status_code == 409  # 2 accounts + 1 unused invite: the invite holds the last place
     token = invite.json()["links"][0].split("#", 1)[1]
-    late = client_for(server).post("/auth/invite", json={"token": token, "email": "guest@example.com", "password": PASSWORD})
-    assert late.status_code == 409 and "room for 3 accounts" in late.json()["detail"]
+    joined = client_for(server).post("/auth/invite", json={"token": token, "email": "guest@example.com", "password": PASSWORD})
+    assert joined.status_code == 200, joined.text  # it uses the place it held
     assert admin.post("/api/accounts", json={"email": "five@example.com", "password": PASSWORD}).status_code == 409
 
 

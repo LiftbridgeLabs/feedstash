@@ -24,7 +24,7 @@ from app.db.repositories import invites as invites_repo
 from app.db.repositories import password_resets as password_resets_repo
 from app.db.repositories import tokens as tokens_repo
 from app.db.repositories import users as users_repo
-from app.errors import NotFound
+from app.errors import Conflict, NotFound
 from app.mail.smtp import SendError
 from app.passwords import check_new_password, hash_password
 from app.services import accounts, outgoing_email
@@ -221,10 +221,11 @@ async def _finish_external_sign_in(request: Request, provider: str):
                 return "unverified"
             if not (sign_in.email_allowed(email) or chosen.trust_all or (existing and existing.has_password)):
                 return None
-            limit = request.app.state.settings.account_limit
-            if not existing and not users_repo.has_sub(conn, f"{chosen.account_prefix}:{info['sub']}") and limit and \
-                    users_repo.count(conn) >= limit:
-                return "full"
+            if not existing and not users_repo.has_sub(conn, f"{chosen.account_prefix}:{info['sub']}"):
+                try:
+                    accounts.check_room(conn, request.app.state.settings.account_limit, now=now())
+                except Conflict:
+                    return "full"
             user_id = users_repo.upsert(
                 conn, sub=f"{chosen.account_prefix}:{info['sub']}", email=email, name=info.get("name"),
                 picture=info.get("picture"), link_by_email=True,

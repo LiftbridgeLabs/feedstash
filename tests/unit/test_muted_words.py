@@ -152,3 +152,16 @@ def test_catching_up_marks_matching_unread_read_with_an_undoable_batch(conn, use
     assert muting.mark_unread_read(conn, user_id, text_word, batch=NOW + 6) == 1
     assert unread(conn) == ["2"]
     assert conn.execute("SELECT read_at FROM articles WHERE guid = '3'").fetchone()[0] == NOW + 6
+
+
+def test_a_full_server_pauses_the_auto_save_but_keeps_the_feed(conn, user_id):
+    feed_id = feeds.create(conn, user_id, url="https://a.example.com/feed", title="A")
+    feeds.set_auto_stash(conn, user_id, feed_id, True)
+    ingest.set_stash_room(lambda: False)
+    try:
+        assert store(conn, feed_id, entry("1", "A story")) == 1
+    finally:
+        ingest.set_stash_room(lambda: True)
+    assert conn.execute("SELECT COUNT(*) FROM items").fetchone()[0] == 0
+    store(conn, feed_id, entry("2", "Another story"))
+    assert [row[0] for row in conn.execute("SELECT title FROM items")] == ["Another story"]

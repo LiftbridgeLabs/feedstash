@@ -5,7 +5,7 @@ import logging
 import sqlite3
 import time
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from urllib.parse import urlparse
 
 from app.clock import now as current_time
@@ -35,6 +35,16 @@ _resting: dict[str, float] = {}  # site -> time.monotonic() when it may be asked
 # One refresh at a time talks to a site, so a press of Refresh during the scheduled round waits its turn there.
 # Every refresh (scheduler, Refresh, OPML import) runs on the server's one event loop, so asyncio locks suffice.
 _site_locks: dict[str, asyncio.Lock] = {}
+
+
+_stash_has_room: Callable[[], bool] = lambda: True
+
+
+def set_stash_room(check: Callable[[], bool]) -> None:
+    """How auto-save asks whether the server has room (STORAGE_LIMIT_GB). When it hasn't, new articles stay in their
+    feed rather than going to the stash; feeds themselves keep updating."""
+    global _stash_has_room
+    _stash_has_room = check
 
 
 def save_entries(
@@ -71,7 +81,7 @@ def save_entries(
     added_muted = articles_repo.insert_new(conn, feed_id, muted, fetched_at=now, read=True)
     if added or added_muted:
         feeds_repo.mark_new_articles(conn, feed_id, at=now)
-    if added_ids and not first_fetch:
+    if added_ids and not first_fetch and _stash_has_room():
         _auto_stash(conn, feed_id, added_ids, now=now)
     return added
 

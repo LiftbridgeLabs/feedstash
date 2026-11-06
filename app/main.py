@@ -15,6 +15,7 @@ from app.services import account_transfer
 from app.storage import Storage
 from app.db import Database
 from app.db.repositories import app_settings as app_settings_repo
+from app.feeds import ingest
 from app.feeds.scheduler import RefreshScheduler
 from app.images import ImageStore
 from app.logs import LogFiles, LogSettings
@@ -64,7 +65,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     scheduler = RefreshScheduler(db, settings)
     storage = Storage(settings.database_path, settings.uploads_dir, settings.storage_limit_gb)
     page_worker = PageWorker(db, storage)
-    mail_worker = MailWorker(db, images, secrets, settings.mail_poll_minutes)
+    mail_worker = MailWorker(db, images, secrets, settings.mail_poll_minutes, storage)
+    ingest.set_stash_room(lambda: not storage.full)
     # A managed server is updated by whoever hosts it, so it doesn't tell its admins about new releases.
     update_checker = create_checker(enabled=settings.update_check and not settings.managed, version=settings.feedstash_version)
 

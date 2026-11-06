@@ -110,7 +110,7 @@ def list_accounts(admin: AdminDep, db: DatabaseDep) -> list[AccountOut]:
 @router.post("/accounts", status_code=201, response_model=AccountOut)
 def create_account(body: NewAccountIn, admin: AdminDep, db: DatabaseDep, settings: SettingsDep) -> AccountOut:
     user = accounts.create_account(db, email=body.email, name=body.name, password=body.password, is_admin=body.is_admin,
-                                   limit=settings.account_limit)
+                                   limit=settings.account_limit, now=now())
     return AccountOut.from_user(user)
 
 
@@ -165,7 +165,7 @@ def create_invite(
     if body.send_email and not (body.email or "").strip():
         raise InvalidInput("Enter their email address to send them the link")
     with db.transaction() as conn:
-        accounts.check_room(conn, settings.account_limit, with_invites=True, now=now())
+        accounts.check_room(conn, settings.account_limit, now=now())
         invite, token = invites_repo.create(conn, admin.id, email=body.email, days=body.days, now=now())
     servers = sorted(settings.base_urls, key=lambda url: not url.startswith("https://"))
     links = [f"{server.rstrip('/')}/invite#{token}" for server in servers]

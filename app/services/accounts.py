@@ -14,15 +14,15 @@ from app.passwords import DUMMY_HASH, check_new_password, hash_password, needs_r
 ALREADY_SET_UP = "FeedStash is already set up. Sign in instead."
 
 
-def check_room(conn: sqlite3.Connection, limit: int, *, with_invites: bool = False, now: int = 0) -> None:
-    """Refuses another account past ACCOUNT_LIMIT (0: no limit). Making an invite counts the unused ones too, so a
-    server can't hand out more invites than it has room for."""
+def check_room(conn: sqlite3.Connection, limit: int, *, now: int, own_invite: bool = False) -> None:
+    """Refuses another account past ACCOUNT_LIMIT (0: no limit). Unused invites hold a place each, so an invite can
+    always be used once made; accepting one (`own_invite`) uses the place it holds."""
     if not limit:
         return
-    taken = users_repo.count(conn) + (len(invites_repo.pending(conn, now=now)) if with_invites else 0)
+    taken = users_repo.count(conn) + len(invites_repo.pending(conn, now=now)) - (1 if own_invite else 0)
     if taken >= limit:
-        extra = ", counting invites not yet used" if with_invites else ""
-        raise Conflict(f"This server has room for {limit} accounts{extra}. Remove one (or cancel an invite) to make room.")
+        raise Conflict(f"This server has room for {limit} accounts, counting invites not yet used. Remove one (or "
+                       "cancel an invite) to make room.")
 
 
 def setup_first_account(
@@ -76,11 +76,11 @@ def change_own_password(db: Database, user: User, *, current_password: str, new_
 
 
 def create_account(
-    db: Database, *, email: str, name: str | None, password: str, is_admin: bool, limit: int = 0,
+    db: Database, *, email: str, name: str | None, password: str, is_admin: bool, limit: int = 0, now: int = 0,
 ) -> User:
     password_hash = hash_password(check_new_password(password))
     with db.transaction() as conn:
-        check_room(conn, limit)
+        check_room(conn, limit, now=now)
         return users_repo.create_local(conn, email=email, name=name, password_hash=password_hash, is_admin=is_admin)
 
 
@@ -94,7 +94,7 @@ def accept_invite(
     password_hash = hash_password(check_new_password(password))
     with db.transaction() as conn:
         invite = invites_repo.usable(conn, token, now=now)
-        check_room(conn, limit)
+        check_room(conn, limit, now=now, own_invite=True)
         if invite.email and users_repo.normalize_email(email) != invite.email:
             raise InvalidInput(f"This invite is for {invite.email}. Use that address, or ask for a new invite.")
         user = users_repo.create_local(conn, email=email, name=name, password_hash=password_hash, is_admin=False)
