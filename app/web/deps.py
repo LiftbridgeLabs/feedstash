@@ -12,6 +12,7 @@ from app.db import Database
 from app.db.models import User
 from app.images import ImageStore
 from app.settings import Settings
+from app.storage import Storage
 from app.web.auth import bearer_token, session_user, token_user
 
 
@@ -34,6 +35,16 @@ def get_secrets(request: Request) -> SecretBox:
     return request.app.state.secrets
 
 
+def get_storage(request: Request) -> Storage:
+    return request.app.state.storage
+
+
+def not_managed(request: Request) -> None:
+    """For settings a host looks after on a MANAGED server (sending email, sign-in providers, logs)."""
+    if request.app.state.settings.managed:
+        raise HTTPException(status_code=403, detail="Whoever hosts this FeedStash looks after this setting")
+
+
 def get_user(request: Request) -> User:
     """The web session's user, or the owner of the API token the request carries."""
     token = bearer_token(request)
@@ -52,6 +63,7 @@ SettingsDep = Annotated[Settings, Depends(get_settings)]
 DatabaseDep = Annotated[Database, Depends(get_db)]
 ImagesDep = Annotated[ImageStore, Depends(get_images)]
 SecretsDep = Annotated[SecretBox, Depends(get_secrets)]
+StorageDep = Annotated[Storage, Depends(get_storage)]
 UserDep = Annotated[User, Depends(get_user)]
 
 

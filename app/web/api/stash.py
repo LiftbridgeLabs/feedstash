@@ -19,7 +19,7 @@ from app.db.repositories import smart_lists, stash_folders
 from app.errors import Conflict, InvalidInput, NotFound
 from app.images import MAX_IMAGE_BYTES
 from app.services import stash
-from app.web.deps import DatabaseDep, ImagesDep, SettingsDep, UserDep, api_client_name
+from app.web.deps import DatabaseDep, ImagesDep, SettingsDep, StorageDep, UserDep, api_client_name
 from app.web.schemas import (
     OkOut,
     PageCopyOut,
@@ -69,7 +69,10 @@ async def _read_capture(request: Request) -> stash.Capture:
 
 
 @router.post("/items", status_code=201, response_model=StashItemOut)
-async def create_item(request: Request, user: UserDep, db: DatabaseDep, images: ImagesDep) -> StashItemOut:
+async def create_item(
+    request: Request, user: UserDep, db: DatabaseDep, images: ImagesDep, storage: StorageDep,
+) -> StashItemOut:
+    await run_in_threadpool(storage.check)
     capture = await _read_capture(request)
     item = await run_in_threadpool(
         stash.capture, db, images, user.id, capture, default_source=api_client_name(request) or "web"
@@ -132,8 +135,11 @@ async def update_item(item_id: int, request: Request, user: UserDep, db: Databas
 
 
 @router.post("/items/{item_id}/images", response_model=StashItemOut)
-async def add_item_images(item_id: int, request: Request, user: UserDep, db: DatabaseDep, images: ImagesDep) -> StashItemOut:
+async def add_item_images(
+    item_id: int, request: Request, user: UserDep, db: DatabaseDep, images: ImagesDep, storage: StorageDep,
+) -> StashItemOut:
     """Adds pictures (multipart `image` parts) after the item's others."""
+    await run_in_threadpool(storage.check)
     if not request.headers.get("content-type", "").startswith("multipart/form-data"):
         raise InvalidInput("Send the pictures as multipart form data")
     async with request.form(max_part_size=MAX_FIELD_BYTES, max_files=items_repo.MAX_IMAGES) as form:
@@ -215,7 +221,8 @@ def stash_summary(user: UserDep, db: DatabaseDep) -> StashSummaryOut:
 
 
 @router.post("/articles/{article_id}/stash", response_model=StashArticleOut)
-def stash_article(article_id: int, user: UserDep, db: DatabaseDep) -> StashArticleOut:
+def stash_article(article_id: int, user: UserDep, db: DatabaseDep, storage: StorageDep) -> StashArticleOut:
+    storage.check()
     item, created = stash.stash_article(db, user.id, article_id)
     return StashArticleOut(item=StashItemOut.from_item(item), created=created)
 

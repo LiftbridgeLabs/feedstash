@@ -270,3 +270,18 @@ def test_download_everything_and_bring_it_back_in(reader):
     assert reader.wait_for(
         "document.querySelector('[data-move-result]')?.textContent.includes('Everything in that file was already here')",
         timeout=20)
+
+
+def test_a_managed_server_hides_what_its_host_looks_after(browser_page, start_server):
+    server = start_server(MANAGED="true", ACCOUNT_LIMIT="5", STORAGE_LIMIT_GB="10")
+    page = browser_page
+    page.goto(server.base_url + "/auth/login")
+    assert page.wait_for("!!window.reader", timeout=20)
+    page.js("location.hash = '#/settings/you'")
+    assert page.wait_for("!!document.querySelector('[data-storage] meter')")
+    assert "of 10.0 GB used" in page.js("document.querySelector('[data-storage]').textContent")
+    page.js("location.hash = '#/settings/admin'")
+    assert page.wait_for("document.querySelector('[data-account-count]')?.textContent.includes('1 of')")
+    assert page.js("""['[data-email-section]', '[data-signin-section]', '[data-logs-section]']
+      .every((s) => !document.querySelector(s) || document.querySelector(s).hidden)""") is True
+    assert not page.errors, page.errors

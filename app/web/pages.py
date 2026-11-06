@@ -25,6 +25,7 @@ LOGIN_ERRORS = {
     "unverified": "Your account's email address isn't verified.",
     "oauth": "Sign-in didn't work. Please try again.",
     "not_configured": "That sign-in method isn't set up on this server.",
+    "full": "This server has no room for another account. Ask whoever runs it.",
 }
 
 # method="post" so that a submit without JavaScript never puts a password in the URL (it's rejected for lacking

@@ -136,6 +136,9 @@ All settings are environment variables (see `.env.example`).
 | `REFRESH_INTERVAL_MINUTES` | `15` | How often feeds are fetched (5 or more). |
 | `RETENTION_DAYS` | `90` | Feed articles older than this are deleted, read or not; Read later and the newest 50 per feed are kept. Read articles can go sooner: each account sets its own limit in Settings (30 days after reading by default). Stash items are never deleted automatically. |
 | `MAIL_POLL_MINUTES` | `5` | How often a mailbox connected under Settings → Stash → Email to your stash is checked. Nothing runs at all until someone connects one, and it stops again when the last one is disconnected. |
+| `ACCOUNT_LIMIT` | `0` | How many accounts the server takes, counting invites not yet used; `0` for no limit. Add account, invites and first-time Google or single sign-on sign-ins stop at the limit. |
+| `STORAGE_LIMIT_GB` | `0` | How much the database and uploaded pictures may take. At the limit, new stash saves, pictures and imports stop with a message (feeds keep updating, and their cleanup keeps them in bounds), and Settings shows how much is used. `0` for no limit. |
+| `MANAGED` | `false` | For a server you run for someone else: hides Sending email, Sign-in and Logs from its admins (and refuses changes to them) and turns off the update notice, since you set those in the server's settings and update it yourself. Accounts and invites stay with its admins. |
 | `SMTP_HOST` | | The SMTP server that sends email (Forgot password?, invites), like `mail.smtp2go.com`. Or set email up in Settings → Admin → Sending email, which takes its place. |
 | `SMTP_PORT` | `587` | Its port: usually 587 with STARTTLS, 465 with SSL. |
 | `SMTP_SECURITY` | `starttls` | `starttls`, `ssl`, or `none` (only for a mail server on your own network). |

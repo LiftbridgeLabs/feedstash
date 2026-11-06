@@ -18,7 +18,7 @@ from app.errors import InvalidInput
 from app.mail.smtp import SendError
 from app.services import account_transfer, accounts, outgoing_email
 from app.web.auth import PASSWORD_CHECKS, start_session
-from app.web.deps import DatabaseDep, ImagesDep, SecretsDep, SessionUserDep, SettingsDep, UserDep
+from app.web.deps import DatabaseDep, ImagesDep, SecretsDep, SessionUserDep, SettingsDep, StorageDep, UserDep
 from app.web.schemas import (
     AccountImportOut, AccountOut, AccountPrefsIn, AccountUpdateIn, InviteIn, InviteOut, NewAccountIn, OkOut, PasswordChangeIn, UserOut,
     to_schema,
@@ -84,9 +84,12 @@ async def export_account(user: UserDep, db: DatabaseDep, images: ImagesDep, sett
 
 
 @router.post("/account/import", response_model=AccountImportOut)
-async def import_account(request: Request, user: UserDep, db: DatabaseDep, images: ImagesDep) -> AccountImportOut:
+async def import_account(
+    request: Request, user: UserDep, db: DatabaseDep, images: ImagesDep, storage: StorageDep,
+) -> AccountImportOut:
     """Adds a FeedStash export (from Settings → Feeds → Download everything, on any server) to this account. Merges:
     nothing already here is replaced or doubled."""
+    await run_in_threadpool(storage.check)
     form = await request.form(max_part_size=account_transfer.MAX_UPLOAD_BYTES)
     upload = form.get("file")
     if not isinstance(upload, UploadFile):
@@ -105,8 +108,9 @@ def list_accounts(admin: AdminDep, db: DatabaseDep) -> list[AccountOut]:
 
 
 @router.post("/accounts", status_code=201, response_model=AccountOut)
-def create_account(body: NewAccountIn, admin: AdminDep, db: DatabaseDep) -> AccountOut:
-    user = accounts.create_account(db, email=body.email, name=body.name, password=body.password, is_admin=body.is_admin)
+def create_account(body: NewAccountIn, admin: AdminDep, db: DatabaseDep, settings: SettingsDep) -> AccountOut:
+    user = accounts.create_account(db, email=body.email, name=body.name, password=body.password, is_admin=body.is_admin,
+                                   limit=settings.account_limit)
     return AccountOut.from_user(user)
 
 
@@ -161,6 +165,7 @@ def create_invite(
     if body.send_email and not (body.email or "").strip():
         raise InvalidInput("Enter their email address to send them the link")
     with db.transaction() as conn:
+        accounts.check_room(conn, settings.account_limit, with_invites=True, now=now())
         invite, token = invites_repo.create(conn, admin.id, email=body.email, days=body.days, now=now())
     servers = sorted(settings.base_urls, key=lambda url: not url.startswith("https://"))
     links = [f"{server.rstrip('/')}/invite#{token}" for server in servers]

@@ -1,15 +1,15 @@
 """For admins: how this server sends email (Settings → Admin → Email), and a test message."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from starlette.concurrency import run_in_threadpool
 
 from app.db.models import User
 from app.mail.smtp import SendError
 from app.services import outgoing_email
-from app.web.deps import DatabaseDep, SecretsDep, SessionUserDep, SettingsDep
+from app.web.deps import DatabaseDep, SecretsDep, SessionUserDep, SettingsDep, not_managed
 from app.web.schemas import EmailSettingsIn, EmailSettingsOut, EmailTestIn, OkOut
 
-router = APIRouter(prefix="/api/admin/email")
+router = APIRouter(prefix="/api/admin/email", dependencies=[Depends(not_managed)])
 
 
 def _admin(user: User) -> None:

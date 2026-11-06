@@ -5,7 +5,7 @@ Session-only, like the other admin settings: a phone's token can't add a way in.
 
 import threading
 
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from starlette.concurrency import run_in_threadpool
 
 from app.clock import now
@@ -14,7 +14,7 @@ from app.db.models import User
 from app.db.repositories import app_settings as app_settings_repo
 from app.db.repositories import sign_in_providers as providers_repo
 from app.errors import InvalidInput
-from app.web.deps import DatabaseDep, SessionUserDep
+from app.web.deps import DatabaseDep, SessionUserDep, not_managed
 from app.web.schemas import (
     AllowedListIn, SignInOut, SignInProviderIn, SignInProviderOut, SignInProviderPatch, SignInSwitchIn,
 )
@@ -23,7 +23,7 @@ from app.web.sso import (
     check_issuer, split_list,
 )
 
-router = APIRouter(prefix="/api/admin/sign-in")
+router = APIRouter(prefix="/api/admin/sign-in", dependencies=[Depends(not_managed)])
 
 # Changes here run one at a time, each checking and writing under this lock: two admins turning off the last two
 # providers at once mustn't each see the other's as still on (with passwords off, that leaves no way in).

@@ -82,6 +82,14 @@ class Settings(BaseSettings):
     feedstash_version: str = "dev"
     # Ask GitHub (at most once a day, while an admin has the app open) whether a newer release is out.
     update_check: bool = True
+    # For a server run on someone else's behalf (a host, or whoever runs it for a family): hides the settings the host
+    # looks after (sending email, sign-in providers, logs, the update notice) and refuses changes to them.
+    managed: bool = False
+    # How many accounts the server takes (counting invites not yet used); 0 for no limit.
+    account_limit: int = Field(default=0, ge=0)
+    # How much the database and uploaded pictures may take, in GB; new saves, pictures and imports stop at the limit
+    # (feeds keep updating: their cleanup keeps them in bounds). 0 for no limit.
+    storage_limit_gb: float = Field(default=0, ge=0)
     # Which requests get a line in the log: all, changes (saves, edits and failures; the default), errors or none.
     # Health checks and page loads add up to thousands of lines a day, so only "all" logs them.
     log_requests: Literal["all", "changes", "errors", "none"] = "changes"

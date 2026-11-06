@@ -15,3 +15,7 @@ class NotFound(ReaderError):
 
 class Conflict(ReaderError):
     pass
+
+
+class StorageFull(ReaderError):
+    """The server has reached its STORAGE_LIMIT_GB."""

@@ -12,6 +12,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.crypto import SecretBox
 from app.services import account_transfer
+from app.storage import Storage
 from app.db import Database
 from app.db.repositories import app_settings as app_settings_repo
 from app.feeds.scheduler import RefreshScheduler
@@ -61,9 +62,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     sign_in = SignIn(settings, secrets)
     images = ImageStore(settings.uploads_dir)
     scheduler = RefreshScheduler(db, settings)
-    page_worker = PageWorker(db)
+    storage = Storage(settings.database_path, settings.uploads_dir, settings.storage_limit_gb)
+    page_worker = PageWorker(db, storage)
     mail_worker = MailWorker(db, images, secrets, settings.mail_poll_minutes)
-    update_checker = create_checker(enabled=settings.update_check, version=settings.feedstash_version)
+    # A managed server is updated by whoever hosts it, so it doesn't tell its admins about new releases.
+    update_checker = create_checker(enabled=settings.update_check and not settings.managed, version=settings.feedstash_version)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -92,6 +95,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.db = db
     app.state.images = images
+    app.state.storage = storage
     app.state.secrets = secrets
     app.state.mail_worker = mail_worker
     app.state.update_checker = update_checker

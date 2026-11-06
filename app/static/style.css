@@ -597,6 +597,8 @@ dialog.whats-new { width: min(560px, calc(100vw - 32px)); }
 .login-form input { padding: 9px 11px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; font-size: 15px; font-weight: 400; }
 .login-form input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
 .login-form .login-error { margin: 0; }
+.storage-use { display: flex; align-items: center; gap: 10px; margin: 0; }
+.storage-use meter { width: min(220px, 50%); height: 10px; }
 .email-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 10px 14px; margin: 8px 0 12px; }
 .email-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; color: var(--text-muted); }
 .login-aside { margin: 14px 0 0; font-size: 14px; text-align: center; }

@@ -5,8 +5,9 @@ from fastapi import APIRouter
 from app.db.repositories import articles as articles_repo
 from app.db.repositories import feeds as feeds_repo
 from app.db.repositories import folders as folders_repo
-from app.web.deps import DatabaseDep, SettingsDep, UserDep
-from app.web.schemas import TreeOut, UserOut, to_schema
+from app.services import outgoing_email
+from app.web.deps import DatabaseDep, SecretsDep, SettingsDep, StorageDep, UserDep
+from app.web.schemas import ServerInfoOut, TreeOut, UserOut, to_schema
 
 router = APIRouter(prefix="/api")
 
@@ -14,6 +15,18 @@ router = APIRouter(prefix="/api")
 @router.get("/me", response_model=UserOut)
 def me(user: UserDep) -> UserOut:
     return to_schema(UserOut, user)
+
+
+@router.get("/server", response_model=ServerInfoOut)
+def server_info(
+    user: UserDep, db: DatabaseDep, settings: SettingsDep, secrets: SecretsDep, storage: StorageDep,
+) -> ServerInfoOut:
+    """What this server allows, for the app to show: whether it's managed, its limits and how much storage is used."""
+    return ServerInfoOut(
+        managed=settings.managed, account_limit=settings.account_limit,
+        can_email=outgoing_email.configured(db, settings, secrets),
+        storage_used=storage.used(), storage_limit=storage.limit_bytes,
+    )
 
 
 @router.get("/tree", response_model=TreeOut)

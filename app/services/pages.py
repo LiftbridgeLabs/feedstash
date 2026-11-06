@@ -12,6 +12,7 @@ import sqlite3
 
 from app.clock import now
 from app.db import Database
+from app.storage import Storage
 from app.db.models import FullTextJob, PageJob
 from app.db.repositories import articles as articles_repo
 from app.db.repositories import items as items_repo
@@ -40,8 +41,9 @@ def store_page(conn: sqlite3.Connection, job: PageJob, page: Page, *, now: int) 
 
 
 class PageWorker:
-    def __init__(self, db: Database):
+    def __init__(self, db: Database, storage: Storage | None = None):
         self._db = db
+        self._storage = storage  # a server at its storage limit doesn't save new page copies
         self._task: asyncio.Task | None = None
 
     def start(self) -> None:
@@ -83,6 +85,9 @@ class PageWorker:
             log.exception("Unexpected error fetching the full text of %s", job.url)
 
     async def _handle(self, client, job: PageJob) -> None:
+        if self._storage is not None and self._storage.full:
+            await asyncio.to_thread(self._failed, job, "Not saved: this server's storage is full", True)
+            return
         try:
             page = await fetch_page(client, job.url)
         except NotAWebPage as exc:

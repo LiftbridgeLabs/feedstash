@@ -38,6 +38,7 @@ const FIREFOX_STORE = 'https://addons.mozilla.org/firefox/addon/feedstash-captur
 const CHROME_STORE = 'https://chromewebstore.google.com/detail/feedstash-capture/kedkaohofjncmokoknimfofbnmgomcob';
 
 let me = null;
+let server = null; // GET /api/server: managed, limits, email, storage
 
 /* Settings is split into groups, one shown at a time, each with its own address (#/settings/feeds). Every group
    stays in the page while Settings is open, so switching doesn't reload anything or lose what's been typed. */
@@ -341,10 +342,13 @@ function chooseScheme(scheme) {
 
 /* ---- your account */
 
+/** Shown as "1.2 GB" or "340 MB". */
+const size = (bytes) => (bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFixed(1)} GB` : `${Math.max(1, Math.round(bytes / 1024 ** 2))} MB`);
+
 async function loadAccount() {
   const box = $('[data-account]', els.settings);
   try {
-    me = await api('GET', '/api/me');
+    [me, server] = await Promise.all([api('GET', '/api/me'), api('GET', '/api/server')]);
   } catch (err) {
     if (box) box.innerHTML = `<p class="muted">${esc(err.message)}</p>`;
     return;
@@ -372,17 +376,27 @@ async function loadAccount() {
       </select>
       <p class="muted">Only need one half of FeedStash? The other is hidden. Nothing is deleted, and feeds keep
         updating, so you can switch back any time.</p>
-    </div>`;
+    </div>
+    ${server.storage_limit ? `<div class="setting-row" data-storage>
+      <label>Storage</label>
+      <p class="storage-use"><meter min="0" max="${server.storage_limit}" low="${server.storage_limit * 0.8}"
+        high="${server.storage_limit * 0.95}" optimum="0" value="${server.storage_used}"></meter>
+        ${esc(size(server.storage_used))} of ${esc(size(server.storage_limit))} used</p>
+      <p class="muted">Saved items, their pictures and saved pages, and articles, for everyone on this server. Once
+        it's full, new saves wait until something is deleted.</p>
+    </div>` : ''}`;
   if (me.is_admin) {
     $('[data-group-link="admin"]', els.settings).hidden = false;
     if (state.route.id === 'admin') selectGroup('admin'); // asked for before it was known they're an admin
     $('[data-accounts-section]', els.settings).hidden = false;
     loadAccounts();
     loadInvites();
-    loadSignIn(els.settings);
     loadAbout();
-    loadEmail(els.settings);
-    loadLogs(els.settings);
+    if (!server.managed) { // whoever hosts a managed server looks after these
+      loadSignIn(els.settings);
+      loadEmail(els.settings);
+      loadLogs(els.settings);
+    }
   }
 }
 
@@ -440,7 +454,8 @@ async function loadAccounts() {
   if (!box) return;
   try {
     const accounts = await api('GET', '/api/accounts');
-    box.innerHTML = `<div class="table-wrap"><table class="org-table">
+    box.innerHTML = `${server?.account_limit ? `<p class="muted" data-account-count>${accounts.length} of
+        ${server.account_limit} accounts on this server.</p>` : ''}<div class="table-wrap"><table class="org-table">
       <thead><tr><th>Account</th><th>Signs in with</th><th>Role</th><th>Added</th><th></th></tr></thead>
       <tbody>${accounts.map((account) => `<tr>
         <td>${esc(account.name || account.email)}${account.name ? `<div class="muted">${esc(account.email)}</div>` : ''}</td>
@@ -494,7 +509,7 @@ async function invite() {
         `<option value="${days}" ${days === 7 ? 'selected' : ''}>${label}</option>`).join('')}</select></label>`,
     onOpen: async (dialog) => {
       // "Email them the link" once there's an address to send to, if this server can send email.
-      const canSend = await api('GET', '/api/admin/email').then((s) => s.ready).catch(() => false);
+      const canSend = !!server?.can_email;
       const email = $('[name=email]', dialog);
       const send = $('[data-invite-send]', dialog);
       const update = () => {

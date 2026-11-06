@@ -221,6 +221,10 @@ async def _finish_external_sign_in(request: Request, provider: str):
                 return "unverified"
             if not (sign_in.email_allowed(email) or chosen.trust_all or (existing and existing.has_password)):
                 return None
+            limit = request.app.state.settings.account_limit
+            if not existing and not users_repo.has_sub(conn, f"{chosen.account_prefix}:{info['sub']}") and limit and \
+                    users_repo.count(conn) >= limit:
+                return "full"
             user_id = users_repo.upsert(
                 conn, sub=f"{chosen.account_prefix}:{info['sub']}", email=email, name=info.get("name"),
                 picture=info.get("picture"), link_by_email=True,
@@ -229,6 +233,9 @@ async def _finish_external_sign_in(request: Request, provider: str):
             return user_id
 
     user_id = await run_in_threadpool(find_or_add_account)
+    if user_id == "full":
+        log.warning("Rejected %s sign-in from %s: ACCOUNT_LIMIT reached", provider, email)
+        return RedirectResponse("/?error=full", status_code=303)
     if user_id == "unverified":
         log.warning("Rejected %s sign-in to the existing account %s: the provider didn't verify the address", provider, email)
         return RedirectResponse("/?error=unverified", status_code=303)
@@ -439,7 +446,7 @@ async def accept_invite(body: InviteAcceptIn, request: Request) -> OkOut:
         user = await run_in_threadpool(
             lambda: accounts.accept_invite(
                 request.app.state.db, body.token, email=body.email, name=body.name, password=body.password,
-                now=now(), version=settings.feedstash_version,
+                now=now(), version=settings.feedstash_version, limit=settings.account_limit,
             )
         )
     await start_session(request, user.id)

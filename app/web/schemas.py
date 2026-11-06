@@ -122,6 +122,14 @@ class UserOut(BaseModel):
     sections: Literal["both", "feeds", "stash"] = "both"  # which halves of the app this person uses
 
 
+class ServerInfoOut(BaseModel):
+    managed: bool  # a host looks after email, sign-in and logs (MANAGED)
+    account_limit: int  # 0: no limit
+    can_email: bool  # Forgot password? and emailed invites work
+    storage_used: int  # bytes: the database and uploaded pictures
+    storage_limit: int  # bytes; 0: no limit
+
+
 class AccountPrefsIn(BaseModel):
     read_retention_days: int | None = Field(default=None, ge=0, le=3650)  # 0: only the server's own cleanup
     sections: Literal["both", "feeds", "stash"] | None = None

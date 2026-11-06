@@ -8,9 +8,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.errors import Conflict, InvalidInput, NotFound, ReaderError
+from app.errors import Conflict, InvalidInput, NotFound, ReaderError, StorageFull
 
-STATUS_CODES: dict[type[ReaderError], int] = {InvalidInput: 400, NotFound: 404, Conflict: 409}
+STATUS_CODES: dict[type[ReaderError], int] = {InvalidInput: 400, NotFound: 404, Conflict: 409, StorageFull: 507}
 
 
 def error_response(message: str, status_code: int, headers: dict | None = None) -> JSONResponse:

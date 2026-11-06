@@ -17,7 +17,13 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
   pages, smart lists, rules and muted words. Bring it in on any FeedStash to pick up where you left off. It adds to
   what's there, and nothing is doubled if you bring the same file in twice.
 
+- **Limits.** A server can cap how many accounts it takes and how much storage it uses; Settings shows the storage
+  used and the number of accounts against the limit.
+
 ### Settings
+- `ACCOUNT_LIMIT` caps the accounts a server takes (invites not yet used count too); `STORAGE_LIMIT_GB` caps the
+  database and uploaded pictures, stopping new saves at the limit. `MANAGED=true` is for running FeedStash for
+  someone else: its admins don't see Sending email, Sign-in or Logs, and there's no update notice.
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` and `SMTP_FROM_NAME` set
   up sending email in the server's settings instead of in the app. Settings saved in the app take their place.
 

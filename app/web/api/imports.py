@@ -3,14 +3,15 @@
 from fastapi import APIRouter
 
 from app.services import bookmarks
-from app.web.deps import DatabaseDep, UserDep
+from app.web.deps import DatabaseDep, StorageDep, UserDep
 from app.web.schemas import ImportLinksIn, ImportLinksOut
 
 router = APIRouter(prefix="/api")
 
 
 @router.post("/items/import", response_model=ImportLinksOut)
-def import_links(body: ImportLinksIn, user: UserDep, db: DatabaseDep) -> ImportLinksOut:
+def import_links(body: ImportLinksIn, user: UserDep, db: DatabaseDep, storage: StorageDep) -> ImportLinksOut:
+    storage.check()
     links = [bookmarks.ImportedLink(**link.model_dump()) for link in body.links]
     result = bookmarks.import_links(db, user.id, links)
     return ImportLinksOut(added=result.added, already_saved=result.already_saved, invalid=result.invalid)
