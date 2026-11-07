@@ -147,8 +147,8 @@ class Settings(BaseSettings):
 
     def base_url_for(self, origin: str) -> str:
         """The configured address a request came in on (compared as scheme://host:port), or the main address."""
-        wanted = _origin(origin)
-        return next((url for url in self.base_urls if _origin(url) == wanted), self.base_url)
+        wanted = origin_of(origin)
+        return next((url for url in self.base_urls if origin_of(url) == wanted), self.base_url)
 
     @property
     def secure_cookies(self) -> bool | None:
@@ -165,7 +165,7 @@ class Settings(BaseSettings):
         return self.database_path.parent / "uploads"
 
 
-def _origin(url: str) -> str:
+def origin_of(url: str) -> str:
     """scheme://host[:port] in lowercase and without a default port, so equivalent spellings compare equal."""
     parts = urlsplit(url.strip())
     scheme = parts.scheme.lower()

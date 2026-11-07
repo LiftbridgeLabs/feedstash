@@ -94,8 +94,10 @@ def launch_server(directory: Path, db_path: Path | None = None, **env: str) -> R
         "UPDATE_CHECK": "false",  # never ask GitHub from a test
         **env,
     }
-    # A test can list extra addresses around the server's own, e.g. BASE_URL="https://x.example.com,{server}".
-    environment["BASE_URL"] = environment["BASE_URL"].replace("{server}", base_url)
+    # A test can list extra addresses around the server's own, e.g. BASE_URL="https://x.example.com,{server}", and
+    # {localhost}: the same server by name, where browsers allow passkeys (never at an IP address).
+    environment["BASE_URL"] = (environment["BASE_URL"].replace("{server}", base_url)
+                               .replace("{localhost}", f"http://localhost:{port}"))
     log_file = open(log_path, "wb")
     process = subprocess.Popen(
         [sys.executable, *APP_COMMAND, "--host", "127.0.0.1", "--port", str(port)],

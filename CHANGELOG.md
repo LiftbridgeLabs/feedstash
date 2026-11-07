@@ -9,6 +9,9 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
 - **Two-step sign-in.** Under Settings → You, add a code from an authenticator app (1Password, Google
   Authenticator, the iPhone's Passwords app) to your password. Someone who learns your password still can't get in.
   Ten recovery codes cover a lost phone, and an admin can turn it off for someone who has lost both.
+- **Passkeys.** Sign in with Face ID, Touch ID, Windows Hello or your phone instead of your password: add one under
+  Settings → You → Passkeys, then use the Sign in with a passkey button. A passkey counts as both steps of two-step
+  sign-in. Passkeys need your server's https address.
 - **Show your password while typing it.** Every password field has an eye button.
 - **Forgot password?** With email set up, the sign-in page can email a link to choose a new password. It works once,
   for an hour, and signs you out everywhere else. Nobody can use it to find out who has an account: the answer is

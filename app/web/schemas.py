@@ -381,6 +381,38 @@ class RecoveryCodesOut(BaseModel):
     recovery_codes: list[str]
 
 
+class PasskeyOptionsOut(BaseModel):
+    options: dict  # WebAuthn options as JSON (binary values in base64url), for the browser
+
+
+class PasskeySignInIn(BaseModel):
+    credential: dict  # the browser's answer, as JSON (binary values in base64url)
+
+
+class PasskeyAddIn(BaseModel):
+    credential: dict
+    name: str = Field(default="", max_length=200)
+    password: str = Field(default="", max_length=1024)
+
+
+class PasskeyRenameIn(BaseModel):
+    name: str = Field(max_length=200)
+
+
+class PasskeyOut(BaseModel):
+    id: int
+    name: str
+    created_at: int
+    last_used_at: int | None
+
+
+class PasskeysOut(BaseModel):
+    available: bool  # passkeys work at the address this page is open at
+    reason: str = ""  # why not, when they don't
+    has_password: bool  # adding one asks for the password again
+    passkeys: list[PasskeyOut]
+
+
 class PasswordLoginIn(BaseModel):
     email: str = Field(max_length=320)
     password: str = Field(max_length=1024)

@@ -3,6 +3,7 @@
    and sent with the form. */
 
 import { wirePasswordReveal } from './js/reveal.js';
+import { credentialJSON, passkeyErrorMessage, passkeysSupported, requestOptions } from './js/webauthn.js';
 
 wirePasswordReveal();
 
@@ -41,6 +42,52 @@ const post = (url, body) => fetch(url, {
   // A proxy's own sign-in page would otherwise look like success and send you round in a loop.
   redirect: 'manual',
 });
+
+/** "Sign in with a passkey": shown once this browser can do it and the server has given a challenge. The challenge
+    is fetched before the click, so the click goes straight to the passkey (Safari wants that). */
+async function wirePasskey() {
+  const button = document.querySelector('[data-passkey]');
+  if (!button || !passkeysSupported()) return;
+  const error = document.querySelector('[data-passkey-error]');
+  let options = null;
+  let fetchedAt = 0;
+  const load = async () => {
+    options = null;
+    const response = await post('/auth/passkey/options', {});
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.detail || `Passkeys aren't available here (${response.status})`);
+    options = requestOptions(body.options);
+    fetchedAt = Date.now();
+  };
+  try {
+    await load();
+  } catch {
+    return;  // the button stays hidden
+  }
+  button.hidden = false;
+  button.addEventListener('click', async () => {
+    error.hidden = true;
+    button.disabled = true;
+    try {
+      if (!options || Date.now() - fetchedAt > 4 * 60 * 1000) await load();
+      const publicKey = options;
+      options = null;  // each challenge is good for one try
+      const credential = await navigator.credentials.get({ publicKey });
+      const response = await post('/auth/passkey', { credential: credentialJSON(credential) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.detail || `Sign-in failed (${response.status})`);
+      location.href = '/';
+      return;
+    } catch (err) {
+      error.textContent = passkeyErrorMessage(err);
+      error.hidden = !error.textContent;
+    }
+    button.disabled = false;
+    load().catch(() => {});  // ready for another try
+  });
+  button.dataset.ready = 'true';
+}
+wirePasskey();
 
 /** A reset link that no longer works says so instead of asking for a new password. */
 async function checkReset(form) {

@@ -477,6 +477,24 @@ MIGRATIONS: list[str] = [
     );
     CREATE INDEX idx_recovery_codes_user ON recovery_codes(user_id);
     """,
+    # 27: passkeys. Each is tied to the server's https address it was made on (its rp_id). user_handle is a random
+    # id the passkey carries for the account, the same for all of one account's passkeys.
+    """
+    CREATE TABLE passkeys (
+        id            INTEGER PRIMARY KEY,
+        user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        credential_id TEXT NOT NULL UNIQUE,
+        public_key    BLOB NOT NULL,
+        sign_count    INTEGER NOT NULL DEFAULT 0,
+        transports    TEXT NOT NULL DEFAULT '[]',
+        user_handle   TEXT NOT NULL,
+        rp_id         TEXT NOT NULL,
+        name          TEXT NOT NULL,
+        created_at    INTEGER NOT NULL,
+        last_used_at  INTEGER
+    );
+    CREATE INDEX idx_passkeys_user ON passkeys(user_id);
+    """,
 ]
 
 

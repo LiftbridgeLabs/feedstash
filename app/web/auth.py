@@ -25,14 +25,15 @@ from app.db.repositories import password_resets as password_resets_repo
 from app.db.repositories import tokens as tokens_repo
 from app.db.repositories import two_step as two_step_repo
 from app.db.repositories import users as users_repo
-from app.errors import Conflict, NotFound
+from app.errors import Conflict, InvalidInput, NotFound
 from app.mail.smtp import SendError
 from app.passwords import check_new_password, hash_password
-from app.services import accounts, outgoing_email, two_step
+from app.services import accounts, outgoing_email, passkeys, two_step
 from app.settings import Settings
 from app.web.ratelimit import LoginLimiter
 from app.web.schemas import (
-    ForgotPasswordIn, InviteAcceptIn, InviteCheckIn, OkOut, PasswordLoginIn, ResetCheckIn, ResetPasswordIn, SetupIn, PasswordSignInOut, TwoStepCodeIn,
+    ForgotPasswordIn, InviteAcceptIn, InviteCheckIn, OkOut, PasskeyOptionsOut, PasskeySignInIn, PasswordLoginIn, ResetCheckIn,
+    ResetPasswordIn, SetupIn, PasswordSignInOut, TwoStepCodeIn,
 )
 from app.web.sso import SignIn
 
@@ -44,6 +45,7 @@ SESSION_VERSION_KEY = "sv"  # see migration 11: a session started before the acc
 SESSION_SSO_KEY = "sso"  # which provider from Settings → Sign-in a sign-in started with (they share one callback)
 SESSION_TWO_STEP_KEY = "2step"  # a password that was right, waiting for its code: {user, version, email, at}
 TWO_STEP_SECONDS = 5 * 60  # how long the code form waits after the password
+SESSION_PASSKEY_KEY = "passkey"  # a passkey sign-in's challenge, waiting for the browser's answer: {challenge, at}
 SESSION_TRY_KEY = "sso_try"  # an admin's Try it: the provider being tried, whose result is shown, not signed in
 # Errors a provider can cause while we fetch its metadata, keys or tokens.
 PROVIDER_ERRORS = (OAuthError, httpx.HTTPError, ValueError, KeyError)
@@ -384,6 +386,47 @@ async def two_step_sign_in(body: TwoStepCodeIn, request: Request) -> OkOut:
         raise HTTPException(status_code=401, detail="That code isn't right, or it was already used")
     limiter.clear_account(email)
     await start_session(request, pending["user"], pending["version"])
+    return OkOut()
+
+
+@router.post("/auth/passkey/options", response_model=PasskeyOptionsOut)
+def passkey_sign_in_options(request: Request) -> PasskeyOptionsOut:
+    """A challenge for the browser's passkey to sign. The sign-in page asks for one as it opens, so the button can
+    go straight to the passkey (Safari wants that to follow the click directly)."""
+    party = passkeys.relying_party(request.app.state.settings, str(request.base_url))
+    if party is None:
+        raise HTTPException(status_code=404, detail=passkeys.unavailable_reason(request.app.state.settings))
+    options, challenge = passkeys.authentication_options(party)
+    request.session[SESSION_PASSKEY_KEY] = {"challenge": challenge, "at": now()}
+    return PasskeyOptionsOut(options=options)
+
+
+@router.post("/auth/passkey", response_model=OkOut)
+async def passkey_sign_in(body: PasskeySignInIn, request: Request) -> OkOut:
+    """Signs in with a passkey. It counts as both steps: the device checked the person as well as the key. A passkey
+    can't be guessed (it's a signature over a fresh challenge), so there's no limit on tries like passwords have."""
+    settings: Settings = request.app.state.settings
+    party = passkeys.relying_party(settings, str(request.base_url))
+    pending = request.session.pop(SESSION_PASSKEY_KEY, None)  # each challenge is used once, right or wrong
+    if party is None:
+        raise HTTPException(status_code=404, detail=passkeys.unavailable_reason(settings))
+    if not isinstance(pending, dict) or now() - int(pending.get("at", 0)) > passkeys.CEREMONY_SECONDS:
+        raise HTTPException(status_code=401, detail="That took too long. Try the passkey again.")
+    db: Database = request.app.state.db
+    try:
+        user_id = await run_in_threadpool(
+            passkeys.authenticate, db, party, credential=body.credential, challenge=pending["challenge"], now=now())
+    except InvalidInput as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from None
+
+    def account() -> User | None:
+        with db.transaction() as conn:
+            return users_repo.get(conn, user_id)
+
+    user = await run_in_threadpool(account)
+    if user is None or not user_allowed(request.app.state.sign_in, user):
+        raise HTTPException(status_code=403, detail="This account can't sign in here any more")
+    await start_session(request, user.id)
     return OkOut()
 
 

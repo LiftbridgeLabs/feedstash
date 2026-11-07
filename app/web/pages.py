@@ -8,7 +8,9 @@ from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, Response
 
 from app.clock import iso, now
+from app.db.repositories import passkeys as passkeys_repo
 from app.db.repositories import users as users_repo
+from app.services import passkeys
 from app.settings import Settings
 from app.web.auth import SETUP_BLOCKED, password_reset_available, session_user, setup_needs_token
 from app.web.sso import Provider, button_html
@@ -69,17 +71,25 @@ FORGOT_FORM = """<form class="login-form" data-login="forgot" method="post" nova
 SETUP_TOKEN_FIELD = """<label><span>Setup token <small>(the SETUP_TOKEN in the server's settings)</small></span><input type="password" name="setup_token" autocomplete="off" required></label>
   """
 
+# Offered once someone on this server has a passkey for this address; login.js does the rest.
+PASSKEY_BUTTON = (
+    '<button class="btn btn-lg" type="button" data-passkey hidden>Sign in with a passkey</button>'
+    '<p class="login-error" data-passkey-error hidden></p>'
+)
+
 router = APIRouter(include_in_schema=False)
 
 
 def login_page(
     settings: Settings, providers: list[Provider], *, error: str | None, needs_setup: bool, setup_needs_token: bool = False,
-    can_reset: bool = False,
+    can_reset: bool = False, passkeys: bool = False,
 ) -> str:
     message = LOGIN_ERRORS.get(error or "")
     options = []
     if settings.dev_login:
         options.append('<a class="btn btn-primary btn-lg" href="/auth/login">Continue as local user</a>')
+    if passkeys and not needs_setup:
+        options.append(PASSKEY_BUTTON)
     for provider in providers:
         options.append(button_html(provider))
     form = ""
@@ -108,7 +118,7 @@ def login_page(
 {form}
 {'<div class="login-or"><span>or</span></div>' if form and options else ''}
 <div class="login-options">{''.join(options)}</div>
-</main>{'<script type="module" src="/static/login.js"></script>' if form else ''}</body></html>"""
+</main>{'<script type="module" src="/static/login.js"></script>' if form or PASSKEY_BUTTON in options else ''}</body></html>"""
 
 
 @router.get("/")
@@ -116,12 +126,14 @@ def index(request: Request, error: str | None = None):
     if session_user(request):
         return FileResponse(STATIC_DIR / "index.html", headers={"Cache-Control": "no-cache"})
     settings: Settings = request.app.state.settings
+    party = passkeys.relying_party(settings, str(request.base_url))
     with request.app.state.db.transaction() as conn:
         needs_setup = users_repo.count(conn) == 0
+        has_passkeys = party is not None and passkeys_repo.any_for(conn, party.rp_id)
     return HTMLResponse(login_page(
         settings, request.app.state.sign_in.providers(), error=error, needs_setup=needs_setup,
         setup_needs_token=needs_setup and setup_needs_token(request),
-        can_reset=not needs_setup and password_reset_available(request),
+        can_reset=not needs_setup and password_reset_available(request), passkeys=has_passkeys,
     ))
 
 

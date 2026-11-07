@@ -94,6 +94,8 @@ Lost the phone and the recovery codes? An admin can turn two-step sign-in off fo
 docker exec -it feedstash python -m app.cli turn-off-two-step --email you@example.com
 ```
 
+**Passkeys.** Under **Settings → You → Passkeys**, anyone can add a passkey: Face ID, Touch ID, Windows Hello, a phone or a password manager. The sign-in page then has a **Sign in with a passkey** button, no email or password needed. A passkey counts as both steps of two-step sign-in, since the device checks the person as well as the key. Browsers only allow passkeys at an https address, so they work at your reverse proxy's address and not at a LAN address like `http://192.168.1.50:8672`. Each passkey belongs to the address it was made at: changing the server's domain means adding passkeys again. Removing one in Settings stops it signing in; delete it on the device too.
+
 ### Sending email
 
 FeedStash sends email for **Forgot password?** and, if you like, to deliver invite links. Any email service that offers SMTP works (SMTP2GO, Postmark, Mailgun, Amazon SES, Gmail with an app password, or a mail server on your own network). Set it up under **Settings → Admin → Sending email** and press **Send a test email to me**; the password is stored encrypted with the server's `SECRET_KEY`. Or set `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` and `SMTP_FROM_NAME` (see Configuration); settings saved in the app take their place. Without email, nothing changes: there's no Forgot password? link, and invite links are copied by hand.

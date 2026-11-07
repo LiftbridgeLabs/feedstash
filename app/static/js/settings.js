@@ -13,6 +13,7 @@ import { moveSectionHTML, wireMove } from './move.js';
 import { loadLogs, logsSectionHTML, wireLogs } from './logsettings.js';
 import { loadSignIn, signInSectionHTML, wireSignIn } from './signinsettings.js';
 import { loadTagSettings, tagsSectionHTML, wireTagSettings } from './tagsettings.js';
+import { loadPasskeys, passkeysSectionHTML, wirePasskeys } from './passkeys.js';
 import { loadTwoStep, twoStepSectionHTML, wireTwoStep } from './twostep.js';
 import { loadMutedWords, mutedWordsSectionHTML, wireMutedWords } from './mutedwords.js';
 import { loadRules, rulesSectionHTML, wireRules } from './rules.js';
@@ -66,6 +67,7 @@ export function showSettings({ switching = false } = {}) {
     ${card(`<h3>Your account</h3>
       <div data-account><p class="muted">Loading…</p></div>`)}
     ${card(twoStepSectionHTML())}
+    ${card(passkeysSectionHTML())}
 
     ${card(`<h3>Appearance</h3>
     <div class="setting-row">
@@ -388,6 +390,7 @@ async function loadAccount() {
         it's full, new saves wait until something is deleted.</p>
     </div>` : ''}`;
   loadTwoStep(els.settings, me);
+  loadPasskeys(els.settings);
   if (me.is_admin) {
     $('[data-group-link="admin"]', els.settings).hidden = false;
     if (state.route.id === 'admin') selectGroup('admin'); // asked for before it was known they're an admin
@@ -797,6 +800,7 @@ export function wireSettings() {
   wireMail(els.settings);
   wireEmail(els.settings);
   wireTwoStep(els.settings, () => me);
+  wirePasskeys(els.settings);
   wireMove(els.settings);
   wireLogs(els.settings);
   wireSignIn(els.settings);
