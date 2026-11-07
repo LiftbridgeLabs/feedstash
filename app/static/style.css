@@ -568,7 +568,7 @@ dialog.whats-new { width: min(560px, calc(100vw - 32px)); }
 .modal-body label.check { flex-direction: row; align-items: center; gap: 8px; font-weight: 400; color: var(--text); font-size: 14px; }
 .modal-body label.check.choice { align-items: flex-start; }
 .modal-body label.check.choice input { margin-top: 3px; }
-.modal-body input[type=text], .modal-body input[type=url], .modal-body input[type=email], .modal-body input[type=password], .modal-body select {
+.modal-body input[type=text], .modal-body input[type=url], .modal-body input[type=email], .modal-body input[type=password], .modal-body input[data-reveal], .modal-body select {
   padding: 9px 11px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); font-weight: 400; font-size: 15px;
 }
 .modal-body input:focus, .modal-body select:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
@@ -767,3 +767,15 @@ dialog.whats-new { width: min(560px, calc(100vw - 32px)); }
 [data-discover-search] { width: 100%; margin-top: 4px; }
 .discover-note { font-size: 13px; color: var(--danger); margin-top: 2px; }
 [data-discover-other] { margin-top: 10px; }
+
+/* Password fields: the eye button sits inside the field's right edge (reveal.js). */
+.password-field { position: relative; display: flex; }
+.password-field input { flex: 1; min-width: 0; padding-right: 40px !important; }
+.reveal-btn {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;
+  border: 0; border-radius: 6px; background: transparent; color: var(--text-muted); cursor: pointer;
+}
+.reveal-btn:hover { background: var(--bg-hover); color: var(--text); }
+.reveal-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.reveal-btn .i { width: 18px; height: 18px; }

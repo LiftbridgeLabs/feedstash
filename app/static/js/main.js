@@ -8,6 +8,7 @@ import { hydrateIcons } from './icons.js';
 import { wireKeyboard } from './keyboard.js';
 import { applyDensity, applyLayout, applySections, openContextMenu, setPref, wireToolbar } from './menus.js';
 import { wireOrganize } from './organize.js';
+import { wirePasswordReveal } from './reveal.js';
 import { applyRoute } from './router.js';
 import { wireSearch } from './search.js';
 import { wireSettings } from './settings.js';
@@ -22,6 +23,7 @@ import { $ } from './util.js';
 async function init() {
   applyTheme();
   hydrateIcons();
+  wirePasswordReveal();
   applyLayout();
   applyDensity();
   wireNav();

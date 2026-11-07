@@ -2,6 +2,10 @@
    header. Also the invite page (/invite#<token>) and the reset page (/reset#<token>): the token is checked first,
    and sent with the form. */
 
+import { wirePasswordReveal } from './js/reveal.js';
+
+wirePasswordReveal();
+
 const ENDPOINTS = {
   setup: '/auth/setup', password: '/auth/password', invite: '/auth/invite', forgot: '/auth/forgot', reset: '/auth/reset',
 };

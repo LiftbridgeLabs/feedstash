@@ -116,3 +116,30 @@ def test_forgot_password_sends_a_link_that_sets_a_new_password(browser_page, sta
         assert not page.errors, page.errors
     finally:
         smtp.close()
+
+
+def test_the_eye_button_shows_and_hides_a_password(browser_page, start_server):
+    server = start_server(DEV_LOGIN="false")
+    page = browser_page
+    page.goto(server.base_url + "/")
+    assert page.wait_for("!!document.querySelector('form[data-login=setup] .reveal-btn')")
+    field = "document.querySelector('form[data-login=setup] input[name=password]')"
+    eye = "document.querySelector('form[data-login=setup] .reveal-btn')"
+    assert page.js(f"{field}.type + ' ' + {eye}.getAttribute('aria-label')") == "password Show password"
+    assert page.js(f"{field}.autocomplete") == "new-password"  # password managers see the same field
+    page.js(f"{eye}.click()")
+    assert page.js(f"{field}.type + ' ' + {eye}.getAttribute('aria-label')") == "text Hide password"
+    page.js(f"{eye}.click()")
+    assert page.js(f"{field}.type") == "password"
+    page.js(f"{eye}.click()")
+    fill_and_submit(page, "setup", name="Owner", email="owner@example.com", password=PASSWORD)
+    assert page.wait_for("!!window.reader", timeout=20)  # sent while shown: it went back to hidden first
+
+    # Fields made later, like Change your password in Settings, get the button too.
+    page.js("location.hash = '#/settings/you'")
+    assert page.wait_for("!!document.querySelector('[data-settings=change-password]')")
+    page.js("document.querySelector('[data-settings=change-password]').click()")
+    assert page.wait_for("document.querySelectorAll('dialog[open] .reveal-btn').length === 2")
+    page.js("document.querySelector('dialog[open] .reveal-btn').click()")
+    assert page.js("document.querySelector('dialog[open] input[name=current]').type") == "text"
+    assert not page.errors, page.errors
