@@ -16,7 +16,7 @@ from pathlib import Path
 from app.db import Database
 from app.db.repositories import users as users_repo
 from app.errors import ReaderError
-from app.services import accounts
+from app.services import accounts, two_step
 from app.settings import Settings
 
 
@@ -70,6 +70,9 @@ def main(argv: list[str] | None = None) -> int:
     reset.add_argument("--email", required=True)
     reset.add_argument("--password-stdin", action="store_true", help="read the password from standard input")
     commands.add_parser("list-accounts", help="list everyone who can sign in")
+    off = commands.add_parser("turn-off-two-step", help="turn off two-step sign-in for someone who lost their phone "
+                                                        "and their recovery codes")
+    off.add_argument("--email", required=True)
     backup = commands.add_parser("backup", help="copy the database to a new file, safely, while the server runs")
     backup.add_argument("destination", type=Path)
     args = parser.parse_args(argv)
@@ -91,6 +94,15 @@ def main(argv: list[str] | None = None) -> int:
                 raise ReaderError(f"No account with the email {args.email}")
             accounts.reset_password(db, user.id, _read_password(args))
             print(f"Set a new password for {user.email}.")
+        elif args.command == "turn-off-two-step":
+            with db.transaction() as conn:
+                user = users_repo.find_by_email(conn, args.email)
+            if user is None:
+                raise ReaderError(f"No account with the email {args.email}")
+            if not two_step.turn_off_for(db, user.id):
+                raise ReaderError(f"Two-step sign-in isn't on for {user.email}")
+            print(f"Turned off two-step sign-in for {user.email}. They sign in with their password alone until they "
+                  "turn it on again.")
         elif args.command == "list-accounts":
             with db.transaction() as conn:
                 for user in users_repo.list_all(conn):

@@ -40,6 +40,7 @@ from app.web.api import stash as stash_api
 from app.web.api import stash_organize as stash_organize_api
 from app.web.api import tokens as tokens_api
 from app.web.api import tree as tree_api
+from app.web.api import two_step as two_step_api
 from app.web.api import updates as updates_api
 from app.web.ratelimit import LoginLimiter
 
@@ -129,6 +130,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         pages.router, auth.router, tree_api.router, articles_api.router, folders_api.router, feeds_api.router,
         opml_api.router, imports_api.router, stash_api.router, stash_api.uploads_router, stash_organize_api.router,
         mail_api.router, tokens_api.router, accounts_api.router, updates_api.router, logs_api.router, sign_in_api.router, email_settings_api.router,
+        two_step_api.router,
     ):
         app.include_router(router)
     # The Google Reader API, for other reader apps. Clients disagree about the address: some take the server's

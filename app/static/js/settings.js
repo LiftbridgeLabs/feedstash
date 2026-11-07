@@ -13,6 +13,7 @@ import { moveSectionHTML, wireMove } from './move.js';
 import { loadLogs, logsSectionHTML, wireLogs } from './logsettings.js';
 import { loadSignIn, signInSectionHTML, wireSignIn } from './signinsettings.js';
 import { loadTagSettings, tagsSectionHTML, wireTagSettings } from './tagsettings.js';
+import { loadTwoStep, twoStepSectionHTML, wireTwoStep } from './twostep.js';
 import { loadMutedWords, mutedWordsSectionHTML, wireMutedWords } from './mutedwords.js';
 import { loadRules, rulesSectionHTML, wireRules } from './rules.js';
 import { els, showsFeeds, showsStash, state } from './state.js';
@@ -64,6 +65,7 @@ export function showSettings({ switching = false } = {}) {
     <div class="settings-group" data-group="you">
     ${card(`<h3>Your account</h3>
       <div data-account><p class="muted">Loading…</p></div>`)}
+    ${card(twoStepSectionHTML())}
 
     ${card(`<h3>Appearance</h3>
     <div class="setting-row">
@@ -385,6 +387,7 @@ async function loadAccount() {
       <p class="muted">Saved items, their pictures and saved pages, and articles, for everyone on this server. Once
         it's full, new saves wait until something is deleted.</p>
     </div>` : ''}`;
+  loadTwoStep(els.settings, me);
   if (me.is_admin) {
     $('[data-group-link="admin"]', els.settings).hidden = false;
     if (state.route.id === 'admin') selectGroup('admin'); // asked for before it was known they're an admin
@@ -459,11 +462,12 @@ async function loadAccounts() {
       <thead><tr><th>Account</th><th>Signs in with</th><th>Role</th><th>Added</th><th></th></tr></thead>
       <tbody>${accounts.map((account) => `<tr>
         <td>${esc(account.name || account.email)}${account.name ? `<div class="muted">${esc(account.email)}</div>` : ''}</td>
-        <td>${esc(SIGN_IN_LABELS[account.sign_in] || account.sign_in)}${account.has_password && account.sign_in !== 'password' ? ' and a password' : ''}</td>
+        <td>${esc(SIGN_IN_LABELS[account.sign_in] || account.sign_in)}${account.has_password && account.sign_in !== 'password' ? ' and a password' : ''}${account.two_step ? '<div class="muted">Two-step sign-in on</div>' : ''}</td>
         <td>${account.is_admin ? 'Admin' : 'Member'}</td>
         <td>${esc(fullDate(account.created_at))}</td>
         <td class="row-actions">${account.id === me?.id ? '<span class="muted">You</span>' : `
           <button class="btn btn-sm" data-settings="set-password" data-id="${account.id}" data-name="${esc(account.email)}">Set password</button>
+          ${account.two_step ? `<button class="btn btn-sm" data-settings="two-step-off" data-id="${account.id}" data-name="${esc(account.email)}">Turn off two-step</button>` : ''}
           <button class="btn btn-sm" data-settings="toggle-admin" data-id="${account.id}" data-admin="${account.is_admin}" data-name="${esc(account.email)}">${account.is_admin ? 'Remove admin' : 'Make admin'}</button>
           <button class="btn btn-sm" data-settings="remove-account" data-id="${account.id}" data-name="${esc(account.email)}">Remove</button>`}</td>
       </tr>`).join('')}</tbody></table></div>`;
@@ -598,6 +602,20 @@ async function toggleAdmin(id, isAdmin, name) {
   } catch (err) {
     toast(err.message, { error: true });
   }
+}
+
+async function turnOffTwoStep(id, name) {
+  const ok = await modal({
+    title: `Turn off two-step sign-in for ${name}?`,
+    confirmText: 'Turn off',
+    danger: true,
+    html: `<p>For someone who lost their phone and their recovery codes. They'll sign in with their password alone,
+      and every browser they're signed in on is signed out. They can turn it on again in Settings.</p>`,
+    onSubmit: () => api('POST', `/api/accounts/${id}/two-step/off`),
+  });
+  if (!ok) return;
+  loadAccounts();
+  toast(`Two-step sign-in is off for ${name}`);
 }
 
 async function removeAccount(id, name) {
@@ -778,6 +796,7 @@ export function wireSettings() {
   wireImport(els.settings);
   wireMail(els.settings);
   wireEmail(els.settings);
+  wireTwoStep(els.settings, () => me);
   wireMove(els.settings);
   wireLogs(els.settings);
   wireSignIn(els.settings);
@@ -819,6 +838,7 @@ export function wireSettings() {
       case 'set-password': setPassword(Number(id), name); break;
       case 'toggle-admin': toggleAdmin(Number(id), button.dataset.admin === 'true', name); break;
       case 'remove-account': removeAccount(Number(id), name); break;
+      case 'two-step-off': turnOffTwoStep(Number(id), name); break;
     }
   });
 }

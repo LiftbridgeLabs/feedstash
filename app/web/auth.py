@@ -23,15 +23,16 @@ from app.db.models import User
 from app.db.repositories import invites as invites_repo
 from app.db.repositories import password_resets as password_resets_repo
 from app.db.repositories import tokens as tokens_repo
+from app.db.repositories import two_step as two_step_repo
 from app.db.repositories import users as users_repo
 from app.errors import Conflict, NotFound
 from app.mail.smtp import SendError
 from app.passwords import check_new_password, hash_password
-from app.services import accounts, outgoing_email
+from app.services import accounts, outgoing_email, two_step
 from app.settings import Settings
 from app.web.ratelimit import LoginLimiter
 from app.web.schemas import (
-    ForgotPasswordIn, InviteAcceptIn, InviteCheckIn, OkOut, PasswordLoginIn, ResetCheckIn, ResetPasswordIn, SetupIn,
+    ForgotPasswordIn, InviteAcceptIn, InviteCheckIn, OkOut, PasswordLoginIn, ResetCheckIn, ResetPasswordIn, SetupIn, PasswordSignInOut, TwoStepCodeIn,
 )
 from app.web.sso import SignIn
 
@@ -41,6 +42,8 @@ DEV_LOGIN_SUB = "dev-login"
 SESSION_USER_KEY = "uid"
 SESSION_VERSION_KEY = "sv"  # see migration 11: a session started before the account's last change doesn't count
 SESSION_SSO_KEY = "sso"  # which provider from Settings → Sign-in a sign-in started with (they share one callback)
+SESSION_TWO_STEP_KEY = "2step"  # a password that was right, waiting for its code: {user, version, email, at}
+TWO_STEP_SECONDS = 5 * 60  # how long the code form waits after the password
 SESSION_TRY_KEY = "sso_try"  # an admin's Try it: the provider being tried, whose result is shown, not signed in
 # Errors a provider can cause while we fetch its metadata, keys or tokens.
 PROVIDER_ERRORS = (OAuthError, httpx.HTTPError, ValueError, KeyError)
@@ -316,8 +319,21 @@ def _try_result(
 # ------------------------------------------------------------------ passwords
 
 
-@router.post("/auth/password", response_model=OkOut)
-async def password_sign_in(body: PasswordLoginIn, request: Request) -> OkOut:
+def _two_step_on(db: Database, user_id: int) -> bool:
+    with db.transaction() as conn:
+        return two_step_repo.enabled(conn, user_id)
+
+
+def _wait_for_code(request: Request, user: User, session_version: int) -> PasswordSignInOut:
+    """The password was right but the account also asks for a code: nothing is signed in until /auth/two-step."""
+    request.session.clear()
+    request.session[SESSION_TWO_STEP_KEY] = {"user": user.id, "version": session_version, "email": user.email,
+                                             "at": now()}
+    return PasswordSignInOut(two_step=True)
+
+
+@router.post("/auth/password", response_model=PasswordSignInOut)
+async def password_sign_in(body: PasswordLoginIn, request: Request) -> PasswordSignInOut:
     settings: Settings = request.app.state.settings
     if not settings.password_login:
         raise HTTPException(status_code=404, detail="Password sign-in is turned off")
@@ -336,8 +352,38 @@ async def password_sign_in(body: PasswordLoginIn, request: Request) -> OkOut:
         limiter.record_failure(address, body.email)
         raise HTTPException(status_code=401, detail="Wrong email or password")
     user, session_version = found
+    if await run_in_threadpool(_two_step_on, request.app.state.db, user.id):
+        return _wait_for_code(request, user, session_version)  # failures are cleared once the code is right too
     limiter.clear_account(body.email)
     await start_session(request, user.id, session_version)
+    return PasswordSignInOut()
+
+
+@router.post("/auth/two-step", response_model=OkOut)
+async def two_step_sign_in(body: TwoStepCodeIn, request: Request) -> OkOut:
+    """The second step: a code from the authenticator app, or a recovery code. Wrong codes count toward the same
+    limit as wrong passwords."""
+    pending = request.session.get(SESSION_TWO_STEP_KEY)
+    if not isinstance(pending, dict) or now() - int(pending.get("at", 0)) > TWO_STEP_SECONDS:
+        request.session.pop(SESSION_TWO_STEP_KEY, None)
+        raise HTTPException(status_code=401, detail="That took too long. Sign in with your password again.")
+    limiter: LoginLimiter = request.app.state.login_limiter
+    address = request.client.host if request.client else "unknown"
+    email = pending["email"]
+    if wait := limiter.retry_after(address, email):
+        minutes = max(1, round(wait / 60))
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many failed sign-ins. Try again in {minutes} minute{'' if minutes == 1 else 's'}.",
+            headers={"Retry-After": str(wait)},
+        )
+    right = await run_in_threadpool(
+        two_step.verify, request.app.state.db, request.app.state.secrets, pending["user"], body.code, now=now())
+    if not right:
+        limiter.record_failure(address, email)
+        raise HTTPException(status_code=401, detail="That code isn't right, or it was already used")
+    limiter.clear_account(email)
+    await start_session(request, pending["user"], pending["version"])
     return OkOut()
 
 
@@ -518,10 +564,10 @@ def check_reset(body: ResetCheckIn, request: Request) -> dict:
     return {"usable": True, "detail": None}
 
 
-@router.post("/auth/reset", response_model=OkOut)
-async def reset_password(body: ResetPasswordIn, request: Request) -> OkOut:
+@router.post("/auth/reset", response_model=PasswordSignInOut)
+async def reset_password(body: ResetPasswordIn, request: Request) -> PasswordSignInOut:
     """Sets a new password from a reset link and signs in. Every other browser signed in to the account is signed
-    out (set_password ends its sessions)."""
+    out (set_password ends its sessions). With two-step sign-in on, the link doesn't skip it: the code comes next."""
     check_new_password(body.password)
     # The link first: hashing the password is slow and shares PASSWORD_CHECKS with sign-in, so a made-up link
     # mustn't get that far.
@@ -532,10 +578,14 @@ async def reset_password(body: ResetPasswordIn, request: Request) -> OkOut:
     with request.app.state.db.transaction() as conn:
         user_id = password_resets_repo.use(conn, reset_id, now=now())
         users_repo.set_password(conn, user_id, password_hash)
-        email = users_repo.get(conn, user_id).email
-    request.app.state.login_limiter.clear_account(email)  # a fresh password starts with a clean slate
-    await start_session(request, user_id)
-    return OkOut()
+        user = users_repo.get(conn, user_id)
+        version = users_repo.session_version(conn, user_id) or 0
+        wants_code = two_step_repo.enabled(conn, user_id)
+    request.app.state.login_limiter.clear_account(user.email)  # a fresh password starts with a clean slate
+    if wants_code:
+        return _wait_for_code(request, user, version)
+    await start_session(request, user_id, version)
+    return PasswordSignInOut()
 
 
 @router.post("/auth/logout")

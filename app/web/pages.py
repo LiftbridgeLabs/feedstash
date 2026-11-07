@@ -37,6 +37,15 @@ PASSWORD_FORM = """<form class="login-form" data-login="password" method="post" 
   <button class="btn btn-primary btn-lg" type="submit">Sign in</button>
 </form>"""
 
+# Two-step sign-in: after a right password (or a reset link) login.js swaps the form for this one.
+TWO_STEP_FORM = """<form class="login-form" data-login="two-step" method="post" novalidate hidden>
+  <p class="login-hint">Enter the 6-digit code from your authenticator app, or one of your recovery codes.</p>
+  <label>Code<input type="text" name="code" autocomplete="one-time-code" autocapitalize="off" spellcheck="false" maxlength="64" required></label>
+  <p class="login-error" data-login-error hidden></p>
+  <button class="btn btn-primary btn-lg" type="submit">Sign in</button>
+  <p class="login-aside"><a href="/">Start over</a></p>
+</form>"""
+
 SETUP_FORM = """<form class="login-form" data-login="setup" method="post" novalidate>
   <label>Name<input type="text" name="name" autocomplete="name" maxlength="100" autofocus></label>
   <label>Email<input type="email" name="email" autocomplete="username" required></label>
@@ -76,7 +85,7 @@ def login_page(
     form = ""
     if settings.password_login and not settings.dev_login:
         if not needs_setup:
-            form = PASSWORD_FORM + (FORGOT_LINK + FORGOT_FORM if can_reset else "")
+            form = PASSWORD_FORM + TWO_STEP_FORM + (FORGOT_LINK + FORGOT_FORM if can_reset else "")
         elif not setup_needs_token:
             form = SETUP_FORM.format(token_field="")
         elif settings.setup_token.get_secret_value():
@@ -157,6 +166,7 @@ RESET_PAGE = """<!doctype html>
   <p class="login-error" data-login-error hidden></p>
   <button class="btn btn-primary btn-lg" type="submit">Save password and sign in</button>
 </form>
+""" + TWO_STEP_FORM + """
 <p class="muted"><a href="/">Back to sign in</a></p>
 </main><script type="module" src="/static/login.js"></script></body></html>"""
 

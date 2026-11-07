@@ -143,3 +143,40 @@ def test_the_eye_button_shows_and_hides_a_password(browser_page, start_server):
     page.js("document.querySelector('dialog[open] .reveal-btn').click()")
     assert page.js("document.querySelector('dialog[open] input[name=current]').type") == "text"
     assert not page.errors, page.errors
+
+
+def test_two_step_sign_in_turned_on_in_settings_then_used(browser_page, start_server):
+    import time
+
+    from app import totp
+
+    server = start_server(DEV_LOGIN="false")
+    page = browser_page
+    page.goto(server.base_url + "/")
+    assert page.wait_for("!!document.querySelector('form[data-login=setup][data-ready]')")
+    fill_and_submit(page, "setup", name="Owner", email="owner@example.com", password=PASSWORD)
+    assert page.wait_for("!!window.reader", timeout=20)
+
+    page.js("location.hash = '#/settings/you'")
+    assert page.wait_for("document.querySelector('[data-two-step-state]')?.textContent.includes('Off')")
+    page.js("document.querySelector('[data-two-step-action=on]').click()")
+    assert page.wait_for("!!document.querySelector('dialog[open] input[name=password]')")
+    page.js(f"""(() => {{ const f = document.querySelector('dialog[open] form');
+      f.elements.password.value = {PASSWORD!r}; f.requestSubmit(); }})()""")
+    assert page.wait_for("!!document.querySelector('dialog[open] .qr-code svg')")
+    secret = page.js("document.querySelector('dialog[open] .connect-manual input').value")
+    code = totp.code_at(secret, totp.step_of(time.time()))
+    page.js(f"""(() => {{ const f = document.querySelector('dialog[open] form');
+      f.elements.code.value = {code!r}; f.requestSubmit(); }})()""")
+    assert page.wait_for("document.querySelectorAll('dialog[open] [data-recovery-codes] li').length === 10")
+    page.js("document.querySelector('dialog[open] [type=submit]').click()")
+    assert page.wait_for("document.querySelector('[data-two-step-state]')?.textContent.includes('10 of 10')")
+
+    page.js("fetch('/auth/logout', {method: 'POST', headers: {'X-Requested-With': 'reader'}}).then(() => location.href = '/')")
+    assert page.wait_for("!!document.querySelector('form[data-login=password][data-ready]')")
+    fill_and_submit(page, "password", email="owner@example.com", password=PASSWORD)
+    assert page.wait_for("document.querySelector('form[data-login=two-step]')?.hidden === false")
+    assert page.js("document.querySelector('form[data-login=password]').hidden") is True
+    fill_and_submit(page, "two-step", code=totp.code_at(secret, totp.step_of(time.time()) + 1))
+    assert page.wait_for("!!window.reader", timeout=20)
+    assert not page.errors, page.errors

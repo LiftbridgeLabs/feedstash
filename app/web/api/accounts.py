@@ -13,6 +13,7 @@ from starlette.concurrency import run_in_threadpool
 from app.clock import now
 from app.db.models import User
 from app.db.repositories import invites as invites_repo
+from app.db.repositories import two_step as two_step_repo
 from app.db.repositories import users as users_repo
 from app.errors import InvalidInput
 from app.mail.smtp import SendError
@@ -104,7 +105,8 @@ async def import_account(
 @router.get("/accounts", response_model=list[AccountOut])
 def list_accounts(admin: AdminDep, db: DatabaseDep) -> list[AccountOut]:
     with db.transaction() as conn:
-        return [AccountOut.from_user(user) for user in users_repo.list_all(conn)]
+        with_codes = two_step_repo.enabled_ids(conn)
+        return [AccountOut.from_user(user, two_step=user.id in with_codes) for user in users_repo.list_all(conn)]
 
 
 @router.post("/accounts", status_code=201, response_model=AccountOut)

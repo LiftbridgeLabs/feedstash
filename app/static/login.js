@@ -8,7 +8,18 @@ wirePasswordReveal();
 
 const ENDPOINTS = {
   setup: '/auth/setup', password: '/auth/password', invite: '/auth/invite', forgot: '/auth/forgot', reset: '/auth/reset',
+  'two-step': '/auth/two-step',
 };
+
+/** The password was right and the account asks for a code too: the code form takes the page. */
+function askForCode(from) {
+  const codeForm = document.querySelector('form[data-login=two-step]');
+  from.hidden = true;
+  document.querySelectorAll('[data-forgot=open]').forEach((link) => { link.closest('.login-aside').hidden = true; });
+  document.querySelectorAll('.login-or, .login-options').forEach((el) => { el.hidden = true; });
+  codeForm.hidden = false;
+  codeForm.querySelector('[name=code]').focus();
+}
 const linkToken = decodeURIComponent(location.hash.slice(1));
 
 const post = (url, body) => fetch(url, {
@@ -96,6 +107,11 @@ for (const form of document.querySelectorAll('form[data-login]')) {
         return;
       }
       if (response.ok && isJson) {
+        if ((await response.json()).two_step) {
+          askForCode(form);
+          button.disabled = false;
+          return;
+        }
         location.href = '/';
         return;
       }

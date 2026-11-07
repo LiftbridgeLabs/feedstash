@@ -80,10 +80,18 @@ On a fresh install the first visit shows **Create the first account**. That acco
 
 With email set up (below), the sign-in page has **Forgot password?**: it emails a link that works once, for an hour, to choose a new password, and signs out everywhere else. It answers the same whether or not an address has an account, and sends at most three links an hour per address.
 
+**Two-step sign-in.** Under **Settings → You → Two-step sign-in**, anyone with a password can add a code from an authenticator app (1Password, Google Authenticator, the iPhone's Passwords app): signing in then asks for the 6-digit code after the password, or one of ten one-time recovery codes. A reset link changes the password but still asks for the code, and wrong codes count toward the same pause as wrong passwords. Google and single sign-on use their own, and API tokens (the phone app, extension and reader apps) are unaffected. The app's secret is stored encrypted with the server's `SECRET_KEY`.
+
 Locked out, or no email set up? Reset a password from the server:
 
 ```bash
 docker exec -it feedstash python -m app.cli set-password --email you@example.com
+```
+
+Lost the phone and the recovery codes? An admin can turn two-step sign-in off for that account in Settings → Admin → Accounts, or from the server:
+
+```bash
+docker exec -it feedstash python -m app.cli turn-off-two-step --email you@example.com
 ```
 
 ### Sending email
@@ -215,7 +223,7 @@ To update, pull the new image and recreate the container (`docker compose pull &
 
 Each release's notes are in [`CHANGELOG.md`](CHANGELOG.md) and on the [Releases page](https://github.com/LiftbridgeLabs/feedstash/releases) (watch the repository for releases to hear about them). Check **Before you update** for anything to do first, like taking a backup. After an update, admins see what changed the first time they open FeedStash, and the version in the sidebar says when a newer release is out.
 
-Other admin commands: `create-account`, `set-password`, `list-accounts` (`docker exec feedstash python -m app.cli --help`).
+Other admin commands: `create-account`, `set-password`, `turn-off-two-step`, `list-accounts` (`docker exec feedstash python -m app.cli --help`).
 
 ### What FeedStash fetches, and for whom
 

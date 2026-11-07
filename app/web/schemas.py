@@ -170,13 +170,14 @@ class AccountOut(BaseModel):
     has_password: bool
     sign_in: str  # how the account first signed in: password, google, oidc or dev
     created_at: int
+    two_step: bool = False  # two-step sign-in is on
 
     @classmethod
-    def from_user(cls, user: User) -> "AccountOut":
+    def from_user(cls, user: User, *, two_step: bool = False) -> "AccountOut":
         provider = user.sub.split(":", 1)[0] if ":" in user.sub else "dev"
         return cls(
             id=user.id, email=user.email, name=user.name, is_admin=user.is_admin, has_password=user.has_password,
-            sign_in="password" if provider == "local" else provider, created_at=user.created_at,
+            sign_in="password" if provider == "local" else provider, created_at=user.created_at, two_step=two_step,
         )
 
 
@@ -345,6 +346,39 @@ def to_schema(schema: type[Out], value) -> Out:
 
 
 # ------------------------------------------------------------------ requests
+
+
+class PasswordSignInOut(BaseModel):
+    ok: bool = True
+    two_step: bool = False  # the password was right; send a code to /auth/two-step to finish signing in
+
+
+class TwoStepCodeIn(BaseModel):
+    code: str = Field(max_length=64)
+
+
+class TwoStepOut(BaseModel):
+    enabled: bool
+    recovery_codes_left: int
+    available: bool  # the account has a password (two-step sign-in is for password sign-in)
+
+
+class TwoStepStartIn(BaseModel):
+    password: str = Field(default="", max_length=1024)
+
+
+class TwoStepSetupOut(BaseModel):
+    secret: str  # for typing into the app instead of scanning
+    uri: str  # otpauth://totp/…, what the QR code holds
+    svg: str  # the QR code
+
+
+class TwoStepConfirmIn(BaseModel):
+    code: str = Field(max_length=64)
+
+
+class RecoveryCodesOut(BaseModel):
+    recovery_codes: list[str]
 
 
 class PasswordLoginIn(BaseModel):

@@ -549,6 +549,8 @@ kbd { display: inline-block; min-width: 1.6em; padding: 1px 6px; border: 1px sol
 .qr-code svg { width: min(260px, 70vw); height: auto; border-radius: 8px; }
 .connect-manual summary { cursor: pointer; color: var(--text-muted); font-size: 14px; }
 .connect-manual[open] summary { margin-bottom: 8px; }
+.recovery-codes { columns: 2; margin: 12px 0; padding-left: 1.6em; font-size: 15px; line-height: 1.8; }
+.recovery-codes code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .03em; }
 dialog.shortcuts h3 { margin: 16px 0 6px; font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
 dialog.shortcuts dl { margin: 0; }
 dialog.shortcuts dl > div { display: flex; gap: 12px; align-items: baseline; padding: 5px 0; border-bottom: 1px solid var(--border); }

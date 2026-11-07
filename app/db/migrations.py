@@ -458,6 +458,25 @@ MIGRATIONS: list[str] = [
     );
     CREATE INDEX idx_password_resets_user ON password_resets(user_id);
     """,
+    # 26: two-step sign-in. The authenticator app's secret is encrypted with the server's SecretBox; enabled_at stays
+    # NULL until a first code confirms the app was set up. last_step is the newest code's time step used, so a code
+    # works once. Recovery codes are stored as SHA-256 hashes, like API tokens, and each works once.
+    """
+    CREATE TABLE two_step (
+        user_id    INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        secret     TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        enabled_at INTEGER,
+        last_step  INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE recovery_codes (
+        id        INTEGER PRIMARY KEY,
+        user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        code_hash TEXT NOT NULL,
+        used_at   INTEGER
+    );
+    CREATE INDEX idx_recovery_codes_user ON recovery_codes(user_id);
+    """,
 ]
 
 
