@@ -38,6 +38,30 @@ def test_first_run_setup_then_sign_out_and_back_in_with_the_password(browser_pag
     assert not page.errors, page.errors
 
 
+def test_a_setup_link_fills_in_the_setup_token(browser_page, start_server):
+    server = start_server(DEV_LOGIN="false", SETUP_TOKEN="only-the-owner-knows")
+    page = browser_page
+    token_shown = "!document.querySelector('[name=setup_token]').closest('label').hidden"
+    # A wrong link: setup is refused, and the field shows again so the right token can be typed.
+    page.goto(server.base_url + "/#setup=a-wrong-guess")
+    assert page.wait_for("!!document.querySelector('form[data-login=setup][data-ready]')")
+    assert page.js(f"!({token_shown})") and page.js("location.hash") == ""  # hidden, and gone from the address bar
+    fill_and_submit(page, "setup", name="Owner", email="owner@example.com", password=PASSWORD)
+    assert page.wait_for("!document.querySelector('form[data-login=setup] [data-login-error]').hidden")
+    assert page.js(token_shown)
+    # The browser logs the refusal itself; it must be that one and nothing else.
+    assert len(page.errors) == 1 and "403" in page.errors[0] and page.errors[0].endswith("/auth/setup"), page.errors
+    page.errors.clear()
+    # The right link: only the name, email and password are left to fill in.
+    page.goto(server.base_url + "/#setup=only-the-owner-knows")
+    page.js("location.reload()")
+    assert page.wait_for("!!document.querySelector('form[data-login=setup][data-ready]')")
+    assert page.js(f"!({token_shown})")
+    fill_and_submit(page, "setup", name="Owner", email="owner@example.com", password=PASSWORD)
+    assert page.wait_for("!!window.reader && document.querySelector('#user-name')?.textContent === 'Owner'", timeout=20)
+    assert not page.errors, page.errors
+
+
 def test_an_admin_invites_someone_who_makes_their_own_account(browser_page, start_server):
     server = start_server(DEV_LOGIN="false")
     page = browser_page

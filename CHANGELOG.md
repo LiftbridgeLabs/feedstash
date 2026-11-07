@@ -23,6 +23,8 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
 
 - **Limits.** A server can cap how many accounts it takes and how much storage it uses; Settings shows the storage
   used and the number of accounts against the limit.
+- **Setup links.** Setting up a server for someone else? Send them `https://<your server>/#setup=<SETUP_TOKEN>`
+  and the setup page fills the token in for them.
 
 ### Settings
 - `ACCOUNT_LIMIT` caps the accounts a server takes (invites not yet used count too); `STORAGE_LIMIT_GB` caps the

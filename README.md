@@ -73,7 +73,7 @@ Turn on any combination. The sign-in page shows whatever is configured.
 
 On a fresh install the first visit shows **Create the first account**. That account is an admin and can add more accounts, set their passwords, and make other admins under **Settings → Admin → Accounts**. Everyone can change their own password in Settings.
 
-- Setup only works from your own network (your LAN, Docker, Tailscale), so nobody who finds a new server on the internet can claim it first. Setting up a server you can only reach over the internet, like one on a VPS? Set `SETUP_TOKEN` to something only you know and enter it on the setup page.
+- Setup only works from your own network (your LAN, Docker, Tailscale), so nobody who finds a new server on the internet can claim it first. Setting up a server you can only reach over the internet, like one on a VPS? Set `SETUP_TOKEN` to something only you know and enter it on the setup page. Setting a server up for someone else? Send them `https://<server>/#setup=<token>`: the link fills the token in, so they only choose their email and password.
 - If `ALLOWED_EMAILS` or `ALLOWED_DOMAINS` is set, the first account must use one of those addresses.
 - After 10 wrong passwords for one account (or 30 from one address) within 15 minutes, sign-in is paused for that account or address.
 - Set `PASSWORD_LOGIN=false` if you only want Google or OIDC.
