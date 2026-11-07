@@ -83,7 +83,8 @@ class Settings(BaseSettings):
     # Ask GitHub (at most once a day, while an admin has the app open) whether a newer release is out.
     update_check: bool = True
     # For a server run on someone else's behalf (a host, or whoever runs it for a family): hides the settings the host
-    # looks after (sending email, sign-in providers, logs, the update notice) and refuses changes to them.
+    # looks after (sending email, sign-in providers, the update notice) and refuses changes to them. Logs stay with
+    # the server's admins.
     managed: bool = False
     # How many accounts the server takes (counting invites not yet used); 0 for no limit.
     account_limit: int = Field(default=0, ge=0)

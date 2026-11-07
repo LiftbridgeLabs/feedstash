@@ -282,6 +282,7 @@ def test_a_managed_server_hides_what_its_host_looks_after(browser_page, start_se
     assert "of 10.0 GB used" in page.js("document.querySelector('[data-storage]').textContent")
     page.js("location.hash = '#/settings/admin'")
     assert page.wait_for("document.querySelector('[data-account-count]')?.textContent.includes('1 of')")
-    assert page.js("""['[data-email-section]', '[data-signin-section]', '[data-logs-section]']
+    assert page.js("""['[data-email-section]', '[data-signin-section]']
       .every((s) => !document.querySelector(s) || document.querySelector(s).hidden)""") is True
+    assert page.wait_for("document.querySelector('[data-logs-section]')?.hidden === false")  # logs stay theirs
     assert not page.errors, page.errors

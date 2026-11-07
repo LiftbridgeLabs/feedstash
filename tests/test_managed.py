@@ -20,9 +20,10 @@ def test_a_managed_server_keeps_email_sign_in_and_logs_for_its_host(start_server
     admin = set_up(server)
     info = admin.get("/api/server").json()
     assert info["managed"] is True and info["can_email"] is True
-    for path in ("/api/admin/email", "/api/admin/sign-in", "/api/admin/logs/settings"):
+    for path in ("/api/admin/email", "/api/admin/sign-in"):
         refused = admin.get(path)
         assert refused.status_code == 403 and "hosts this FeedStash" in refused.json()["detail"], path
+    assert admin.get("/api/admin/logs/settings").status_code == 200  # logs stay with the server's admins
     assert admin.put("/api/admin/email", json={"host": "evil.example.com", "from_address": "a@b.co"}).status_code == 403
     assert admin.post("/api/admin/email/test", json={}).status_code == 403
     # Email the host set up still works for everyone: Forgot password and emailed invites.

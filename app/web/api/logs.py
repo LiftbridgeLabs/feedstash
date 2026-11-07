@@ -2,7 +2,7 @@
 
 from dataclasses import asdict
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
@@ -10,10 +10,10 @@ from app.db.models import User
 from app.db.repositories import app_settings as app_settings_repo
 from app.errors import InvalidInput
 from app.logs import LogSettings
-from app.web.deps import DatabaseDep, SessionUserDep, not_managed
+from app.web.deps import DatabaseDep, SessionUserDep
 from app.web.schemas import LogLinesOut, LogSettingsIn, LogSettingsOut
 
-router = APIRouter(prefix="/api/admin/logs", dependencies=[Depends(not_managed)])
+router = APIRouter(prefix="/api/admin/logs")
 
 
 def _admin(user: User) -> None:

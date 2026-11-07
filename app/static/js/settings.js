@@ -395,8 +395,8 @@ async function loadAccount() {
     if (!server.managed) { // whoever hosts a managed server looks after these
       loadSignIn(els.settings);
       loadEmail(els.settings);
-      loadLogs(els.settings);
     }
+    loadLogs(els.settings); // a managed server's admins still look after their own logs
   }
 }
 

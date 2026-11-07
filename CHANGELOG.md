@@ -23,7 +23,7 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
 ### Settings
 - `ACCOUNT_LIMIT` caps the accounts a server takes (invites not yet used count too); `STORAGE_LIMIT_GB` caps the
   database and uploaded pictures, stopping new saves at the limit. `MANAGED=true` is for running FeedStash for
-  someone else: its admins don't see Sending email, Sign-in or Logs, and there's no update notice.
+  someone else: its admins don't see Sending email or Sign-in, and there's no update notice; Logs stay with them.
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` and `SMTP_FROM_NAME` set
   up sending email in the server's settings instead of in the app. Settings saved in the app take their place.
 
