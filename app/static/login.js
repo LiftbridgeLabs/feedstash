@@ -24,7 +24,7 @@ const linkToken = decodeURIComponent(location.hash.slice(1));
 
 /* A setup link (/#setup=<token>, e.g. from a host's welcome email) fills in the setup token, so whoever opens it
    only picks their email and password. The token is after the #, which browsers never send to the server, and is
-   cleared from the address bar once read. If it turns out wrong, the field shows again so it can be typed. */
+   cleared from the address bar once read. If the server refuses the token, the field shows again so it can be typed. */
 function fillSetupToken() {
   const field = document.querySelector('form[data-login=setup] [name=setup_token]');
   if (!field || !linkToken.startsWith('setup=')) return;
@@ -132,7 +132,7 @@ for (const form of document.querySelectorAll('form[data-login]')) {
           + 'Sign in there first, then reload this page.');
       }
       const body = await response.json().catch(() => ({}));
-      if (form.dataset.login === 'setup') {
+      if (form.dataset.login === 'setup' && response.status === 403) {  // the token, not the other fields
         form.querySelector('[name=setup_token]')?.closest('label')?.removeAttribute('hidden');
       }
       throw new Error(body.detail || `Sign-in failed (${response.status})`);

@@ -57,6 +57,12 @@ def test_a_setup_link_fills_in_the_setup_token(browser_page, start_server):
     page.js("location.reload()")
     assert page.wait_for("!!document.querySelector('form[data-login=setup][data-ready]')")
     assert page.js(f"!({token_shown})")
+    # A mistake in another field is only about that field: the token stays filled in and out of sight.
+    fill_and_submit(page, "setup", name="Owner", email="owner@example.com", password="short")
+    assert page.wait_for("document.querySelector('form[data-login=setup] [data-login-error]').textContent.includes('8 characters')")
+    assert page.js(f"!({token_shown})")
+    assert len(page.errors) == 1 and "400" in page.errors[0] and page.errors[0].endswith("/auth/setup"), page.errors
+    page.errors.clear()
     fill_and_submit(page, "setup", name="Owner", email="owner@example.com", password=PASSWORD)
     assert page.wait_for("!!window.reader && document.querySelector('#user-name')?.textContent === 'Owner'", timeout=20)
     assert not page.errors, page.errors
