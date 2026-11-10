@@ -19,7 +19,7 @@ import { loadMutedWords, mutedWordsSectionHTML, wireMutedWords } from './mutedwo
 import { loadRules, rulesSectionHTML, wireRules } from './rules.js';
 import { els, showsFeeds, showsStash, state } from './state.js';
 import { MODES, SCHEMES, setTheme, theme } from './theme.js';
-import { $, $$, agoLong, copyText, esc, fullDate } from './util.js';
+import { $, $$, agoLong, copyText, esc, fullDate, isRelease } from './util.js';
 
 const timestamp = (iso) => Math.floor(Date.parse(iso) / 1000);
 const SIGN_IN_LABELS = { password: 'Password', google: 'Google', oidc: 'Single sign-on', dev: 'Local dev login' };
@@ -437,7 +437,8 @@ async function loadAbout() {
   section.hidden = false;
   const { version } = state.tree;
   const line = $('[data-about-version]', section);
-  line.textContent = version === 'dev' ? 'Development build' : `Version ${version}`;
+  line.textContent = isRelease(version) ? `Version ${version}`
+    : version === 'dev' ? 'Development build' : `Development build (${version})`;
   $('[data-about-mail]', section).href = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`FeedStash ${version}`)}`;
   let info;
   try {
@@ -448,7 +449,7 @@ async function loadAbout() {
   if (!line.isConnected) return;
   if (info.latest) {
     line.innerHTML = `Version ${esc(version)} · <a href="${esc(info.latest_url)}" target="_blank" rel="noopener">${esc(info.latest)} is out</a>`;
-  } else if (version !== 'dev') {
+  } else if (isRelease(version)) {
     line.textContent = `Version ${version} · up to date`;
   }
 }

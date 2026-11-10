@@ -221,6 +221,8 @@ Then copy `/data/backups/` and `/data/uploads/` somewhere safe. Or stop the cont
 
 To update, pull the new image and recreate the container (`docker compose pull && docker compose up -d`, or Force update on unRAID). Database changes are applied automatically on start; take a backup first.
 
+**Trying what's coming.** `liftbridgelabs/feedstash:develop` is the newest work, rebuilt whenever it changes and after its tests pass. It's for a test server, not the one you rely on: it hasn't had a release's testing, and once it has changed your database an older release may not start on that data again. Run it on its own data folder (a copy of yours is fine). `latest` and the numbered tags only change with a release.
+
 **Logs.** FeedStash keeps its own log files in `/data/logs`, rotated by size, and admins choose under **Settings → Admin → Logs** how detailed they are, which requests get a line, how big a file gets and how many old ones to keep; the latest lines can be read and the whole log downloaded there too. The container's own output (`docker logs`) only gets warnings, errors and start-up lines, so it stays small however Docker is set up.
 
 Each release's notes are in [`CHANGELOG.md`](CHANGELOG.md) and on the [Releases page](https://github.com/LiftbridgeLabs/feedstash/releases) (watch the repository for releases to hear about them). Check **Before you update** for anything to do first, like taking a backup. After an update, admins see what changed the first time they open FeedStash, and the version in the sidebar says when a newer release is out.
@@ -325,11 +327,11 @@ API tokens can't manage accounts or tokens (list, create or revoke them); that n
 
 ## Publishing the image
 
-`.github/workflows/docker-publish.yml` runs the tests, builds the image, checks that it starts, drops root and serves the setup page, then pushes `linux/amd64` and `linux/arm64` builds to Docker Hub as `liftbridgelabs/feedstash`. It runs when you push a version tag, or by hand from the Actions tab.
+`.github/workflows/docker-publish.yml` runs the tests, builds the image, checks that it starts, drops root and serves the setup page, then pushes `linux/amd64` and `linux/arm64` builds to Docker Hub as `liftbridgelabs/feedstash`. A version tag publishes a release; a push to `main` publishes `develop` and leaves `latest` alone. It can also be run by hand from the Actions tab.
 
 1. Push this repository to GitHub.
 2. Add the repository secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` (a Docker Hub access token with read and write access).
-3. Tag a release: `git tag v0.1.0 && git push origin v0.1.0`. That publishes `0.1.0`, `0.1` and `latest`.
+3. Tag a release: `git tag v0.1.0 && git push origin v0.1.0`. That publishes `0.1.0`, `0.1` and `latest`. Pushing `main` publishes `develop`.
 
 To use another image name, change `IMAGE` in the workflow, `image:` in `docker-compose.yml`, and the unRAID template.
 

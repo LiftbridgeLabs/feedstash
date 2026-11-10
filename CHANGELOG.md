@@ -28,6 +28,8 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
   used and the number of accounts against the limit.
 - **Setup links.** Setting up a server for someone else? Send them `https://<your server>/#setup=<SETUP_TOKEN>`
   and the setup page fills the token in for them.
+- **Try what's coming.** `liftbridgelabs/feedstash:develop` is the newest work, for a test server with its own
+  data. `latest` still only changes with a release.
 
 ### Settings
 - `ACCOUNT_LIMIT` caps the accounts a server takes (invites not yet used count too); `STORAGE_LIMIT_GB` caps the

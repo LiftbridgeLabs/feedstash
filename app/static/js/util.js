@@ -6,6 +6,9 @@ export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ESCAPES[c]);
 
+/** "1.2.0" is a release; "dev" and "develop-1a2b3c4" (the :develop image) are development builds. */
+export const isRelease = (version) => /^\d+\.\d+\.\d+$/.test(version || '');
+
 export const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 export const byName = (a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true });
 

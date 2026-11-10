@@ -1,12 +1,20 @@
 # Tests, builds and smoke-tests the image, then pushes it to Docker Hub for amd64 and arm64.
-# Runs when a version tag like v1.2.0 is pushed, or by hand from the Actions tab.
+# A version tag like v1.2.0 publishes a release (X.Y.Z, X.Y and latest). A push to main publishes :develop, the
+# build for test servers: it never moves latest, so nobody's real server changes until a release is tagged.
+# Can also be run by hand from the Actions tab.
 # Needs two repository secrets: DOCKERHUB_USERNAME and DOCKERHUB_TOKEN (a Docker Hub access token with write access).
 name: Docker image
 
 on:
   push:
+    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
+
+# Two pushes to main close together: only the newer one becomes :develop. A release is never canceled.
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
 
 # Actions are pinned to exact commits (Dependabot keeps them current): this job holds the Docker Hub token, and a
 # moved tag must not be able to publish a different image.
@@ -57,7 +65,20 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-            type=sha,format=short
+            type=raw,value=develop,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha,format=short,enable=${{ github.ref != 'refs/heads/main' }}
+
+      # What the image calls itself (sidebar, /api/health): the release number, or develop-<commit> on main, which
+      # the app treats as a development build (no "Update" by the version, no release notes).
+      - id: version
+        env:
+          META_VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            echo "value=develop-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=$META_VERSION" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Build for the smoke test
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -65,7 +86,7 @@ jobs:
           context: .
           load: true
           tags: feedstash:smoke
-          build-args: VERSION=${{ steps.meta.outputs.version }}
+          build-args: VERSION=${{ steps.version.outputs.value }}
 
       - name: Smoke test (starts, drops root, serves the setup page)
         run: |
@@ -102,5 +123,5 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            VERSION=${{ steps.meta.outputs.version }}
+            VERSION=${{ steps.version.outputs.value }}
             REVISION=${{ github.sha }}

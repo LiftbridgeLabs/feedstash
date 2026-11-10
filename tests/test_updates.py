@@ -49,3 +49,12 @@ def test_a_development_build_has_no_notes(start_server):
     api = start_server().login()
     info = api.get("/api/admin/updates").json()
     assert info["current"] == "dev" and info["unseen"] == [] and info["latest"] is None
+
+
+def test_the_develop_image_counts_as_a_development_build(start_server):
+    """`:develop` calls itself develop-<commit>: no release notes, and no "a newer release is out"."""
+    api = start_server(FEEDSTASH_VERSION="develop-1a2b3c4").login()
+    info = api.get("/api/admin/updates").json()
+    assert info["current"] == "develop-1a2b3c4" and info["unseen"] == [] and info["latest"] is None
+    assert api.post("/api/admin/updates/seen").status_code == 200
+    assert api.get("/api/health").json()["version"] == "develop-1a2b3c4"

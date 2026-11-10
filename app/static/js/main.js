@@ -18,7 +18,7 @@ import { captureDialog, stashArticle, wireStash } from './stash.js';
 import { state } from './state.js';
 import { applyTheme } from './theme.js';
 import { watchForUpdates } from './updates.js';
-import { $ } from './util.js';
+import { $, isRelease } from './util.js';
 
 async function init() {
   applyTheme();
@@ -45,7 +45,7 @@ async function init() {
     $('#user-name').textContent = me.name || me.email;
     $('#user-name').title = me.email;
     const { version } = state.tree;
-    $('#app-version').textContent = version === 'dev' ? 'dev' : `v${version}`;
+    $('#app-version').textContent = isRelease(version) ? `v${version}` : version;
     if (me.is_admin) watchForUpdates();
     if (me.picture) {
       $('#user-avatar').src = me.picture;

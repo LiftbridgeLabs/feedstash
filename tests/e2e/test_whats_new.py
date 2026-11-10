@@ -34,3 +34,19 @@ def test_an_admin_sees_the_notes_once_after_an_update(browser_page, start_server
     time.sleep(1)
     assert page.js("!document.querySelector('dialog.whats-new')")
     assert not page.errors, page.errors
+
+
+def test_the_develop_image_shows_which_build_it_is(browser_page, start_server):
+    page = browser_page
+    server = start_server(DEV_LOGIN="false", FEEDSTASH_VERSION="develop-1a2b3c4")
+    page.goto(server.base_url + "/")
+    assert page.wait_for("!!document.querySelector('form[data-login=setup][data-ready]')")
+    fill_and_submit(page, "setup", name="Owner", email="owner@example.com", password=PASSWORD)
+    assert page.wait_for(SIGNED_IN, timeout=20)
+    assert page.js("document.querySelector('#app-version').textContent") == "develop-1a2b3c4"
+    page.js("location.hash = '#/settings'")
+    assert page.wait_for("!!document.querySelector('[data-about-version]')?.textContent")
+    time.sleep(1)  # the update check has answered by now
+    assert page.js("document.querySelector('[data-about-version]').textContent") == "Development build (develop-1a2b3c4)"
+    assert page.js("!document.querySelector('dialog.whats-new')")
+    assert not page.errors, page.errors
