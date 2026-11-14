@@ -1,10 +1,13 @@
 """The authenticator-app codes, checked against RFC 6238's published examples (SHA-1, 6 of its 8 digits)."""
 
+import base64
 from urllib.parse import parse_qs, urlsplit
 
 from app import totp
 
-RFC_SECRET = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"  # base32 of "12345678901234567890"
+# The example key RFC 6238 publishes its answers for. Built from its text, not written out in base32: a secret
+# scanner takes the encoded form for a real key.
+RFC_SECRET = base64.b32encode(b"12345678901234567890").decode("ascii")
 
 
 def test_codes_match_the_rfc_examples():

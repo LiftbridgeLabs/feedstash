@@ -1,0 +1,6 @@
+# Findings accepted on purpose, one per line, each with its reason. An entry covers one commit, file and line only.
+
+# RFC 6238's published example key (the text "12345678901234567890" in base32), used to check authenticator codes
+# against the standard's own answers. It was never a secret. Accepted by Jason, Nov 13 2026; the test now builds the
+# value from that text, so the string appears in this one commit only.
+06f0a66a1fadfad08fdc59fae67a4ba8d8b93f88:tests/unit/test_totp.py:generic-api-key:7
