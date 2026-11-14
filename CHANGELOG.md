@@ -3,7 +3,7 @@
 What changed in each FeedStash release, newest first. Before you update, check **Before you update** for anything
 to do first, like taking a backup. Admins see the rest of a release's notes in FeedStash after updating.
 
-## Unreleased
+## 1.0.0
 
 ### New
 - **Two-step sign-in.** Under Settings → You, add a code from an authenticator app (1Password, Google

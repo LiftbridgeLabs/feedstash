@@ -211,8 +211,12 @@ def test_two_step_sign_in_turned_on_in_settings_then_used(browser_page, start_se
     page.js(f"""(() => {{ const d = document.querySelector('dialog[open]'); const f = d.querySelector('form');
       f.elements.password.value = {PASSWORD!r}; f.requestSubmit(); d.close(); }})()""")
     assert page.wait_for("document.querySelectorAll('dialog[open] [data-recovery-codes] li').length === 10")
+    # Closing it refreshes the section; signing out waits for that, or the refresh lands after and is refused.
+    loads = "performance.getEntriesByType('resource').filter((r) => r.name.endsWith('/api/account/two-step')).length"
+    before = page.js(loads)
     page.js("document.querySelector('dialog[open] [type=submit]').click()")
     assert page.wait_for("!document.querySelector('dialog[open]')")
+    assert page.wait_for(f"{loads} > {before}")
 
     page.js("fetch('/auth/logout', {method: 'POST', headers: {'X-Requested-With': 'reader'}}).then(() => location.href = '/')")
     assert page.wait_for("!!document.querySelector('form[data-login=password][data-ready]')")
