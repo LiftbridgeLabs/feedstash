@@ -19,12 +19,19 @@ function enhance(input) {
   input.dataset.reveal = '';
   const wrap = document.createElement('span');
   wrap.className = 'password-field';
+  // Moving a field takes the cursor out of it: a dialog has just put it in its first field.
+  const focused = document.activeElement === input;
+  const [start, end] = focused ? [input.selectionStart, input.selectionEnd] : [];
   input.replaceWith(wrap);
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'reveal-btn';
   wrap.append(input, button);
   setShown(input, button, false);
+  if (focused) {
+    input.focus();
+    input.setSelectionRange(start, end);
+  }
 }
 
 const enhanceAll = (root) => root.querySelectorAll?.('input[type=password]').forEach(enhance);

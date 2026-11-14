@@ -73,11 +73,13 @@ def test_a_second_request_replaces_the_first_link_and_requests_are_limited(start
     server = start_server(**mail_env(smtp))
     set_up(server)
     client = client_for(server)
-    for _ in range(2):
-        client.post("/auth/forgot", json={"email": "owner@example.com"})
-    # Both are sent at once, so they can arrive in either order: whichever link was made last is the one that works.
-    usable = [client.post("/auth/reset/check", json={"token": reset_token(m)}).json()["usable"] for m in smtp.wait_for(2)]
-    assert sorted(usable) == [False, True]
+    # Each email is waited for before the next is asked for: sent together, they can arrive in either order.
+    client.post("/auth/forgot", json={"email": "owner@example.com"})
+    first = reset_token(smtp.wait_for(1)[0])
+    client.post("/auth/forgot", json={"email": "owner@example.com"})
+    second = reset_token(smtp.wait_for(2)[1])
+    assert client.post("/auth/reset/check", json={"token": first}).json()["usable"] is False
+    assert client.post("/auth/reset/check", json={"token": second}).json()["usable"] is True
     client.post("/auth/forgot", json={"email": "owner@example.com"})
     limited = client.post("/auth/forgot", json={"email": "owner@example.com"})
     assert limited.status_code == 429 and "Too many reset requests" in limited.json()["detail"]

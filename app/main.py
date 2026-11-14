@@ -12,6 +12,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.crypto import SecretBox
 from app.services import account_transfer
+from app.services.passkeys import CEREMONY_SECONDS as PASSKEY_SECONDS
 from app.storage import Storage
 from app.db import Database
 from app.db.repositories import app_settings as app_settings_repo
@@ -43,6 +44,7 @@ from app.web.api import tree as tree_api
 from app.web.api import two_step as two_step_api
 from app.web.api import passkeys as passkeys_api
 from app.web.api import updates as updates_api
+from app.web.challenges import Challenges
 from app.web.ratelimit import LoginLimiter
 
 log = logging.getLogger("feedstash")
@@ -107,6 +109,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.log_default = log_default
     app.state.sign_in = sign_in
     app.state.login_limiter = LoginLimiter()
+    app.state.passkey_challenges = Challenges(PASSKEY_SECONDS)
     # "Forgot password?": a few reset emails an hour per address asked about, and per sender, found or not.
     app.state.reset_limiter = LoginLimiter(per_account=3, per_address=10, window_seconds=60 * 60)
     app.state.background_tasks = set()

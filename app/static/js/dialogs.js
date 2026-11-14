@@ -25,28 +25,37 @@ export function modal({ title, html, confirmText = 'Save', busyText, danger = fa
     const form = $('form', dialog);
     const error = $('.modal-error', dialog);
     const submit = $('[type=submit]', dialog);
+    const cancel = $('[data-cancel]', dialog);
     let result = null;
+    let saving = null;
 
-    dialog.addEventListener('close', () => {
+    // Closed while it was saving (Escape): what the save did still counts, so the caller hears about it. Otherwise
+    // new recovery codes, say, would be made and never shown.
+    dialog.addEventListener('close', async () => {
       dialog.remove();
+      await saving;
       resolve(result);
     });
-    $('[data-cancel]', dialog).addEventListener('click', () => dialog.close());
+    cancel.addEventListener('click', () => dialog.close());
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (submit.disabled) return;
       error.hidden = true;
       submit.disabled = true;
+      cancel.disabled = true;
       if (busyText) submit.textContent = busyText;
+      const fd = new FormData(form);
+      const work = (async () => (onSubmit ? onSubmit(fd) : fd))();
+      saving = work.then((value) => { result = value === undefined || value === null ? true : value; }, () => {});
       try {
-        const fd = new FormData(form);
-        const value = onSubmit ? await onSubmit(fd) : fd;
-        result = value === undefined || value === null ? true : value;
-        dialog.close();
+        await work;
+        await saving;
+        if (dialog.open) dialog.close();
       } catch (err) {
         error.textContent = err.message;
         error.hidden = false;
         submit.disabled = false;
+        cancel.disabled = false;
         submit.textContent = confirmText;
       }
     });

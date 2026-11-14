@@ -82,8 +82,9 @@ async function wirePasskey() {
       error.textContent = passkeyErrorMessage(err);
       error.hidden = !error.textContent;
     }
-    button.disabled = false;
-    load().catch(() => {});  // ready for another try
+    // Ready for another try once there's a fresh challenge: a click before then would ask for a second one, and
+    // the server keeps only the newest.
+    load().catch(() => {}).finally(() => { button.disabled = false; });
   });
   button.dataset.ready = 'true';
 }

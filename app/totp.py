@@ -40,7 +40,7 @@ def step_of(timestamp: float) -> int:
 
 def matching_step(secret: str, code: str, *, now: float, after_step: int = 0) -> int | None:
     """The step a typed code belongs to, if it's right for now (± WINDOW) and newer than `after_step`."""
-    code = "".join(ch for ch in code if ch.isdigit())
+    code = "".join(ch for ch in code if ch in "0123456789")  # other scripts' digits can't be compared, and aren't a code
     if len(code) != DIGITS:
         return None
     current = step_of(now)

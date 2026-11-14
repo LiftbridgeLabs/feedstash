@@ -348,11 +348,14 @@ async def password_sign_in(body: PasswordLoginIn, request: Request) -> PasswordS
             detail=f"Too many failed sign-ins. Try again in {minutes} minute{'' if minutes == 1 else 's'}.",
             headers={"Retry-After": str(wait)},
         )
+    # Counted before it's checked, and uncounted if it's right: a burst of guesses sent at once would otherwise
+    # all pass the limit above before any of them had failed.
+    limiter.record_failure(address, body.email)
     async with PASSWORD_CHECKS:
         found = await run_in_threadpool(accounts.authenticate, request.app.state.db, body.email, body.password)
     if found is None:
-        limiter.record_failure(address, body.email)
         raise HTTPException(status_code=401, detail="Wrong email or password")
+    limiter.forgive(address, body.email)
     user, session_version = found
     if await run_in_threadpool(_two_step_on, request.app.state.db, user.id):
         return _wait_for_code(request, user, session_version)  # failures are cleared once the code is right too
@@ -379,11 +382,12 @@ async def two_step_sign_in(body: TwoStepCodeIn, request: Request) -> OkOut:
             detail=f"Too many failed sign-ins. Try again in {minutes} minute{'' if minutes == 1 else 's'}.",
             headers={"Retry-After": str(wait)},
         )
+    limiter.record_failure(address, email)  # counted before it's checked, as with passwords above
     right = await run_in_threadpool(
         two_step.verify, request.app.state.db, request.app.state.secrets, pending["user"], body.code, now=now())
     if not right:
-        limiter.record_failure(address, email)
         raise HTTPException(status_code=401, detail="That code isn't right, or it was already used")
+    limiter.forgive(address, email)
     limiter.clear_account(email)
     await start_session(request, pending["user"], pending["version"])
     return OkOut()
@@ -397,6 +401,7 @@ def passkey_sign_in_options(request: Request) -> PasskeyOptionsOut:
     if party is None:
         raise HTTPException(status_code=404, detail=passkeys.unavailable_reason(request.app.state.settings))
     options, challenge = passkeys.authentication_options(party)
+    request.app.state.passkey_challenges.issue(challenge)
     request.session[SESSION_PASSKEY_KEY] = {"challenge": challenge, "at": now()}
     return PasskeyOptionsOut(options=options)
 
@@ -411,6 +416,10 @@ async def passkey_sign_in(body: PasskeySignInIn, request: Request) -> OkOut:
     if party is None:
         raise HTTPException(status_code=404, detail=passkeys.unavailable_reason(settings))
     if not isinstance(pending, dict) or now() - int(pending.get("at", 0)) > passkeys.CEREMONY_SECONDS:
+        raise HTTPException(status_code=401, detail="That took too long. Try the passkey again.")
+    # The session cookie is the browser's copy, and an old copy still holds the challenge: the server's own record
+    # is what makes it once only.
+    if not request.app.state.passkey_challenges.use(str(pending.get("challenge"))):
         raise HTTPException(status_code=401, detail="That took too long. Try the passkey again.")
     db: Database = request.app.state.db
     try:

@@ -23,6 +23,7 @@ def test_a_code_counts_for_a_step_either_side_and_only_once():
     spaced = totp.code_at(RFC_SECRET, step)
     assert totp.matching_step(RFC_SECRET, f"{spaced[:3]} {spaced[3:]}", now=now) == step  # as some apps show it
     assert totp.matching_step(RFC_SECRET, "12345", now=now) is None
+    assert totp.matching_step(RFC_SECRET, "١٢٣٤٥٦", now=now) is None  # digits in another script: wrong, not an error
 
 
 def test_new_secrets_are_random_and_the_link_names_the_account():

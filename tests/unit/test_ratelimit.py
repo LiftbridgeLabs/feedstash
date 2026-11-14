@@ -38,6 +38,18 @@ def test_signing_in_clears_the_account_count():
     assert limiter.retry_after("1.1.1.1", "a@example.com") == 0
 
 
+def test_a_try_is_counted_before_its_checked_and_a_right_one_uncounted():
+    limiter = LoginLimiter(per_account=2, per_address=100, window_seconds=60, clock=Clock())
+    limiter.record_failure("1.1.1.1", "a@example.com")
+    limiter.record_failure("1.1.1.1", "a@example.com")  # this try, counted while it's being checked
+    assert limiter.retry_after("1.1.1.1", "a@example.com") > 0  # another sent at the same moment waits
+    limiter.forgive("1.1.1.1", "a@example.com")  # it was right
+    assert limiter.retry_after("1.1.1.1", "a@example.com") == 0
+    limiter.forgive("1.1.1.1", "a@example.com")
+    limiter.forgive("1.1.1.1", "a@example.com")  # nothing left to take back: no error
+    assert limiter._failures == {}
+
+
 def test_guesses_spread_over_many_made_up_accounts_dont_pile_up():
     clock = Clock()
     limiter = LoginLimiter(per_account=3, per_address=10**9, window_seconds=60, clock=clock)

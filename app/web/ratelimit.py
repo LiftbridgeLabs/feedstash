@@ -60,6 +60,17 @@ class LoginLimiter:
             if len(self._failures) > self.MAX_KEYS:
                 self._sweep(now)
 
+    def forgive(self, address: str, email: str) -> None:
+        """Takes back the newest failure: a try is counted before it's checked (so tries sent at the same moment
+        can't all slip under the limit), and a right one is uncounted here."""
+        with self._lock:
+            for key in self._keys(address, email):
+                failures = self._failures.get(key)
+                if failures:
+                    failures.pop()
+                    if not failures:
+                        del self._failures[key]
+
     def _sweep(self, now: float) -> None:
         for key in list(self._failures):
             self._recent(key, now)

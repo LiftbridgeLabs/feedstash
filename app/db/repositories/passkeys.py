@@ -66,7 +66,9 @@ def add(
 
 
 def used(conn: sqlite3.Connection, passkey_id: int, *, sign_count: int, now: int) -> None:
-    conn.execute("UPDATE passkeys SET sign_count = ?, last_used_at = ? WHERE id = ?", (sign_count, now, passkey_id))
+    """The count only ever goes up: of two sign-ins finishing at once, the later-numbered one is the one kept."""
+    conn.execute("UPDATE passkeys SET sign_count = ?, last_used_at = ? WHERE id = ? AND sign_count <= ?",
+                 (sign_count, now, passkey_id, sign_count))
 
 
 def rename(conn: sqlite3.Connection, user_id: int, passkey_id: int, name: str) -> bool:

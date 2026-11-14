@@ -123,7 +123,11 @@ def register(
     response = credential.get("response") if isinstance(credential, dict) else None
     transports = [t for t in (response or {}).get("transports") or [] if t in _TRANSPORTS]
     with db.transaction() as conn:
-        handle = repo.user_handle(conn, user.id) or handle  # one handle per account, from its first passkey
+        # One handle per account, from its first passkey. The device keeps the handle it was given, so a passkey
+        # started before another one set the account's handle would never sign in: it's made again instead.
+        if (repo.user_handle(conn, user.id) or handle) != handle:
+            raise InvalidInput("Another passkey was added while this one was being made. Remove this one from your "
+                               "device, then add it again.")
         credential_id = bytes_to_base64url(verified.credential_id)
         if repo.by_credential(conn, credential_id):
             raise InvalidInput("That passkey is already added")

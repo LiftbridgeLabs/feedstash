@@ -190,7 +190,9 @@ def test_two_step_sign_in_turned_on_in_settings_then_used(browser_page, start_se
     page.js("location.hash = '#/settings/you'")
     assert page.wait_for("document.querySelector('[data-two-step-state]')?.textContent.includes('Off')")
     page.js("document.querySelector('[data-two-step-action=on]').click()")
-    assert page.wait_for("!!document.querySelector('dialog[open] input[name=password]')")
+    # The cursor is in the password field, eye button and all: typing works without clicking first.
+    assert page.wait_for("""(() => { const input = document.querySelector('dialog[open] .password-field input[name=password]');
+      return !!input && document.activeElement === input; })()""")
     page.js(f"""(() => {{ const f = document.querySelector('dialog[open] form');
       f.elements.password.value = {PASSWORD!r}; f.requestSubmit(); }})()""")
     assert page.wait_for("!!document.querySelector('dialog[open] .qr-code svg')")
@@ -201,6 +203,16 @@ def test_two_step_sign_in_turned_on_in_settings_then_used(browser_page, start_se
     assert page.wait_for("document.querySelectorAll('dialog[open] [data-recovery-codes] li').length === 10")
     page.js("document.querySelector('dialog[open] [type=submit]').click()")
     assert page.wait_for("document.querySelector('[data-two-step-state]')?.textContent.includes('10 of 10')")
+
+    # New recovery codes, with the dialog closed (Escape) while they're being made: the old ones are gone by then, so
+    # the new ones are shown all the same.
+    page.js("document.querySelector('[data-two-step-action=codes]').click()")
+    assert page.wait_for("!!document.querySelector('dialog[open] input[name=password]')")
+    page.js(f"""(() => {{ const d = document.querySelector('dialog[open]'); const f = d.querySelector('form');
+      f.elements.password.value = {PASSWORD!r}; f.requestSubmit(); d.close(); }})()""")
+    assert page.wait_for("document.querySelectorAll('dialog[open] [data-recovery-codes] li').length === 10")
+    page.js("document.querySelector('dialog[open] [type=submit]').click()")
+    assert page.wait_for("!document.querySelector('dialog[open]')")
 
     page.js("fetch('/auth/logout', {method: 'POST', headers: {'X-Requested-With': 'reader'}}).then(() => location.href = '/')")
     assert page.wait_for("!!document.querySelector('form[data-login=password][data-ready]')")

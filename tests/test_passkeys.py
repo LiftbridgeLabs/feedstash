@@ -69,6 +69,15 @@ def test_a_passkey_answer_works_once_and_only_for_this_server(start_server):
     assert client.post("/auth/passkey", json={"credential": answer}).status_code == 200
     replayed = browser(server).post("/auth/passkey", json={"credential": answer})
     assert replayed.status_code == 401  # no challenge waiting in that browser
+    # Nor with a copy of the cookie from before it was used, which still holds the challenge: the server remembers
+    # that it's been used. (Phones' passkeys don't count their uses, so nothing else would catch this.)
+    thief, victim = browser(server), browser(server)
+    options = victim.post("/auth/passkey/options").json()["options"]
+    thief.cookies.update(dict(victim.cookies))
+    answer = passkey.get(options)
+    assert victim.post("/auth/passkey", json={"credential": answer}).status_code == 200
+    stolen = thief.post("/auth/passkey", json={"credential": answer})
+    assert stolen.status_code == 401 and thief.get("/api/me").status_code == 401
     # Signed for another site (a look-alike phishing page): refused.
     phished = sign_in(browser(server), passkey, origin="https://feedstash.example.net")
     assert phished.status_code == 401 and "couldn't be checked" in phished.json()["detail"]
@@ -101,6 +110,26 @@ def test_adding_the_same_options_twice_or_without_asking_first_is_refused(start_
     options = me.post("/api/account/passkeys/options").json()["options"]
     assert [c["id"] for c in options["excludeCredentials"]] == [answer["id"]]
     assert options["authenticatorSelection"]["userVerification"] == "required"
+
+
+def test_two_first_passkeys_started_at_once_dont_leave_one_that_cant_sign_in(start_server):
+    server = start_server(DEV_LOGIN="false", BASE_URL="{server},{localhost}")
+    laptop = owner(server)
+    phone = browser(server)
+    assert phone.post("/auth/password", json={"email": "owner@example.com", "password": PASSWORD}).status_code == 200
+    # Both ask before either has finished, so each device is told a different handle for the account.
+    first, second = SoftPasskey(local(server)), SoftPasskey(local(server))
+    laptop_options = laptop.post("/api/account/passkeys/options").json()["options"]
+    phone_options = phone.post("/api/account/passkeys/options").json()["options"]
+    assert laptop_options["user"]["id"] != phone_options["user"]["id"]
+    added = laptop.post("/api/account/passkeys", json={"password": PASSWORD, "credential": first.create(laptop_options)})
+    assert added.status_code == 201
+    late = phone.post("/api/account/passkeys", json={"password": PASSWORD, "credential": second.create(phone_options)})
+    assert late.status_code == 400 and "add it again" in late.json()["detail"]
+    # Made again, it's given the account's handle and signs in.
+    assert add(phone, second).status_code == 201
+    assert sign_in(browser(server), second).status_code == 200
+    assert sign_in(browser(server), first).status_code == 200
 
 
 def test_rename_and_remove_and_only_your_own(start_server):
