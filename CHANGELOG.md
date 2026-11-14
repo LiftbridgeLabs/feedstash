@@ -23,18 +23,16 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
   account: feeds and folders, articles with what you've read and starred, your stash with its pictures and saved
   pages, smart lists, rules and muted words. Bring it in on any FeedStash to pick up where you left off. It adds to
   what's there, and nothing is doubled if you bring the same file in twice.
-
-- **Limits.** A server can cap how many accounts it takes and how much storage it uses; Settings shows the storage
+- **Limits.** Cap how many accounts your server takes and how much storage it uses; Settings shows the storage
   used and the number of accounts against the limit.
-- **Setup links.** Setting up a server for someone else? Send them `https://<your server>/#setup=<SETUP_TOKEN>`
-  and the setup page fills the token in for them.
+- **Setup links.** With a `SETUP_TOKEN` set, open `https://<your server>/#setup=<SETUP_TOKEN>` and the setup page
+  fills the token in for you.
 - **Try what's coming.** `liftbridgelabs/feedstash:develop` is the newest work, for a test server with its own
   data. `latest` still only changes with a release.
 
 ### Settings
 - `ACCOUNT_LIMIT` caps the accounts a server takes (invites not yet used count too); `STORAGE_LIMIT_GB` caps the
-  database and uploaded pictures, stopping new saves at the limit. `MANAGED=true` is for running FeedStash for
-  someone else: its admins don't see Sending email or Sign-in, and there's no update notice; Logs stay with them.
+  database and uploaded pictures, stopping new saves at the limit.
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` and `SMTP_FROM_NAME` set
   up sending email in the server's settings instead of in the app. Settings saved in the app take their place.
 
