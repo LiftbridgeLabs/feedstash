@@ -485,12 +485,18 @@ class NewAccountIn(AccountFields):
 
 class AccountUpdateIn(BaseModel):
     password: str | None = Field(default=None, max_length=1024)
+    email: str | None = Field(default=None, max_length=320)
     is_admin: bool | None = None
 
 
 class PasswordChangeIn(BaseModel):
     current_password: str = Field(default="", max_length=1024)
     new_password: str = Field(max_length=1024)
+
+
+class EmailChangeIn(BaseModel):
+    current_password: str = Field(default="", max_length=1024)
+    email: str = Field(max_length=320)
 
 
 class ImportedLinkIn(BaseModel):

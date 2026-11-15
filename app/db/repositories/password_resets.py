@@ -44,6 +44,11 @@ def use(conn: sqlite3.Connection, reset_id: int, *, now: int) -> int:
     return row["user_id"]
 
 
+def forget(conn: sqlite3.Connection, user_id: int) -> None:
+    """Drops the account's unused links: they were sent to an address it no longer uses."""
+    conn.execute("DELETE FROM password_resets WHERE user_id = ? AND used_at IS NULL", (user_id,))
+
+
 def purge(conn: sqlite3.Connection, *, now: int) -> None:
     """Forgets links that can no longer be used."""
     conn.execute("DELETE FROM password_resets WHERE expires_at <= ? OR used_at IS NOT NULL", (now,))

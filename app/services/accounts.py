@@ -6,6 +6,7 @@ from app.db import Database
 from app.db.models import User
 from app.db.repositories import invites as invites_repo
 from app.db.repositories import items as items_repo
+from app.db.repositories import password_resets as password_resets_repo
 from app.db.repositories import users as users_repo
 from app.errors import Conflict, InvalidInput, NotFound
 from app.images import ImageStore
@@ -73,6 +74,35 @@ def change_own_password(db: Database, user: User, *, current_password: str, new_
     new_hash = hash_password(new_password)
     with db.transaction() as conn:
         users_repo.set_password(conn, user.id, new_hash)
+
+
+NO_EMAIL_OF_ITS_OWN = "This account signs in with Google or single sign-on, which is where its email comes from"
+
+
+def change_own_email(db: Database, user: User, *, current_password: str, email: str) -> User:
+    """A new address for your own account, proven with your password. Reset links sent to the old one stop
+    working."""
+    with db.transaction() as conn:
+        stored = users_repo.get_password_hash(conn, user.id)
+    if stored is None:
+        raise InvalidInput(NO_EMAIL_OF_ITS_OWN)
+    if not verify_password(current_password, stored):
+        raise InvalidInput("Your current password isn't right")
+    with db.transaction() as conn:
+        users_repo.set_email(conn, user.id, email)
+        password_resets_repo.forget(conn, user.id)
+        return users_repo.get(conn, user.id)
+
+
+def set_email(db: Database, user_id: int, email: str) -> User:
+    """An admin correcting someone's address (a typo when the account was made)."""
+    with db.transaction() as conn:
+        _existing(conn, user_id)
+        if users_repo.get_password_hash(conn, user_id) is None:
+            raise InvalidInput(NO_EMAIL_OF_ITS_OWN)
+        users_repo.set_email(conn, user_id, email)
+        password_resets_repo.forget(conn, user_id)
+        return users_repo.get(conn, user_id)
 
 
 def create_account(

@@ -58,6 +58,19 @@ def test_forgot_password_emails_a_one_use_link_that_sets_a_new_password(start_se
     assert client_for(server).post("/auth/reset/check", json={"token": token}).json()["usable"] is False
 
 
+def test_changing_your_email_ends_reset_links_sent_to_the_old_address(start_server, smtp):
+    server = start_server(**mail_env(smtp))
+    owner = set_up(server)
+    client_for(server).post("/auth/forgot", json={"email": "owner@example.com"})
+    [msg] = smtp.wait_for(1)
+    token = reset_token(msg)
+    moved = owner.post("/api/account/email", json={"current_password": PASSWORD, "email": "new@example.com"})
+    assert moved.status_code == 200, moved.text
+    assert client_for(server).post("/auth/reset/check", json={"token": token}).json()["usable"] is False
+    client_for(server).post("/auth/forgot", json={"email": "new@example.com"})
+    assert smtp.wait_for(2)[1]["To"] == "new@example.com"
+
+
 def test_unknown_addresses_get_the_same_answer_and_no_email(start_server, smtp):
     server = start_server(**mail_env(smtp))
     set_up(server)

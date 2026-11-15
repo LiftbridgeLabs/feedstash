@@ -136,6 +136,36 @@ def test_admins_manage_accounts_and_people_change_their_own_password(start_serve
     assert [account["email"] for account in admin.get("/api/accounts").json()] == ["owner@example.com"]
 
 
+def test_people_change_their_own_email_and_admins_correct_someone_elses(start_server):
+    server = start_server(DEV_LOGIN="false")
+    admin = set_up(server, email="ownr@example.com")  # a typo when the server was set up
+    wrong = admin.post("/api/account/email", json={"current_password": "nope", "email": "owner@example.com"})
+    assert wrong.status_code == 400 and "current password" in wrong.json()["detail"]
+    bad = admin.post("/api/account/email", json={"current_password": PASSWORD, "email": "not an address"})
+    assert bad.status_code == 400
+    changed = admin.post("/api/account/email", json={"current_password": PASSWORD, "email": " Owner@Example.com "})
+    assert changed.status_code == 200 and changed.json()["email"] == "owner@example.com"
+    assert admin.get("/api/me").json()["email"] == "owner@example.com"  # still signed in
+    assert client_for(server).post("/auth/password", json={"email": "ownr@example.com", "password": PASSWORD}).status_code == 401
+    assert client_for(server).post("/auth/password", json={"email": "owner@example.com", "password": PASSWORD}).status_code == 200
+    same = admin.post("/api/account/email", json={"current_password": PASSWORD, "email": "owner@example.com"})
+    assert same.status_code == 200  # your own address again is no conflict
+
+    kid_id = admin.post("/api/accounts", json={"email": "kdi@example.com", "password": "kid password"}).json()["id"]
+    taken = admin.patch(f"/api/accounts/{kid_id}", json={"email": "OWNER@example.com"})
+    assert taken.status_code == 409
+    fixed = admin.patch(f"/api/accounts/{kid_id}", json={"email": "kid@example.com"})
+    assert fixed.status_code == 200 and fixed.json()["email"] == "kid@example.com"
+    kid = client_for(server)
+    assert kid.post("/auth/password", json={"email": "kid@example.com", "password": "kid password"}).status_code == 200
+    assert kid.post("/api/account/email", json={"current_password": "kid password", "email": "owner@example.com"}).status_code == 409
+    assert kid.patch(f"/api/accounts/{kid_id}", json={"email": "other@example.com"}).status_code == 403
+    token = kid.post("/api/tokens", json={"clientName": "phone"}).json()["token"]
+    with_token = httpx.post(server.base_url + "/api/account/email", headers={"Authorization": f"Bearer {token}"},
+                            json={"current_password": "kid password", "email": "other@example.com"})
+    assert with_token.status_code == 403  # a browser session only, like changing the password
+
+
 def test_sign_in_with_an_openid_connect_provider(start_server, oidc_provider):
     server = start_server(
         DEV_LOGIN="false", PASSWORD_LOGIN="false", ALLOWED_EMAILS="ann@example.com,cy@example.com", OIDC_NAME="Pocket ID",

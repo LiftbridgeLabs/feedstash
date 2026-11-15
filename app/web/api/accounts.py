@@ -21,7 +21,7 @@ from app.services import account_transfer, accounts, outgoing_email
 from app.web.auth import PASSWORD_CHECKS, start_session
 from app.web.deps import DatabaseDep, ImagesDep, SecretsDep, SessionUserDep, SettingsDep, StorageDep, UserDep
 from app.web.schemas import (
-    AccountImportOut, AccountOut, AccountPrefsIn, AccountUpdateIn, InviteIn, InviteOut, NewAccountIn, OkOut, PasswordChangeIn, UserOut,
+    AccountImportOut, AccountOut, AccountPrefsIn, AccountUpdateIn, EmailChangeIn, InviteIn, InviteOut, NewAccountIn, OkOut, PasswordChangeIn, UserOut,
     to_schema,
 )
 
@@ -47,6 +47,17 @@ async def change_password(body: PasswordChangeIn, request: Request, user: Sessio
         )
     await start_session(request, user.id)
     return OkOut()
+
+
+@router.post("/account/email", response_model=UserOut)
+async def change_email(body: EmailChangeIn, user: SessionUserDep, db: DatabaseDep) -> UserOut:
+    """Changes the address you sign in with, proven with your password. You stay signed in everywhere; apps that
+    sign in with your email and a token (other reader apps) need the new address."""
+    async with PASSWORD_CHECKS:
+        changed = await run_in_threadpool(
+            accounts.change_own_email, db, user, current_password=body.current_password, email=body.email,
+        )
+    return to_schema(UserOut, changed)
 
 
 @router.post("/account/sign-out-others", response_model=OkOut)
@@ -120,7 +131,10 @@ def create_account(body: NewAccountIn, admin: AdminDep, db: DatabaseDep, setting
 async def update_account(
     user_id: int, body: AccountUpdateIn, request: Request, admin: AdminDep, db: DatabaseDep
 ) -> AccountOut:
-    """Sets a new password (which signs that account out everywhere) and/or changes admin rights."""
+    """Sets a new password (which signs that account out everywhere), corrects the email, and/or changes admin
+    rights."""
+    if body.email is not None:
+        await run_in_threadpool(accounts.set_email, db, user_id, body.email)
     if body.password is not None:
         async with PASSWORD_CHECKS:
             await run_in_threadpool(accounts.reset_password, db, user_id, body.password)

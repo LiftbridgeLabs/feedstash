@@ -172,6 +172,15 @@ def upgrade_password_hash(conn: sqlite3.Connection, user_id: int, old_hash: str,
     )
 
 
+def set_email(conn: sqlite3.Connection, user_id: int, email: str) -> None:
+    """Changes the address an account signs in with and gets its email at."""
+    email = valid_email(email)
+    if conn.execute("SELECT 1 FROM users WHERE email = ? AND id != ?", (email, user_id)).fetchone():
+        raise Conflict("There's already an account with that email")
+    if conn.execute("UPDATE users SET email = ? WHERE id = ?", (email, user_id)).rowcount == 0:
+        raise NotFound("No such account")
+
+
 def set_admin(conn: sqlite3.Connection, user_id: int, is_admin: bool) -> None:
     if conn.execute("UPDATE users SET is_admin = ? WHERE id = ?", (int(is_admin), user_id)).rowcount == 0:
         raise NotFound("No such account")

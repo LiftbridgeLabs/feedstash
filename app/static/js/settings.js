@@ -218,7 +218,7 @@ export function showSettings({ switching = false } = {}) {
       <div class="org-head">
         <p class="muted">Everyone who can sign in. Accounts added here use a password; Google and single sign-on
           accounts appear after their first sign-in.</p>
-        <div class="org-actions">
+        <div class="org-actions" data-account-add>
           <button class="btn btn-sm btn-primary" data-settings="invite">${icon('plus')}Invite someone</button>
           <button class="btn btn-sm" data-settings="new-account">Add account</button>
         </div>
@@ -244,7 +244,7 @@ export function showSettings({ switching = false } = {}) {
           <a class="btn btn-sm" href="${REPO}/releases" target="_blank" rel="noopener">Release notes</a>
           <a class="btn btn-sm" href="${REPO}#readme" target="_blank" rel="noopener">Documentation</a>
           <a class="btn btn-sm" data-about-mail href="mailto:${SUPPORT_EMAIL}">${icon('mail')}Email support</a>
-          <a class="btn btn-sm" href="${COFFEE}" target="_blank" rel="noopener">Buy me a coffee</a>
+          <a class="btn btn-sm" data-about-coffee href="${COFFEE}" target="_blank" rel="noopener">Buy me a coffee</a>
         </div>
       </div>
     </div>`)}
@@ -363,7 +363,8 @@ async function loadAccount() {
       <p>Signed in as <b>${esc(me.name || me.email)}</b>${me.name ? ` <span class="muted">${esc(me.email)}</span>` : ''}
         ${me.is_admin ? '<span class="muted">· admin</span>' : ''}</p>
       <div class="org-actions">
-        ${me.has_password ? `<button class="btn btn-sm" data-settings="change-password">${icon('key')}Change password</button>` : ''}
+        ${me.has_password ? `<button class="btn btn-sm" data-settings="change-email">${icon('mail')}Change email</button>
+        <button class="btn btn-sm" data-settings="change-password">${icon('key')}Change password</button>` : ''}
         <button class="btn btn-sm" data-settings="sign-out-others">${icon('logout')}Sign out other browsers</button>
       </div>
     </div>
@@ -420,6 +421,25 @@ async function changePassword() {
   if (ok) toast('Password changed. Other browsers signed in to your account have been signed out.');
 }
 
+async function changeEmail() {
+  const ok = await modal({
+    title: 'Change your email',
+    confirmText: 'Change email',
+    html: `<p class="muted">You sign in with this address, and password-reset links go to it. Other reader apps that
+        sign in with your email need the new one.</p>
+      <label>New email<input type="email" name="email" autocomplete="email" value="${esc(me.email)}"></label>
+      <label>Current password<input type="password" name="current" autocomplete="current-password"></label>`,
+    onSubmit: (fd) => api('POST', '/api/account/email', {
+      email: fd.get('email') || '',
+      current_password: fd.get('current') || '',
+    }),
+  });
+  if (!ok) return;
+  loadAccount();
+  if (me.is_admin) loadAccounts();
+  toast('Email changed');
+}
+
 async function signOutOthers() {
   try {
     await api('POST', '/api/account/sign-out-others');
@@ -439,6 +459,7 @@ async function loadAbout() {
   const line = $('[data-about-version]', section);
   line.textContent = isRelease(version) ? `Version ${version}`
     : version === 'dev' ? 'Development build' : `Development build (${version})`;
+  $('[data-about-coffee]', section).hidden = Boolean(server?.managed); // they already pay whoever hosts it
   $('[data-about-mail]', section).href = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`FeedStash ${version}`)}`;
   let info;
   try {
@@ -461,6 +482,8 @@ async function loadAccounts() {
   if (!box) return;
   try {
     const accounts = await api('GET', '/api/accounts');
+    const add = $('[data-account-add]', els.settings); // no room: nothing to offer
+    if (add) add.hidden = Boolean(server?.account_limit) && accounts.length >= server.account_limit;
     box.innerHTML = `${server?.account_limit ? `<p class="muted" data-account-count>${accounts.length} of
         ${server.account_limit} accounts on this server.</p>` : ''}<div class="table-wrap"><table class="org-table">
       <thead><tr><th>Account</th><th>Signs in with</th><th>Role</th><th>Added</th><th></th></tr></thead>
@@ -470,6 +493,7 @@ async function loadAccounts() {
         <td>${account.is_admin ? 'Admin' : 'Member'}</td>
         <td>${esc(fullDate(account.created_at))}</td>
         <td class="row-actions">${account.id === me?.id ? '<span class="muted">You</span>' : `
+          ${account.has_password ? `<button class="btn btn-sm" data-settings="set-email" data-id="${account.id}" data-name="${esc(account.email)}">Change email</button>` : ''}
           <button class="btn btn-sm" data-settings="set-password" data-id="${account.id}" data-name="${esc(account.email)}">Set password</button>
           ${account.two_step ? `<button class="btn btn-sm" data-settings="two-step-off" data-id="${account.id}" data-name="${esc(account.email)}">Turn off two-step</button>` : ''}
           <button class="btn btn-sm" data-settings="toggle-admin" data-id="${account.id}" data-admin="${account.is_admin}" data-name="${esc(account.email)}">${account.is_admin ? 'Remove admin' : 'Make admin'}</button>
@@ -596,6 +620,19 @@ async function setPassword(id, name) {
   if (!ok) return;
   loadAccounts();
   toast(`Password set for ${name}`);
+}
+
+async function setEmail(id, name) {
+  const ok = await modal({
+    title: `Change the email for ${name}`,
+    confirmText: 'Change email',
+    html: `<p class="muted">They sign in with the new address from now on.</p>
+      <label>New email<input type="email" name="email" autocomplete="off" value="${esc(name)}"></label>`,
+    onSubmit: (fd) => api('PATCH', `/api/accounts/${id}`, { email: fd.get('email') || '' }),
+  });
+  if (!ok) return;
+  loadAccounts();
+  toast('Email changed');
 }
 
 async function toggleAdmin(id, isAdmin, name) {
@@ -835,6 +872,8 @@ export function wireSettings() {
       case 'rename-token': renameToken(Number(id), name); break;
       case 'revoke': revoke(Number(id), name); break;
       case 'change-password': changePassword(); break;
+      case 'change-email': changeEmail(); break;
+      case 'set-email': setEmail(Number(id), name); break;
       case 'sign-out-others': signOutOthers(); break;
       case 'shortcuts': showShortcuts(); break;
       case 'new-account': newAccount(); break;
