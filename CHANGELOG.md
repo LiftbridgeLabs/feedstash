@@ -7,7 +7,17 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
 
 ### New
 - **Change your email.** Settings → You → Change email, confirmed with your password. An admin can correct
-  someone else's under Settings → Admin → Accounts. Reset links sent to the old address stop working.
+  someone else's under Settings → Admin → Accounts. Reset links sent to the old address stop working. Accounts that
+  sign in with Google or single sign-on keep the address that provider gives them.
+- **A heads-up when your email or password changes.** If the server can send email, a changed email is reported to
+  the old address and confirmed to the new one, and a changed password is reported to your address, so a change
+  you didn't make doesn't go unnoticed.
+- **Invite someone** and **Add account** step aside once a server with an account limit is full, instead of
+  offering something that can't work.
+
+### Settings
+- `EMAIL_DAILY_LIMIT`: how many emails (reset links, invites, test messages) the server sends in a day. Past it,
+  sending waits until the next day and says so. `0`, the default, means no limit.
 
 ## 1.0.0
 

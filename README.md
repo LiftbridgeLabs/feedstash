@@ -326,6 +326,11 @@ Items with a web address also have a `preview`: `{status, title, description, im
 
 API tokens can't manage accounts or tokens (list, create or revoke them); that needs a signed-in browser session, so a token that leaks can't give itself new credentials.
 
+Two changes are open to a token when the account's password comes with them, for people who use only the phone app. Wrong passwords count toward the same limit as failed sign-ins (429 with `Retry-After`), and accounts that sign in with Google or single sign-on get a 400.
+
+- `POST /api/account/email` `{email, current_password}` → the account, as `GET /api/me` gives it.
+- `POST /api/tokens/connect-device` `{current_password, clientName?}` → `{id, token, clientName, codes: [{server, url, svg}]}`: a new token for a second device, as the link the apps' QR scanner reads.
+
 ## Publishing the image
 
 `.github/workflows/docker-publish.yml` runs the tests, builds the image, checks that it starts, drops root and serves the setup page, then pushes `linux/amd64` and `linux/arm64` builds to Docker Hub as `liftbridgelabs/feedstash`. A version tag publishes a release; a push to `main` publishes `develop` and leaves `latest` alone. It can also be run by hand from the Actions tab.
