@@ -178,6 +178,18 @@ def test_invites_can_be_emailed(start_server, smtp):
     assert no_address.status_code == 400
 
 
+def test_a_daily_limit_stops_email_until_tomorrow_and_says_so(start_server, smtp):
+    server = start_server(**mail_env(smtp), EMAIL_DAILY_LIMIT="2")
+    admin = set_up(server)
+    sent = [admin.post("/api/invites", json={"email": f"ann{n}@example.com", "days": 7, "send_email": True}).json()
+            for n in range(3)]
+    assert [invite["emailed"] for invite in sent] == [True, True, False]
+    assert "all the email it can today" in sent[2]["email_error"]
+    assert sent[2]["links"]  # the invite still stands; only the email didn't go
+    client_for(server).post("/auth/forgot", json={"email": "owner@example.com"})  # counted the same; nothing more goes
+    assert len(smtp.wait_for(2)) == 2
+
+
 def test_an_invite_that_cant_be_emailed_still_stands(start_server):
     server = start_server(DEV_LOGIN="false", SMTP_HOST="127.0.0.1", SMTP_PORT="9", SMTP_SECURITY="none",
                           SMTP_FROM="feedstash@example.com")

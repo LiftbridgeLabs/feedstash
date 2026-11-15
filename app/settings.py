@@ -91,6 +91,9 @@ class Settings(BaseSettings):
     # How much the database and uploaded pictures may take, in GB; new saves, pictures and imports stop at the limit
     # (feeds keep updating: their cleanup keeps them in bounds). 0 for no limit.
     storage_limit_gb: float = Field(default=0, ge=0)
+    # How many emails (reset links, invites, tests) the server sends in a day (UTC); past it, sending waits until
+    # tomorrow. For a host whose servers share one sending account. 0 for no limit.
+    email_daily_limit: int = Field(default=0, ge=0)
     # Which requests get a line in the log: all, changes (saves, edits and failures; the default), errors or none.
     # Health checks and page loads add up to thousands of lines a day, so only "all" logs them.
     log_requests: Literal["all", "changes", "errors", "none"] = "changes"

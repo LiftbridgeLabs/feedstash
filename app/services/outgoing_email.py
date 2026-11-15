@@ -4,7 +4,9 @@ test). Settings saved in Settings → Admin → Email win; otherwise the SMTP_* 
 
 import sqlite3
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
+from app.clock import now
 from app.crypto import SecretBox
 from app.db import Database
 from app.db.repositories import app_settings as app_settings_repo
@@ -15,6 +17,8 @@ from app.mail.smtp import EmailSettings
 from app.settings import Settings
 
 PREFIX = "email."
+SENT_PREFIX = "sent_email."  # not under PREFIX: these are counters, not settings
+SENT_TODAY = "This server has sent all the email it can today. Try again tomorrow."
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,8 +91,21 @@ def _current(db: Database, settings: Settings, secrets: SecretBox) -> EmailSetti
     return config
 
 
+def _count(db: Database, settings: Settings) -> None:
+    """Counts one email toward EMAIL_DAILY_LIMIT, or refuses it once today's are used up. Counted before it's
+    sent, so a burst can't slip past, and one that then fails to send still counts."""
+    if not settings.email_daily_limit:
+        return
+    key = SENT_PREFIX + datetime.fromtimestamp(now(), UTC).strftime("%Y-%m-%d")
+    with db.transaction() as conn:
+        app_settings_repo.forget_others(conn, SENT_PREFIX, key)
+        if not app_settings_repo.count_up(conn, key, limit=settings.email_daily_limit):
+            raise smtp.SendError(SENT_TODAY)
+
+
 def send_test(db: Database, settings: Settings, secrets: SecretBox, *, to: str) -> None:
     config = _current(db, settings, secrets)
+    _count(db, settings)
     smtp.send(config, smtp.message(
         config, to=to, subject="FeedStash can send email",
         text="This is a test from your FeedStash server. Email works: \"Forgot password?\" on the sign-in page "
@@ -98,6 +115,7 @@ def send_test(db: Database, settings: Settings, secrets: SecretBox, *, to: str) 
 
 def send_reset(db: Database, settings: Settings, secrets: SecretBox, *, to: str, link: str) -> None:
     config = _current(db, settings, secrets)
+    _count(db, settings)
     smtp.send(config, smtp.message(
         config, to=to, subject="Reset your FeedStash password",
         text=f"Someone asked to reset the password for {to} on FeedStash. If it was you, choose a new one here:\n\n"
@@ -110,6 +128,7 @@ def send_invite(
     db: Database, settings: Settings, secrets: SecretBox, *, to: str, link: str, invited_by: str, expires: str,
 ) -> None:
     config = _current(db, settings, secrets)
+    _count(db, settings)
     smtp.send(config, smtp.message(
         config, to=to, subject=f"{invited_by} invited you to FeedStash",
         text=f"{invited_by} invited you to their FeedStash server: your own feeds and saved links.\n\n"
