@@ -868,6 +868,11 @@ class ConnectCodeIn(BaseModel):
     clientName: str = Field(default="Phone or iPad", max_length=100)
 
 
+class ConnectDeviceIn(BaseModel):
+    current_password: str = Field(default="", max_length=1024)
+    clientName: str = Field(default="Phone or iPad", max_length=100)
+
+
 class ConnectCode(BaseModel):
     server: str  # the address the app will use
     url: str  # <server>/connect#server=…&token=…, what the QR code holds

@@ -89,6 +89,17 @@ def _own_email(user: User) -> bool:
     return user.sub.startswith("local:")
 
 
+def check_own_password(db: Database, user: User, password: str) -> None:
+    """Raises unless `password` is the account's own."""
+    with db.transaction() as conn:
+        stored = users_repo.get_password_hash(conn, user.id)
+    if stored is None:
+        raise InvalidInput("This account signs in with Google or single sign-on, so it has no password to check. "
+                           "Connect the other device from the web app: Settings → Apps → Connected apps.")
+    if not verify_password(password, stored):
+        raise WrongPassword("Your current password isn't right")
+
+
 def change_own_email(db: Database, user: User, *, current_password: str, email: str) -> User:
     """A new address for your own account, proven with your password. Reset links sent to the old one stop
     working."""

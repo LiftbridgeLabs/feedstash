@@ -15,11 +15,11 @@ from app.db.models import User
 from app.db.repositories import invites as invites_repo
 from app.db.repositories import two_step as two_step_repo
 from app.db.repositories import users as users_repo
-from app.errors import InvalidInput, ReaderError
+from app.errors import InvalidInput
 from app.mail.smtp import SendError
 from app.services import account_transfer, accounts, outgoing_email
 from app.web.auth import PASSWORD_CHECKS, start_session
-from app.web.ratelimit import LoginLimiter
+from app.web.proof import password_try
 from app.web.deps import run_in_background
 from app.web.deps import DatabaseDep, ImagesDep, SecretsDep, SessionUserDep, SettingsDep, StorageDep, UserDep
 from app.web.schemas import (
@@ -66,27 +66,10 @@ async def change_email(body: EmailChangeIn, request: Request, user: UserDep, db:
     Unlike a password change this is open to the phone app's token: someone who signed up in the app may never
     have opened the web app. The password is what's checked, so wrong ones count toward the same limit as failed
     sign-ins: a token alone can't be used to guess it."""
-    limiter: LoginLimiter = request.app.state.login_limiter
-    address = request.client.host if request.client else "unknown"
-    if wait := limiter.retry_after(address, user.email):
-        minutes = max(1, round(wait / 60))
-        raise HTTPException(
-            status_code=429,
-            detail=f"Too many wrong passwords. Try again in {minutes} minute{'' if minutes == 1 else 's'}.",
-            headers={"Retry-After": str(wait)},
+    async with password_try(request, user), PASSWORD_CHECKS:
+        changed = await run_in_threadpool(
+            accounts.change_own_email, db, user, current_password=body.current_password, email=body.email,
         )
-    limiter.record_failure(address, user.email)  # counted before it's checked, as sign-in does
-    try:
-        async with PASSWORD_CHECKS:
-            changed = await run_in_threadpool(
-                accounts.change_own_email, db, user, current_password=body.current_password, email=body.email,
-            )
-    except accounts.WrongPassword:
-        raise
-    except ReaderError:
-        limiter.forgive(address, user.email)  # the password was right (or never asked for): not a guess
-        raise
-    limiter.forgive(address, user.email)
     _tell(request, outgoing_email.tell_email_changed, old=user.email, new=changed.email)
     return to_schema(UserOut, changed)
 

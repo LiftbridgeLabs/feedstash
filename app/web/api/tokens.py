@@ -8,8 +8,18 @@ from fastapi import APIRouter, Request, Response
 from app.clock import now
 from app.db.repositories import tokens as tokens_repo
 from app.errors import InvalidInput
-from app.web.deps import DatabaseDep, SessionUserDep, SettingsDep, api_token_id
-from app.web.schemas import ConnectCode, ConnectCodeIn, ConnectCodeOut, NewTokenIn, NewTokenOut, TokenOut
+from starlette.concurrency import run_in_threadpool
+
+from app.db import Database
+from app.db.models import User
+from app.services import accounts
+from app.settings import Settings
+from app.web.auth import PASSWORD_CHECKS
+from app.web.deps import DatabaseDep, SessionUserDep, SettingsDep, UserDep, api_token_id
+from app.web.proof import password_try
+from app.web.schemas import (
+    ConnectCode, ConnectCodeIn, ConnectCodeOut, ConnectDeviceIn, NewTokenIn, NewTokenOut, TokenOut,
+)
 
 router = APIRouter(prefix="/api")
 
@@ -45,13 +55,29 @@ def create_connect_code(
     body: ConnectCodeIn, request: Request, user: SessionUserDep, db: DatabaseDep, settings: SettingsDep
 ) -> ConnectCodeOut:
     """A new token for the phone or iPad app, as a QR code the app can scan to connect without typing."""
+    return _connect_code(db, settings, user, body.clientName, str(request.base_url))
+
+
+def _connect_code(db: Database, settings: Settings, user: User, name: str, base_url: str) -> ConnectCodeOut:
     with db.transaction() as conn:
-        token, secret = tokens_repo.create(conn, user.id, body.clientName.strip() or "Phone or iPad", now=now())
-    current = settings.base_url_for(str(request.base_url))
+        token, secret = tokens_repo.create(conn, user.id, name.strip() or "Phone or iPad", now=now())
+    current = settings.base_url_for(base_url)
     servers = [current] + [url for url in settings.base_urls if url != current]
     codes = [ConnectCode(server=server, url=connect_url(server, secret), svg=qr_svg(connect_url(server, secret)))
              for server in servers]
     return ConnectCodeOut(id=token.id, token=secret, clientName=token.client_name, codes=codes)
+
+
+@router.post("/tokens/connect-device", status_code=201, response_model=ConnectCodeOut)
+async def connect_another_device(
+    body: ConnectDeviceIn, request: Request, user: UserDep, db: DatabaseDep, settings: SettingsDep
+) -> ConnectCodeOut:
+    """The same code, asked for by the phone app itself to connect a second device, for someone who has never
+    opened the web app. Tokens are otherwise made only from a browser session, so this wants the account's
+    password, and wrong ones count toward the same limit as failed sign-ins."""
+    async with password_try(request, user), PASSWORD_CHECKS:
+        await run_in_threadpool(accounts.check_own_password, db, user, body.current_password)
+    return await run_in_threadpool(_connect_code, db, settings, user, body.clientName, str(request.base_url))
 
 
 @router.patch("/tokens/{token_id}", response_model=TokenOut)
