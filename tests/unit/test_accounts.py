@@ -104,3 +104,26 @@ def test_accounts_that_sign_in_elsewhere_have_no_password_to_change(db):
         user = users.get(conn, users.upsert(conn, sub="google:1", email="g@example.com", name=None, picture=None))
     with pytest.raises(InvalidInput, match="no password"):
         accounts.change_own_password(db, user, current_password="", new_password=PASSWORD)
+
+
+def test_an_account_linked_to_a_provider_keeps_the_providers_email_even_with_a_password(db):
+    with db.transaction() as conn:
+        linked = users.upsert(conn, sub="google:1", email="ann@example.com", name="Ann", picture=None)
+    accounts.reset_password(db, linked, PASSWORD)  # an admin gave it a password as well
+    with db.transaction() as conn:
+        ann = users.get(conn, linked)
+    with pytest.raises(InvalidInput, match="single sign-on"):
+        accounts.change_own_email(db, ann, current_password=PASSWORD, email="new@example.com")
+    with pytest.raises(InvalidInput, match="single sign-on"):
+        accounts.set_email(db, linked, "new@example.com")
+
+
+def test_an_email_change_proven_with_an_old_password_does_nothing(db):
+    owner = accounts.create_account(db, email="owner@example.com", name=None, password=PASSWORD, is_admin=True)
+    with db.transaction() as conn:
+        proven = users.get_password_hash(conn, owner.id)
+    accounts.reset_password(db, owner.id, "a newer password")  # lands while the old one is being checked
+    with db.transaction() as conn:
+        with pytest.raises(NotFound):
+            users.set_email(conn, owner.id, "taken@example.com", proven_with=proven)
+        assert users.get(conn, owner.id).email == "owner@example.com"

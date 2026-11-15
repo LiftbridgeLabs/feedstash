@@ -172,12 +172,19 @@ def upgrade_password_hash(conn: sqlite3.Connection, user_id: int, old_hash: str,
     )
 
 
-def set_email(conn: sqlite3.Connection, user_id: int, email: str) -> None:
-    """Changes the address an account signs in with and gets its email at."""
+def set_email(conn: sqlite3.Connection, user_id: int, email: str, *, proven_with: str | None = None) -> None:
+    """Changes the address an account signs in with and gets its email at. `proven_with` is the password hash the
+    change was proven against: if the password has changed since, nothing happens."""
     email = valid_email(email)
     if conn.execute("SELECT 1 FROM users WHERE email = ? AND id != ?", (email, user_id)).fetchone():
         raise Conflict("There's already an account with that email")
-    if conn.execute("UPDATE users SET email = ? WHERE id = ?", (email, user_id)).rowcount == 0:
+    if proven_with is None:
+        changed = conn.execute("UPDATE users SET email = ? WHERE id = ?", (email, user_id)).rowcount
+    else:
+        changed = conn.execute(
+            "UPDATE users SET email = ? WHERE id = ? AND password_hash = ?", (email, user_id, proven_with)
+        ).rowcount
+    if changed == 0:
         raise NotFound("No such account")
 
 

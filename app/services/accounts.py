@@ -83,17 +83,26 @@ class WrongPassword(InvalidInput):
 NO_EMAIL_OF_ITS_OWN = "This account signs in with Google or single sign-on, which is where its email comes from"
 
 
+def _own_email(user: User) -> bool:
+    """Whether the account's email is its own to change. One linked to Google or single sign-on gets its address
+    from there at every sign-in, even when it has a password as well, so a change here wouldn't last."""
+    return user.sub.startswith("local:")
+
+
 def change_own_email(db: Database, user: User, *, current_password: str, email: str) -> User:
     """A new address for your own account, proven with your password. Reset links sent to the old one stop
     working."""
     with db.transaction() as conn:
         stored = users_repo.get_password_hash(conn, user.id)
-    if stored is None:
+    if stored is None or not _own_email(user):
         raise InvalidInput(NO_EMAIL_OF_ITS_OWN)
     if not verify_password(current_password, stored):
         raise WrongPassword("Your current password isn't right")
     with db.transaction() as conn:
-        users_repo.set_email(conn, user.id, email)
+        try:
+            users_repo.set_email(conn, user.id, email, proven_with=stored)
+        except NotFound:  # the password changed while this one was being checked
+            raise InvalidInput("Your password has just changed. Try again with the new one.") from None
         password_resets_repo.forget(conn, user.id)
         return users_repo.get(conn, user.id)
 
@@ -101,8 +110,8 @@ def change_own_email(db: Database, user: User, *, current_password: str, email: 
 def set_email(db: Database, user_id: int, email: str) -> User:
     """An admin correcting someone's address (a typo when the account was made)."""
     with db.transaction() as conn:
-        _existing(conn, user_id)
-        if users_repo.get_password_hash(conn, user_id) is None:
+        user = _existing(conn, user_id)
+        if users_repo.get_password_hash(conn, user_id) is None or not _own_email(user):
             raise InvalidInput(NO_EMAIL_OF_ITS_OWN)
         users_repo.set_email(conn, user_id, email)
         password_resets_repo.forget(conn, user_id)

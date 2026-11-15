@@ -493,7 +493,7 @@ async function loadAccounts() {
         <td>${account.is_admin ? 'Admin' : 'Member'}</td>
         <td>${esc(fullDate(account.created_at))}</td>
         <td class="row-actions">${account.id === me?.id ? '<span class="muted">You</span>' : `
-          ${account.has_password ? `<button class="btn btn-sm" data-settings="set-email" data-id="${account.id}" data-name="${esc(account.email)}">Change email</button>` : ''}
+          ${account.sign_in === 'password' ? `<button class="btn btn-sm" data-settings="set-email" data-id="${account.id}" data-name="${esc(account.email)}">Change email</button>` : ''}
           <button class="btn btn-sm" data-settings="set-password" data-id="${account.id}" data-name="${esc(account.email)}">Set password</button>
           ${account.two_step ? `<button class="btn btn-sm" data-settings="two-step-off" data-id="${account.id}" data-name="${esc(account.email)}">Turn off two-step</button>` : ''}
           <button class="btn btn-sm" data-settings="toggle-admin" data-id="${account.id}" data-admin="${account.is_admin}" data-name="${esc(account.email)}">${account.is_admin ? 'Remove admin' : 'Make admin'}</button>
