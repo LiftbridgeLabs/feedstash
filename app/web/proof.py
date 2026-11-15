@@ -6,7 +6,6 @@ from contextlib import asynccontextmanager
 from fastapi import HTTPException, Request
 
 from app.db.models import User
-from app.errors import ReaderError
 from app.services.accounts import WrongPassword
 from app.web.ratelimit import LoginLimiter
 
@@ -30,7 +29,9 @@ async def password_try(request: Request, user: User) -> AsyncIterator[None]:
         yield
     except WrongPassword:
         raise
-    except ReaderError:
-        limiter.forgive(address, user.email)  # the password was right (or never asked for): not a guess
+    except BaseException:
+        # Anything else wasn't a guess (the password was right and something later refused, the account has no
+        # password, the database failed), and mustn't count toward locking the account out of signing in.
+        limiter.forgive(address, user.email)
         raise
     limiter.forgive(address, user.email)
