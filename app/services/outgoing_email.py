@@ -2,6 +2,7 @@
 test). Settings saved in Settings → Admin → Email win; otherwise the SMTP_* environment variables apply.
 """
 
+import logging
 import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -15,6 +16,8 @@ from app.errors import InvalidInput
 from app.mail import smtp
 from app.mail.smtp import EmailSettings
 from app.settings import Settings
+
+log = logging.getLogger("reader.email")
 
 PREFIX = "email."
 SENT_PREFIX = "sent_email."  # not under PREFIX: these are counters, not settings
@@ -122,6 +125,40 @@ def send_reset(db: Database, settings: Settings, secrets: SecretBox, *, to: str,
              f"{link}\n\nThe link works once, for the next hour. If you didn't ask, ignore this email: your password "
              "stays as it is.\n",
     ))
+
+
+def _tell(db: Database, settings: Settings, secrets: SecretBox, *, to: str, subject: str, text: str) -> None:
+    """A notice about a change to an account. Sent only if this server can send email, and never an error for
+    whoever made the change: it has happened either way."""
+    try:
+        with db.transaction() as conn:
+            config = load(conn, settings, secrets).settings
+        if not config.ready:
+            return
+        _count(db, settings)
+        smtp.send(config, smtp.message(config, to=to, subject=subject, text=text))
+    except smtp.SendError as exc:
+        log.warning("Couldn't email a notice about an account change: %s", exc)
+
+
+def tell_email_changed(db: Database, settings: Settings, secrets: SecretBox, *, old: str, new: str) -> None:
+    """The old address hears where the account went (it's the one that matters if someone else did this); the new
+    one hears that it works."""
+    if old == new:
+        return
+    _tell(db, settings, secrets, to=old, subject="Your FeedStash email was changed",
+          text=f"The email for your FeedStash account was changed from {old} to {new}. You now sign in with the "
+               "new address, and password-reset links go there.\n\nIf you didn't do this, tell whoever runs your "
+               "FeedStash server right away: someone else may have your password.\n")
+    _tell(db, settings, secrets, to=new, subject="This is now your FeedStash email",
+          text=f"Your FeedStash account now uses {new}. Sign in with it from now on; password-reset links come "
+               "here too.\n")
+
+
+def tell_password_changed(db: Database, settings: Settings, secrets: SecretBox, *, to: str) -> None:
+    _tell(db, settings, secrets, to=to, subject="Your FeedStash password was changed",
+          text=f"The password for {to} on FeedStash was just changed.\n\nIf you didn't do this, use \"Forgot "
+               "password?\" on the sign-in page to set a new one, and tell whoever runs your FeedStash server.\n")
 
 
 def send_invite(

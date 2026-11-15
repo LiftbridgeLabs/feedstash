@@ -634,6 +634,11 @@ async def reset_password(body: ResetPasswordIn, request: Request) -> PasswordSig
         version = users_repo.session_version(conn, user_id) or 0
         wants_code = two_step_repo.enabled(conn, user_id)
     request.app.state.login_limiter.clear_account(user.email)  # a fresh password starts with a clean slate
+    state = request.app.state  # (deps.run_in_background would do, but deps imports this module)
+    notice = asyncio.create_task(run_in_threadpool(
+        outgoing_email.tell_password_changed, state.db, state.settings, state.secrets, to=user.email))
+    state.background_tasks.add(notice)
+    notice.add_done_callback(state.background_tasks.discard)
     if wants_code:
         return _wait_for_code(request, user, version)
     await start_session(request, user_id, version)

@@ -67,8 +67,18 @@ def test_changing_your_email_ends_reset_links_sent_to_the_old_address(start_serv
     moved = owner.post("/api/account/email", json={"current_password": PASSWORD, "email": "new@example.com"})
     assert moved.status_code == 200, moved.text
     assert client_for(server).post("/auth/reset/check", json={"token": token}).json()["usable"] is False
+    # Both addresses hear about it: the old one in case it wasn't them, the new one to show it works.
+    _, to_old, to_new = smtp.wait_for(3)
+    assert to_old["To"] == "owner@example.com" and to_old["Subject"] == "Your FeedStash email was changed"
+    assert "new@example.com" in body(to_old) and "If you didn't do this" in body(to_old)
+    assert to_new["To"] == "new@example.com" and to_new["Subject"] == "This is now your FeedStash email"
     client_for(server).post("/auth/forgot", json={"email": "new@example.com"})
-    assert smtp.wait_for(2)[1]["To"] == "new@example.com"
+    assert smtp.wait_for(4)[3]["To"] == "new@example.com"
+
+    changed = owner.post("/api/account/password", json={"current_password": PASSWORD, "new_password": NEW_PASSWORD})
+    assert changed.status_code == 200, changed.text
+    notice = smtp.wait_for(5)[4]
+    assert notice["To"] == "new@example.com" and notice["Subject"] == "Your FeedStash password was changed"
 
 
 def test_unknown_addresses_get_the_same_answer_and_no_email(start_server, smtp):

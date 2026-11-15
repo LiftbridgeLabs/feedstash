@@ -20,6 +20,7 @@ from app.mail.smtp import SendError
 from app.services import account_transfer, accounts, outgoing_email
 from app.web.auth import PASSWORD_CHECKS, start_session
 from app.web.ratelimit import LoginLimiter
+from app.web.deps import run_in_background
 from app.web.deps import DatabaseDep, ImagesDep, SecretsDep, SessionUserDep, SettingsDep, StorageDep, UserDep
 from app.web.schemas import (
     AccountImportOut, AccountOut, AccountPrefsIn, AccountUpdateIn, EmailChangeIn, InviteIn, InviteOut, NewAccountIn, OkOut, PasswordChangeIn, UserOut,
@@ -38,6 +39,12 @@ def admin_user(user: SessionUserDep) -> User:
 AdminDep = Annotated[User, Depends(admin_user)]
 
 
+def _tell(request: Request, notice, **about: str) -> None:
+    """Emails a notice about an account change after the reply has gone (it's never the reason a change fails)."""
+    state = request.app.state
+    run_in_background(request, run_in_threadpool(notice, state.db, state.settings, state.secrets, **about))
+
+
 @router.post("/account/password", response_model=OkOut)
 async def change_password(body: PasswordChangeIn, request: Request, user: SessionUserDep, db: DatabaseDep) -> OkOut:
     """Changes your password. Every other browser signed in to the account is signed out; this one stays in."""
@@ -47,6 +54,7 @@ async def change_password(body: PasswordChangeIn, request: Request, user: Sessio
             current_password=body.current_password, new_password=body.new_password,
         )
     await start_session(request, user.id)
+    _tell(request, outgoing_email.tell_password_changed, to=user.email)
     return OkOut()
 
 
@@ -79,6 +87,7 @@ async def change_email(body: EmailChangeIn, request: Request, user: UserDep, db:
         limiter.forgive(address, user.email)  # the password was right (or never asked for): not a guess
         raise
     limiter.forgive(address, user.email)
+    _tell(request, outgoing_email.tell_email_changed, old=user.email, new=changed.email)
     return to_schema(UserOut, changed)
 
 
@@ -155,11 +164,21 @@ async def update_account(
 ) -> AccountOut:
     """Sets a new password (which signs that account out everywhere), corrects the email, and/or changes admin
     rights."""
+    def email_of() -> str | None:
+        with db.transaction() as conn:
+            found = users_repo.get(conn, user_id)
+            return found.email if found else None
+
     if body.email is not None:
-        await run_in_threadpool(accounts.set_email, db, user_id, body.email)
+        before = await run_in_threadpool(email_of)
+        after = (await run_in_threadpool(accounts.set_email, db, user_id, body.email)).email
+        if before:
+            _tell(request, outgoing_email.tell_email_changed, old=before, new=after)
     if body.password is not None:
         async with PASSWORD_CHECKS:
             await run_in_threadpool(accounts.reset_password, db, user_id, body.password)
+        if to := await run_in_threadpool(email_of):
+            _tell(request, outgoing_email.tell_password_changed, to=to)
         if user_id == admin.id:
             await start_session(request, admin.id)  # an admin resetting their own password stays signed in here
     if body.is_admin is not None:
