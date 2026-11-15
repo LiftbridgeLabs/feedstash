@@ -76,6 +76,10 @@ def change_own_password(db: Database, user: User, *, current_password: str, new_
         users_repo.set_password(conn, user.id, new_hash)
 
 
+class WrongPassword(InvalidInput):
+    """The current password given with a change wasn't right (counted toward the sign-in limit)."""
+
+
 NO_EMAIL_OF_ITS_OWN = "This account signs in with Google or single sign-on, which is where its email comes from"
 
 
@@ -87,7 +91,7 @@ def change_own_email(db: Database, user: User, *, current_password: str, email: 
     if stored is None:
         raise InvalidInput(NO_EMAIL_OF_ITS_OWN)
     if not verify_password(current_password, stored):
-        raise InvalidInput("Your current password isn't right")
+        raise WrongPassword("Your current password isn't right")
     with db.transaction() as conn:
         users_repo.set_email(conn, user.id, email)
         password_resets_repo.forget(conn, user.id)

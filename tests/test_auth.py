@@ -160,10 +160,20 @@ def test_people_change_their_own_email_and_admins_correct_someone_elses(start_se
     assert kid.post("/auth/password", json={"email": "kid@example.com", "password": "kid password"}).status_code == 200
     assert kid.post("/api/account/email", json={"current_password": "kid password", "email": "owner@example.com"}).status_code == 409
     assert kid.patch(f"/api/accounts/{kid_id}", json={"email": "other@example.com"}).status_code == 403
+
+    # The phone app changes it with its token, since someone who signed up there may never open the web app. The
+    # password is still what's checked, and wrong ones count like failed sign-ins.
     token = kid.post("/api/tokens", json={"clientName": "phone"}).json()["token"]
-    with_token = httpx.post(server.base_url + "/api/account/email", headers={"Authorization": f"Bearer {token}"},
-                            json={"current_password": "kid password", "email": "other@example.com"})
-    assert with_token.status_code == 403  # a browser session only, like changing the password
+    phone = httpx.Client(base_url=server.base_url, headers={"Authorization": f"Bearer {token}"}, timeout=30)
+    moved = phone.post("/api/account/email", json={"current_password": "kid password", "email": "kid2@example.com"})
+    assert moved.status_code == 200 and moved.json()["email"] == "kid2@example.com"
+    assert phone.post("/api/account/password", json={"current_password": "kid password", "new_password": "x" * 12}).status_code == 403
+    codes = [phone.post("/api/account/email", json={"current_password": f"guess {n}", "email": "kid3@example.com"}).status_code
+             for n in range(11)]
+    assert codes == [400] * 10 + [429]
+    locked = phone.post("/api/account/email", json={"current_password": "kid password", "email": "kid3@example.com"})
+    assert locked.status_code == 429 and int(locked.headers["retry-after"]) > 0
+    assert phone.get("/api/me").json()["email"] == "kid2@example.com"
 
 
 def test_sign_in_with_an_openid_connect_provider(start_server, oidc_provider):
