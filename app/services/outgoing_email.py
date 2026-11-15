@@ -101,7 +101,7 @@ def _count(db: Database, settings: Settings) -> None:
         return
     key = SENT_PREFIX + datetime.fromtimestamp(now(), UTC).strftime("%Y-%m-%d")
     with db.transaction() as conn:
-        app_settings_repo.forget_others(conn, SENT_PREFIX, key)
+        app_settings_repo.forget_before(conn, SENT_PREFIX, key)
         if not app_settings_repo.count_up(conn, key, limit=settings.email_daily_limit):
             raise smtp.SendError(SENT_TODAY)
 

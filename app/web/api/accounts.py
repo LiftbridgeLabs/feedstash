@@ -153,10 +153,8 @@ async def update_account(
             return found.email if found else None
 
     if body.email is not None:
-        before = await run_in_threadpool(email_of)
-        after = (await run_in_threadpool(accounts.set_email, db, user_id, body.email)).email
-        if before:
-            _tell(request, outgoing_email.tell_email_changed, old=before, new=after)
+        before, after = await run_in_threadpool(accounts.set_email, db, user_id, body.email)
+        _tell(request, outgoing_email.tell_email_changed, old=before, new=after.email)
     if body.password is not None:
         async with PASSWORD_CHECKS:
             await run_in_threadpool(accounts.reset_password, db, user_id, body.password)

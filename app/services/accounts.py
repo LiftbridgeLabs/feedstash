@@ -118,15 +118,16 @@ def change_own_email(db: Database, user: User, *, current_password: str, email: 
         return users_repo.get(conn, user.id)
 
 
-def set_email(db: Database, user_id: int, email: str) -> User:
-    """An admin correcting someone's address (a typo when the account was made)."""
+def set_email(db: Database, user_id: int, email: str) -> tuple[str, User]:
+    """An admin correcting someone's address (a typo when the account was made). Returns the address it replaced,
+    read in the same transaction, and the account as it is now."""
     with db.transaction() as conn:
         user = _existing(conn, user_id)
         if users_repo.get_password_hash(conn, user_id) is None or not _own_email(user):
             raise InvalidInput(NO_EMAIL_OF_ITS_OWN)
         users_repo.set_email(conn, user_id, email)
         password_resets_repo.forget(conn, user_id)
-        return users_repo.get(conn, user_id)
+        return user.email, users_repo.get(conn, user_id)
 
 
 def create_account(

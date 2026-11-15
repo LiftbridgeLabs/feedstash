@@ -18,9 +18,10 @@ def count_up(conn: sqlite3.Connection, key: str, *, limit: int) -> bool:
     return True
 
 
-def forget_others(conn: sqlite3.Connection, prefix: str, keep: str) -> None:
-    """Deletes every key under `prefix` but `keep` (yesterday's counters)."""
-    conn.execute("DELETE FROM app_settings WHERE key LIKE ? || '%' AND key != ?", (prefix, keep))
+def forget_before(conn: sqlite3.Connection, prefix: str, keep: str) -> None:
+    """Deletes the keys under `prefix` that sort before `keep` (earlier days' counters). Only earlier ones: a
+    request that worked out its day just before midnight mustn't delete the new day's count."""
+    conn.execute("DELETE FROM app_settings WHERE key LIKE ? || '%' AND key < ?", (prefix, keep))
 
 
 def set_many(conn: sqlite3.Connection, values: dict[str, str]) -> None:
