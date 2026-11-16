@@ -208,3 +208,35 @@ def test_public_only_reaches_a_public_mailbox_at_the_checked_address_and_checks_
         Mailbox(MailboxConfig(host="mail.example.com", port=993, username="u", password="p")).__enter__()
     assert connected == [("93.184.216.34", 993)]  # the address that was checked, not the name again
     assert wrapped == {"name": "mail.example.com", "verify": ssl.CERT_REQUIRED, "check": True}
+
+
+def test_public_only_refuses_a_public_address_this_machine_holds(public_only, monkeypatch):
+    # A server with a public address of its own: the range says "internet", but it is the machine itself.
+    monkeypatch.setattr(netguard, "_is_own", lambda address: address == "203.0.113.7")
+    with pytest.raises(netguard.BlockedAddress):
+        run(netguard.check_host("203.0.113.7"))
+    run(netguard.check_host("93.184.216.34"))
+
+
+def test_an_address_of_this_machine_is_recognized_and_one_elsewhere_is_not():
+    netguard._is_own.cache_clear()
+    assert netguard._is_own("127.0.0.1") is True
+    assert netguard._is_own("93.184.216.34") is False
+
+
+def test_refused_addresses_and_networks_are_never_fetched_whatever_else_is_set(monkeypatch):
+    monkeypatch.setattr(netguard, "_refused", netguard.parse_refused("203.0.113.7, 2001:db8::/48 198.51.100.0/24"))
+    for host in ("203.0.113.7", "2001:db8::1", "198.51.100.200"):
+        with pytest.raises(netguard.BlockedAddress, match="doesn't fetch"):
+            run(netguard.check_host(host))
+    run(netguard.check_host("203.0.113.8"))
+    run(netguard.check_host("192.168.1.20"))  # the LAN stays reachable without FETCH_PUBLIC_ONLY
+
+
+def test_a_refused_list_that_is_not_addresses_stops_the_server_starting_with_a_reason():
+    from pydantic import ValidationError
+
+    from app.settings import Settings
+
+    with pytest.raises(ValidationError, match="FETCH_REFUSE takes addresses or networks"):
+        Settings(secret_key="x" * 40, fetch_refuse="not-an-address")

@@ -98,9 +98,23 @@ class Settings(BaseSettings):
     # itself included. For a server whose accounts belong to people who shouldn't reach that network. Off by
     # default, since people who run their own server follow feeds on it.
     fetch_public_only: bool = False
+    # More addresses or networks never to fetch, comma-separated: public ones the server is reached at but doesn't
+    # hold itself (the host of its container, a router), which FETCH_PUBLIC_ONLY can't recognize.
+    fetch_refuse: str = ""
     # Which requests get a line in the log: all, changes (saves, edits and failures; the default), errors or none.
     # Health checks and page loads add up to thousands of lines a day, so only "all" logs them.
     log_requests: Literal["all", "changes", "errors", "none"] = "changes"
+
+    @field_validator("fetch_refuse")
+    @classmethod
+    def _refused_addresses_make_sense(cls, value: str) -> str:
+        from app.netguard import parse_refused
+
+        try:
+            parse_refused(value)
+        except ValueError as exc:
+            raise ValueError(f"FETCH_REFUSE takes addresses or networks separated by commas ({exc})") from exc
+        return value
 
     @field_validator("base_urls", mode="before")
     @classmethod

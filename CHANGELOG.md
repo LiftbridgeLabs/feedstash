@@ -9,6 +9,8 @@ to do first, like taking a backup. Admins see the rest of a release's notes in F
 - `FETCH_PUBLIC_ONLY`: feeds, saved pages and connected mailboxes only at public internet addresses, never on the
   server's own network. For a server whose accounts belong to people who shouldn't reach that network. Off by
   default: leave it off to follow feeds on your own network.
+- `FETCH_REFUSE`: more addresses or networks never to fetch, for the public address of the machine or router in
+  front of such a server.
 
 ## 1.1.0
 

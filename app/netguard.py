@@ -6,8 +6,10 @@ put theirs elsewhere (Alibaba's 100.100.100.200, AWS's IPv6 fd00:ec2::254), so t
 else, your LAN included, stays reachable: people follow feeds on their own network.
 
 `configure(public_only=True)` (the FETCH_PUBLIC_ONLY setting) is for a server whose accounts belong to people who
-shouldn't reach the network it sits on: then only public addresses are fetched, so a feed or saved link can't be
-aimed at the machine itself, its neighbors or anything else behind the same router.
+shouldn't reach the network it sits on: then only public addresses are fetched, and none that belong to this
+machine, so a feed or saved link can't be aimed at the machine itself, its neighbors or anything else behind the
+same router. A public address the machine is reached at but doesn't hold itself (a container's host, a router) can't
+be told apart from any other; `refuse` (the FETCH_REFUSE setting) names those.
 
 Two checks: each request's host before it's sent (redirects included), for a clear error early; and the address
 actually connected to, resolved once and checked at that moment. Without the second, a name could resolve to an
@@ -15,6 +17,7 @@ ordinary address for the first check and to the metadata service for the connect
 """
 
 import asyncio
+import functools
 import ipaddress
 import socket
 
@@ -25,12 +28,32 @@ _ALSO_BLOCKED = {ipaddress.ip_address("100.100.100.200"), ipaddress.ip_address("
 
 
 _public_only = False
+_refused: tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...] = ()
 
 
-def configure(*, public_only: bool) -> None:
+def parse_refused(text: str) -> tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]:
+    """Addresses or networks, separated by commas or spaces. Raises ValueError naming the one that isn't either."""
+    return tuple(ipaddress.ip_network(part, strict=False) for part in text.replace(",", " ").split())
+
+
+def configure(*, public_only: bool, refuse: str = "") -> None:
     """Set once at startup from the settings."""
-    global _public_only
+    global _public_only, _refused
     _public_only = public_only
+    _refused = parse_refused(refuse)
+    _is_own.cache_clear()
+
+
+@functools.lru_cache(maxsize=4096)
+def _is_own(address: str) -> bool:
+    """Whether this machine holds `address`: only an address of its own can be bound to."""
+    family = socket.AF_INET6 if ":" in address else socket.AF_INET
+    try:
+        with socket.socket(family, socket.SOCK_DGRAM) as probe:
+            probe.bind((address, 0))
+    except OSError:
+        return False
+    return True
 
 
 def public_only() -> bool:
@@ -60,8 +83,11 @@ def _blocked(address: str) -> bool:
     ip = _parse(address)
     if ip is None:
         return False
-    # is_global leaves out private, loopback, shared (100.64/10), link-local, multicast and reserved ranges.
-    return ip.is_link_local or ip in _ALSO_BLOCKED or (_public_only and not ip.is_global)
+    if ip.is_link_local or ip in _ALSO_BLOCKED or any(ip in network for network in _refused if network.version == ip.version):
+        return True
+    # is_global leaves out private, loopback, shared (100.64/10), link-local, multicast and reserved ranges; a
+    # public address can still be this machine's own.
+    return _public_only and (not ip.is_global or _is_own(str(ip)))
 
 
 def _refusal(host: str, addresses: list[str] | None = None) -> BlockedAddress:
@@ -70,6 +96,10 @@ def _refusal(host: str, addresses: list[str] | None = None) -> BlockedAddress:
         if addresses is None:
             return BlockedAddress(f"FeedStash doesn't fetch link-local addresses like {host}")
         return BlockedAddress(f"FeedStash doesn't fetch link-local addresses ({host} points to one)")
+    if not _public_only:  # only FETCH_REFUSE is set
+        if addresses is None:
+            return BlockedAddress(f"This FeedStash doesn't fetch {host}")
+        return BlockedAddress(f"This FeedStash doesn't fetch the address {host} points to")
     if addresses is None:
         return BlockedAddress(f"This FeedStash only fetches public addresses, and {host} isn't one")
     return BlockedAddress(f"This FeedStash only fetches public addresses ({host} points to a private one)")
