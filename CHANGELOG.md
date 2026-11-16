@@ -3,7 +3,7 @@
 What changed in each FeedStash release, newest first. Before you update, check **Before you update** for anything
 to do first, like taking a backup. Admins see the rest of a release's notes in FeedStash after updating.
 
-## Unreleased
+## 1.1.0
 
 ### New
 - **Change your email.** Settings → You → Change email, confirmed with your password. An admin can correct
