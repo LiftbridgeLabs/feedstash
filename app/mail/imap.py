@@ -7,6 +7,9 @@ import ssl
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 
+from app import netguard
+from app.netguard import BlockedAddress, checked_addresses
+
 log = logging.getLogger("feedstash.mail")
 
 TIMEOUT = 30
@@ -26,6 +29,22 @@ class MailboxConfig:
     folder: str = "INBOX"
 
 
+class _CheckedIMAP4_SSL(imaplib.IMAP4_SSL):
+    """Connects to an address the mail server's name resolved to, checked first (see app.netguard), instead of
+    resolving the name again while connecting. The certificate is still checked against the name."""
+
+    def _create_socket(self, timeout):
+        error: OSError | None = None
+        for address in checked_addresses(self.host, self.port):
+            try:
+                sock = socket.create_connection((address, self.port), timeout)
+            except OSError as exc:
+                error = exc
+                continue
+            return self.ssl_context.wrap_socket(sock, server_hostname=self.host)
+        raise error or OSError(f"Couldn't connect to {self.host}")
+
+
 class Mailbox:
     """One IMAP connection. Use it as a context manager."""
 
@@ -38,9 +57,14 @@ class Mailbox:
         try:
             # imaplib's own default context checks neither the certificate nor the host name, so anyone on the
             # way could pose as the mail server and collect the password.
-            self._imap = imaplib.IMAP4_SSL(
-                config.host, config.port, ssl_context=ssl.create_default_context(), timeout=TIMEOUT
-            )
+            # Only a server set to public addresses takes the checked connection; everyone else's mailbox is
+            # reached exactly as before.
+            connect = _CheckedIMAP4_SSL if netguard.public_only() else imaplib.IMAP4_SSL
+            self._imap = connect(config.host, config.port, ssl_context=ssl.create_default_context(), timeout=TIMEOUT)
+        except BlockedAddress as exc:
+            # The guard's words are about fetching; a mailbox is connected to.
+            raise MailError(str(exc).replace("only fetches", "only connects to")
+                            .replace("doesn't fetch", "doesn't connect to")) from exc
         except ssl.SSLCertVerificationError as exc:
             raise MailError(f"{config.host} didn't present a valid certificate for its name ({exc.verify_message})") from exc
         except (OSError, socket.timeout, imaplib.IMAP4.error) as exc:

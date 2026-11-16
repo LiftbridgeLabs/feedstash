@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 from starlette.middleware.sessions import SessionMiddleware
 
+from app import netguard
 from app.crypto import SecretBox
 from app.services import account_transfer
 from app.services.passkeys import CEREMONY_SECONDS as PASSKEY_SECONDS
@@ -58,6 +59,7 @@ MAX_REQUEST_BYTES = 32 * 1024 * 1024
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or load_settings()
     _configure_logging()
+    netguard.configure(public_only=settings.fetch_public_only)
     log_files = LogFiles(settings.database_path.parent / "logs")
     log_default = LogSettings(requests=settings.log_requests)
     log_files.apply(log_default)

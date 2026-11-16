@@ -118,3 +118,93 @@ def test_the_connection_goes_to_the_resolved_address(monkeypatch):
     with pytest.raises(httpx.ConnectError):
         run(fetch())
     assert connected == [("93.184.216.34", 80)]
+
+
+# FETCH_PUBLIC_ONLY: for a server whose accounts belong to people who shouldn't reach the network it sits on.
+
+
+@pytest.fixture
+def public_only(monkeypatch):
+    monkeypatch.setattr(netguard, "_public_only", True)
+
+
+@pytest.mark.parametrize("host", [
+    "127.0.0.1", "::1", "10.0.0.5", "172.17.0.1", "192.168.1.20", "100.64.0.9", "fd12:3456::1", "0.0.0.0",
+    "::ffff:10.0.0.5", "169.254.169.254",
+])
+def test_public_only_refuses_every_address_that_is_not_on_the_internet(public_only, host):
+    with pytest.raises(netguard.BlockedAddress):
+        run(netguard.check_host(host))
+
+
+@pytest.mark.parametrize("host", ["93.184.216.34", "2606:2800:220:1:248:1893:25c8:1946"])
+def test_public_only_still_fetches_public_addresses(public_only, host):
+    run(netguard.check_host(host))
+
+
+def test_public_only_refuses_a_name_that_points_inside(public_only, monkeypatch):
+    async def fake_getaddrinfo(self, host, port, **kwargs):
+        return [(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("172.17.0.1", 0))]
+
+    monkeypatch.setattr(asyncio.BaseEventLoop, "getaddrinfo", fake_getaddrinfo)
+    with pytest.raises(netguard.BlockedAddress, match="only fetches public addresses"):
+        run(netguard.check_host("inside.example.com"))
+
+
+def test_public_only_says_why_following_a_feed_on_the_machine_itself_failed(public_only):
+    async def follow():
+        async with create_client() as client:
+            await Fetcher(client).discover("http://127.0.0.1:8672/api/health")
+
+    with pytest.raises(FetchError, match="only fetches public addresses"):
+        run(follow())
+
+
+def test_public_only_checks_the_address_connected_to_not_only_the_name(public_only, monkeypatch):
+    # The name passes the first look and points inside by the time of the connection (DNS rebinding).
+    answers = iter([[("93.184.216.34", 0)], [("10.0.0.5", 0)]])
+
+    async def fake_getaddrinfo(self, host, port, **kwargs):
+        return [(socket.AF_INET, socket.SOCK_STREAM, 0, "", address) for address in next(answers)]
+
+    monkeypatch.setattr(asyncio.BaseEventLoop, "getaddrinfo", fake_getaddrinfo)
+
+    async def fetch():
+        async with httpx.AsyncClient(transport=netguard.GuardedTransport()) as client:
+            await client.get("http://rebind.example.com/")
+
+    with pytest.raises(netguard.BlockedAddress, match="points to a private one"):
+        run(fetch())
+
+
+def test_a_mailbox_on_the_inside_is_refused_before_anything_connects(public_only, monkeypatch):
+    from app.mail.imap import Mailbox, MailboxConfig, MailError
+
+    monkeypatch.setattr(socket, "getaddrinfo",
+                        lambda host, port, **kwargs: [(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("10.0.0.5", port))])
+    connected = []
+    monkeypatch.setattr(socket, "create_connection", lambda *args, **kwargs: connected.append(args))
+    with pytest.raises(MailError, match="only connects to public addresses"):
+        Mailbox(MailboxConfig(host="mail.inside.example.com", port=993, username="u", password="p")).__enter__()
+    assert connected == []
+
+
+def test_public_only_reaches_a_public_mailbox_at_the_checked_address_and_checks_its_certificate(public_only, monkeypatch):
+    import ssl
+
+    from app.mail.imap import Mailbox, MailboxConfig, MailError
+
+    monkeypatch.setattr(socket, "getaddrinfo",
+                        lambda host, port, **kwargs: [(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", port))])
+    connected, wrapped = [], {}
+    monkeypatch.setattr(socket, "create_connection", lambda address, timeout=None: connected.append(address) or object())
+
+    def wrap(self, sock, server_hostname=None, **kwargs):
+        wrapped.update(name=server_hostname, verify=self.verify_mode, check=self.check_hostname)
+        raise OSError("stop here")
+
+    monkeypatch.setattr(ssl.SSLContext, "wrap_socket", wrap)
+    with pytest.raises(MailError, match="Couldn't reach"):
+        Mailbox(MailboxConfig(host="mail.example.com", port=993, username="u", password="p")).__enter__()
+    assert connected == [("93.184.216.34", 993)]  # the address that was checked, not the name again
+    assert wrapped == {"name": "mail.example.com", "verify": ssl.CERT_REQUIRED, "check": True}

@@ -3,6 +3,13 @@
 What changed in each FeedStash release, newest first. Before you update, check **Before you update** for anything
 to do first, like taking a backup. Admins see the rest of a release's notes in FeedStash after updating.
 
+## Unreleased
+
+### Settings
+- `FETCH_PUBLIC_ONLY`: feeds, saved pages and connected mailboxes only at public internet addresses, never on the
+  server's own network. For a server whose accounts belong to people who shouldn't reach that network. Off by
+  default: leave it off to follow feeds on your own network.
+
 ## 1.1.0
 
 ### New

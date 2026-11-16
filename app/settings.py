@@ -94,6 +94,10 @@ class Settings(BaseSettings):
     # How many emails (reset links, invites, tests) the server sends in a day (UTC); past it, sending waits until
     # tomorrow. For a host whose servers share one sending account. 0 for no limit.
     email_daily_limit: int = Field(default=0, ge=0)
+    # Feeds, saved pages and mailboxes only at public addresses: nothing on the server's own network, the machine
+    # itself included. For a server whose accounts belong to people who shouldn't reach that network. Off by
+    # default, since people who run their own server follow feeds on it.
+    fetch_public_only: bool = False
     # Which requests get a line in the log: all, changes (saves, edits and failures; the default), errors or none.
     # Health checks and page loads add up to thousands of lines a day, so only "all" logs them.
     log_requests: Literal["all", "changes", "errors", "none"] = "changes"
