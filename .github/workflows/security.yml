@@ -18,7 +18,7 @@ permissions:
 jobs:
   scan:
     # Pinned to a commit, like the actions in docker-publish.yml (Dependabot keeps it current).
-    uses: LiftbridgeLabs/.github/.github/workflows/security-scan.yml@74c45acb885e7545dbccd0acf90407d62347ea4e # main, 2026-10-30
+    uses: LiftbridgeLabs/.github/.github/workflows/security-scan.yml@cdcf28b279bc286d49328eb8e32caf5d2f4c1409 # one-scan-job trial
     with:
       npm-dirs: "clients/email-worker"
       pip-requirements: "requirements.txt"
